@@ -1,0 +1,18 @@
+# Not part of upstream canton-network/wallet -- built for the decentralizer-poc
+# project (see its README.md "Phase 0.5") to run this fork's signMessage hack
+# (core/signing-internal/src/controller.ts, branch decentralizer-poc/sign-topology-hash)
+# instead of the published ghcr.io/digital-asset/wallet-gateway image.
+#
+# Deliberately does NOT rebuild from source inside Docker: this sandbox's
+# network policy blocks apt-get access to deb.debian.org (needed for the
+# python3/build-essential toolchain that native deps like better-sqlite3
+# require to compile), and there's no need to fight that -- the repo is
+# already fully built on the host (native modules compiled, dist/ output
+# built, `pnpm --filter core-signing-internal test` passing) for this exact
+# architecture. Just copy that already-built tree straight in.
+FROM node:24.9.0-bookworm-slim
+WORKDIR /wallet
+COPY . .
+WORKDIR /wallet/wallet-gateway/remote
+EXPOSE 3030
+ENTRYPOINT ["node", "dist/index.js"]
