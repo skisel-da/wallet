@@ -9,7 +9,6 @@ import {
     SigningDriverInterface,
     SigningProvider,
     signTransactionHash,
-    signMessage,
     createKeyPair,
     SigningDriverStore,
     SigningTransaction,
@@ -155,8 +154,26 @@ export class InternalSigningDriver implements SigningDriverInterface {
                             'The provided key identifier must include a privateKey.',
                     })
                 }
+                // decentralizer-poc hack (not upstreamable): this repurposes
+                // the dApp-facing signMessage RPC into raw-hash signing for
+                // Canton topology-transaction multiHashes, instead of its
+                // original arbitrary-UTF8-message-signing purpose.
+                // signMessage() would UTF-8-encode params.message as a
+                // *string* and sign those bytes -- the wrong operation for a
+                // precomputed hash. signTransactionHash() base64-decodes
+                // params.message and signs the *raw bytes* instead, which is
+                // what Canton's multiHash verification actually expects. The
+                // whole call chain from the dApp-facing RPC down to here
+                // passes the message through unmodified (no prefixing), so
+                // this is a safe, surgical swap -- see decentralizer-poc's
+                // README "Phase 0.5" for the full writeup. This does mean
+                // signMessage can no longer be used for its original purpose
+                // in this fork.
                 return Promise.resolve({
-                    signature: signMessage(params.message, key.privateKey),
+                    signature: signTransactionHash(
+                        params.message,
+                        key.privateKey
+                    ),
                 })
             },
 
