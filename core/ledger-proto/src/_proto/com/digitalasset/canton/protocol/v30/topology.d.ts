@@ -7,6 +7,7 @@ import { MessageType } from '@protobuf-ts/runtime'
 import { Signature } from '../../crypto/v30/crypto.js'
 import { DynamicSequencingParameters } from './sequencing_parameters.js'
 import { DynamicSynchronizerParameters } from './synchronizer_parameters.js'
+import { SigningKeysWithThreshold } from '../../crypto/v30/crypto.js'
 import { Timestamp } from '../../../../../google/protobuf/timestamp.js'
 import { ParticipantSynchronizerLimits } from './synchronizer_parameters.js'
 import { PublicKey } from '../../crypto/v30/crypto.js'
@@ -119,10 +120,6 @@ export declare enum Enums_TopologyMappingCode {
      */
     SEQUENCER_SYNCHRONIZER_STATE = 13,
     /**
-     * @generated from protobuf enum value: TOPOLOGY_MAPPING_CODE_PURGE_TOPOLOGY_TXS = 15;
-     */
-    PURGE_TOPOLOGY_TXS = 15,
-    /**
      * @generated from protobuf enum value: TOPOLOGY_MAPPING_CODE_SEQUENCING_DYNAMIC_PARAMETERS_STATE = 17;
      */
     SEQUENCING_DYNAMIC_PARAMETERS_STATE = 17,
@@ -131,13 +128,35 @@ export declare enum Enums_TopologyMappingCode {
      */
     PARTY_TO_KEY_MAPPING = 18,
     /**
-     * @generated from protobuf enum value: TOPOLOGY_MAPPING_CODE_SYNCHRONIZER_MIGRATION_ANNOUNCEMENT = 19;
+     * @generated from protobuf enum value: TOPOLOGY_MAPPING_CODE_LSU_ANNOUNCEMENT = 19;
      */
-    SYNCHRONIZER_MIGRATION_ANNOUNCEMENT = 19,
+    LSU_ANNOUNCEMENT = 19,
     /**
      * @generated from protobuf enum value: TOPOLOGY_MAPPING_CODE_SEQUENCER_CONNECTION_SUCCESSOR = 20;
      */
     SEQUENCER_CONNECTION_SUCCESSOR = 20,
+}
+/**
+ * @generated from protobuf enum com.digitalasset.canton.protocol.v30.Enums.ParticipantFeatureFlag
+ */
+export declare enum Enums_ParticipantFeatureFlag {
+    /**
+     * @generated from protobuf enum value: PARTICIPANT_FEATURE_FLAG_UNSPECIFIED = 0;
+     */
+    UNSPECIFIED = 0,
+    /**
+     * UNUSED in PV >= 34 - Was meant to tactically fix a bug in the external signing hash computation
+     * in model conformance in PV 33
+     *
+     * @generated from protobuf enum value: PARTICIPANT_FEATURE_FLAG_PV33_EXTERNAL_SIGNING_LOCAL_CONTRACT_IN_SUBVIEW = 1;
+     */
+    PV33_EXTERNAL_SIGNING_LOCAL_CONTRACT_IN_SUBVIEW = 1,
+    /**
+     * This flag indicates that the participant supports reassignments between synchronizers.
+     *
+     * @generated from protobuf enum value: PARTICIPANT_FEATURE_FLAG_ENABLE_MULTI_SYNCHRONIZER = 2;
+     */
+    ENABLE_MULTI_SYNCHRONIZER = 2,
 }
 /**
  * [start NamespaceDelegation definition]
@@ -147,6 +166,8 @@ export declare enum Enums_TopologyMappingCode {
  * authorization: a namespace delegation is either signed by the root key, or is signed by
  *   a key for which there exists a series of properly authorized namespace delegations
  *   that are ultimately signed by the root key
+ * revocation: a revoked namespace delegation cannot be re-created. While the delegation itself is revoked,
+ *   valid transactions that have been signed using the authority of the delegation before its revocation stay valid.
  * UNIQUE(namespace, target_key)
  *
  * @generated from protobuf message com.digitalasset.canton.protocol.v30.NamespaceDelegation
@@ -289,11 +310,11 @@ export interface OwnerToKeyMapping {
     publicKeys: PublicKey[]
 }
 /**
- * [doc-entry-start: PartyToKeyMapping]
  * mapping a party to a key
  * authorization: whoever controls the party uid
  * UNIQUE(party)
  *
+ * @deprecated
  * @generated from protobuf message com.digitalasset.canton.protocol.v30.PartyToKeyMapping
  */
 export interface PartyToKeyMapping {
@@ -337,6 +358,12 @@ export interface SynchronizerTrustCertificate {
      * @generated from protobuf field: string synchronizer_id = 2
      */
     synchronizerId: string
+    /**
+     * Feature flags that this node declares to support on this synchronizer
+     *
+     * @generated from protobuf field: repeated com.digitalasset.canton.protocol.v30.Enums.ParticipantFeatureFlag feature_flags = 5
+     */
+    featureFlags: Enums_ParticipantFeatureFlag[]
 }
 /**
  * the optional trust certificate of the synchronizer towards the participant
@@ -367,8 +394,10 @@ export interface ParticipantSynchronizerPermission {
      */
     limits?: ParticipantSynchronizerLimits
     /**
-     * optional earliest time when participant can log in (again)
-     * used to temporarily disable participants
+     * Optional earliest time when participant can log in (again).
+     * Used to temporarily disable participants.
+     * A participant cannot login before the sequencer has reached login_after, i.e.,
+     * the sequencer must have produced an event with timestamp login_after.
      * In microseconds of UTC time since Unix epoch
      *
      * @generated from protobuf field: optional int64 login_after = 5
@@ -451,14 +480,25 @@ export interface VettedPackages_VettedPackage {
     validUntilExclusive?: Timestamp
 }
 /**
- * mapping that maps a party to a participant
- * authorization: whoever controls the party and all the owners of the participants that
- *   were not already present in the tx with serial = n - 1
- *   exception:
- *     - a participant can disassociate itself with the party unilaterally as long there will be
- *       enough participants to reach "threshold" during confirmation. The disassociating participant
- *       must lower the threshold by one, if otherwise the number of hosting participants would go
- *       below the threshold.
+ * [doc-entry-start: PartyToParticipant]
+ * Mapping that maps a party to a participant
+ * The PartyToParticipant mapping may also specify a list of signing keys for setting up an external party, in which
+ * case the keys and the threshold take precedence over any PartyToKeyMapping for the same party.
+ * Additionally, the list of signing keys may contain the public key of the party's namespace, which allows this
+ * mapping to authorize itself without the need of a NamespaceDelegation root certificate (called self-signed).
+ * authorization: the required authorization of the mapping is a union of the authorization for individual changes
+ *  - threshold change: party namespace
+ *  - adding a signing key: party namespace + all the new signing key
+ *  - removing a signing key: party namespace
+ *  - changing the signing key threshold: party namespace
+ *  - upgrading a participant permission or adding a new participant: namespaces from party and the participant namespace
+ *  - downgrading a participant permission or removing a participant: party namespace OR the participant namespace
+ *  - setting a participant's onboarding flag from false to true: party namespace
+ *  - setting a participant's onboarding flag from true to false: participant namespace
+ *  - the removal of a PTP must be authorized just by the party
+ * revocation: Revoking a self-signed PTP does not prevent later re-creation of a PTP with the same partyId.
+ *  To prevent further usage of the key associated with the party's namespace,
+ *  revoke a NamespaceDelegation root certificate for that namespace.
  * UNIQUE(party)
  *
  * @generated from protobuf message com.digitalasset.canton.protocol.v30.PartyToParticipant
@@ -479,11 +519,21 @@ export interface PartyToParticipant {
     threshold: number
     /**
      * which participants will host the party.
-     * if threshold > 1, must be Confirmation or Observation
+     * if threshold > 1, must be Confirmation or Observation.
+     * if all participants have Observation permission, the confirmation treshold is ignored, making the party
+     * a purely observing party.
      *
      * @generated from protobuf field: repeated com.digitalasset.canton.protocol.v30.PartyToParticipant.HostingParticipant participants = 3
      */
     participants: PartyToParticipant_HostingParticipant[]
+    /**
+     * Contains protocol signing keys for the party used to authorize externally signed Daml transactions,
+     * along with a signing threshold.
+     * The max number of keys is 20
+     *
+     * @generated from protobuf field: optional com.digitalasset.canton.crypto.v30.SigningKeysWithThreshold party_signing_keys = 6
+     */
+    partySigningKeys?: SigningKeysWithThreshold
 }
 /**
  * @generated from protobuf message com.digitalasset.canton.protocol.v30.PartyToParticipant.HostingParticipant
@@ -630,66 +680,36 @@ export interface SequencerSynchronizerState {
     observers: string[]
 }
 /**
- * explicitly invalidate topology transactions for good
- * this can be used by the synchronizer to offboard participants forcefully or to
- * remove stray topology transactions
- * authorization: whoever controls the synchronizer
- * UNIQUE(synchronizer_id)
- *
- * @generated from protobuf message com.digitalasset.canton.protocol.v30.PurgeTopologyTransaction
- */
-export interface PurgeTopologyTransaction {
-    /**
-     * the synchronizer id
-     *
-     * @generated from protobuf field: string synchronizer_id = 1
-     */
-    synchronizerId: string
-    /**
-     * the list of mappings to remove from this synchronizer
-     *
-     * @generated from protobuf field: repeated com.digitalasset.canton.protocol.v30.TopologyMapping mappings = 2
-     */
-    mappings: TopologyMapping[]
-}
-/**
  * indicates the beginning of a synchronizer upgrade and effectuates a topology freeze,
  * after which only synchronizer upgrade specific topology mappings are accepted.
  * removing this mapping unfreezes the topology state again.
- * authorization: whoever controls the physical synchronizer
- * UNIQUE(physical_synchronizer_id)
+ * authorization: whoever controls the synchronizer
+ * UNIQUE(successor_physical_synchronizer_id.logical)
  *
- * @generated from protobuf message com.digitalasset.canton.protocol.v30.SynchronizerUpgradeAnnouncement
+ * @generated from protobuf message com.digitalasset.canton.protocol.v30.LsuAnnouncement
  */
-export interface SynchronizerUpgradeAnnouncement {
-    /**
-     * the physical synchronizer id
-     * TODO(#25576) revisit the usage of physical synchronizer ids to refer to the "current synchronizer"
-     *
-     * @generated from protobuf field: string physical_synchronizer_id = 1
-     */
-    physicalSynchronizerId: string
+export interface LsuAnnouncement {
     /**
      * the physical synchronizer id of the successor synchronizer
      *
-     * @generated from protobuf field: string successor_physical_synchronizer_id = 2
+     * @generated from protobuf field: string successor_physical_synchronizer_id = 1
      */
     successorPhysicalSynchronizerId: string
     /**
      * when the upgrade happens
      *
-     * @generated from protobuf field: google.protobuf.Timestamp upgrade_time = 3
+     * @generated from protobuf field: google.protobuf.Timestamp upgrade_time = 2
      */
     upgradeTime?: Timestamp
 }
 /**
  * a sequencer can announce its connections on the successor synchronizer
- * authorization: the owner of the sequencer's namespace
- * UNIQUE(sequencer_id)
+ * authorization: whoever controls the sequencer
+ * UNIQUE(sequencer_id, successor_physical_synchronizer_id.logical)
  *
- * @generated from protobuf message com.digitalasset.canton.protocol.v30.SequencerConnectionSuccessor
+ * @generated from protobuf message com.digitalasset.canton.protocol.v30.LsuSequencerConnectionSuccessor
  */
-export interface SequencerConnectionSuccessor {
+export interface LsuSequencerConnectionSuccessor {
     /**
      * the sequencer id
      *
@@ -697,42 +717,22 @@ export interface SequencerConnectionSuccessor {
      */
     sequencerId: string
     /**
-     * to physical synchronizer id
-     * TODO(#25576) revisit the usage of physical synchronizer ids to refer to the "current synchronizer"
+     * the physical synchronizer id of the successor synchronizer
      *
-     * @generated from protobuf field: string physical_synchronizer_id = 2
+     * @generated from protobuf field: string successor_physical_synchronizer_id = 2
      */
-    physicalSynchronizerId: string
+    successorPhysicalSynchronizerId: string
     /**
      * the connection details with which members can connect to the sequencer on the successor synchronizer
      *
-     * @generated from protobuf field: com.digitalasset.canton.protocol.v30.SequencerConnectionSuccessor.SequencerConnection connection = 3
+     * @generated from protobuf field: com.digitalasset.canton.protocol.v30.LsuSequencerConnectionSuccessor.SequencerConnection connection = 3
      */
-    connection?: SequencerConnectionSuccessor_SequencerConnection
+    connection?: LsuSequencerConnectionSuccessor_SequencerConnection
 }
 /**
- * @generated from protobuf message com.digitalasset.canton.protocol.v30.SequencerConnectionSuccessor.SequencerConnection
+ * @generated from protobuf message com.digitalasset.canton.protocol.v30.LsuSequencerConnectionSuccessor.SequencerConnection
  */
-export interface SequencerConnectionSuccessor_SequencerConnection {
-    /**
-     * @generated from protobuf oneof: connection_type
-     */
-    connectionType:
-        | {
-              oneofKind: 'grpc'
-              /**
-               * @generated from protobuf field: com.digitalasset.canton.protocol.v30.SequencerConnectionSuccessor.SequencerConnection.Grpc grpc = 1
-               */
-              grpc: SequencerConnectionSuccessor_SequencerConnection_Grpc
-          }
-        | {
-              oneofKind: undefined
-          }
-}
-/**
- * @generated from protobuf message com.digitalasset.canton.protocol.v30.SequencerConnectionSuccessor.SequencerConnection.Grpc
- */
-export interface SequencerConnectionSuccessor_SequencerConnection_Grpc {
+export interface LsuSequencerConnectionSuccessor_SequencerConnection {
     /**
      * connection information to sequencer (http[s]://<host>:<port>")
      * all endpoints must agree on using HTTPS or HTTP
@@ -833,13 +833,6 @@ export interface TopologyMapping {
               sequencerSynchronizerState: SequencerSynchronizerState
           }
         | {
-              oneofKind: 'purgeTopologyTxs'
-              /**
-               * @generated from protobuf field: com.digitalasset.canton.protocol.v30.PurgeTopologyTransaction purge_topology_txs = 14
-               */
-              purgeTopologyTxs: PurgeTopologyTransaction
-          }
-        | {
               oneofKind: 'sequencingDynamicParametersState'
               /**
                * @generated from protobuf field: com.digitalasset.canton.protocol.v30.DynamicSequencingParametersState sequencing_dynamic_parameters_state = 15
@@ -849,23 +842,26 @@ export interface TopologyMapping {
         | {
               oneofKind: 'partyToKeyMapping'
               /**
-               * @generated from protobuf field: com.digitalasset.canton.protocol.v30.PartyToKeyMapping party_to_key_mapping = 16
+               * Deprecated in favor of PartyToParticipant
+               *
+               * @deprecated
+               * @generated from protobuf field: com.digitalasset.canton.protocol.v30.PartyToKeyMapping party_to_key_mapping = 16 [deprecated = true]
                */
               partyToKeyMapping: PartyToKeyMapping
           }
         | {
               oneofKind: 'synchronizerUpgradeAnnouncement'
               /**
-               * @generated from protobuf field: com.digitalasset.canton.protocol.v30.SynchronizerUpgradeAnnouncement synchronizer_upgrade_announcement = 17
+               * @generated from protobuf field: com.digitalasset.canton.protocol.v30.LsuAnnouncement synchronizer_upgrade_announcement = 17
                */
-              synchronizerUpgradeAnnouncement: SynchronizerUpgradeAnnouncement
+              synchronizerUpgradeAnnouncement: LsuAnnouncement
           }
         | {
               oneofKind: 'sequencerConnectionSuccessor'
               /**
-               * @generated from protobuf field: com.digitalasset.canton.protocol.v30.SequencerConnectionSuccessor sequencer_connection_successor = 18
+               * @generated from protobuf field: com.digitalasset.canton.protocol.v30.LsuSequencerConnectionSuccessor sequencer_connection_successor = 18
                */
-              sequencerConnectionSuccessor: SequencerConnectionSuccessor
+              sequencerConnectionSuccessor: LsuSequencerConnectionSuccessor
           }
         | {
               oneofKind: undefined
@@ -1141,6 +1137,7 @@ declare class PartyToKeyMapping$Type extends MessageType<PartyToKeyMapping> {
     ): IBinaryWriter
 }
 /**
+ * @deprecated
  * @generated MessageType for protobuf message com.digitalasset.canton.protocol.v30.PartyToKeyMapping
  */
 export declare const PartyToKeyMapping: PartyToKeyMapping$Type
@@ -1390,111 +1387,67 @@ declare class SequencerSynchronizerState$Type extends MessageType<SequencerSynch
  * @generated MessageType for protobuf message com.digitalasset.canton.protocol.v30.SequencerSynchronizerState
  */
 export declare const SequencerSynchronizerState: SequencerSynchronizerState$Type
-declare class PurgeTopologyTransaction$Type extends MessageType<PurgeTopologyTransaction> {
+declare class LsuAnnouncement$Type extends MessageType<LsuAnnouncement> {
     constructor()
-    create(
-        value?: PartialMessage<PurgeTopologyTransaction>
-    ): PurgeTopologyTransaction
+    create(value?: PartialMessage<LsuAnnouncement>): LsuAnnouncement
     internalBinaryRead(
         reader: IBinaryReader,
         length: number,
         options: BinaryReadOptions,
-        target?: PurgeTopologyTransaction
-    ): PurgeTopologyTransaction
+        target?: LsuAnnouncement
+    ): LsuAnnouncement
     internalBinaryWrite(
-        message: PurgeTopologyTransaction,
+        message: LsuAnnouncement,
         writer: IBinaryWriter,
         options: BinaryWriteOptions
     ): IBinaryWriter
 }
 /**
- * @generated MessageType for protobuf message com.digitalasset.canton.protocol.v30.PurgeTopologyTransaction
+ * @generated MessageType for protobuf message com.digitalasset.canton.protocol.v30.LsuAnnouncement
  */
-export declare const PurgeTopologyTransaction: PurgeTopologyTransaction$Type
-declare class SynchronizerUpgradeAnnouncement$Type extends MessageType<SynchronizerUpgradeAnnouncement> {
+export declare const LsuAnnouncement: LsuAnnouncement$Type
+declare class LsuSequencerConnectionSuccessor$Type extends MessageType<LsuSequencerConnectionSuccessor> {
     constructor()
     create(
-        value?: PartialMessage<SynchronizerUpgradeAnnouncement>
-    ): SynchronizerUpgradeAnnouncement
+        value?: PartialMessage<LsuSequencerConnectionSuccessor>
+    ): LsuSequencerConnectionSuccessor
     internalBinaryRead(
         reader: IBinaryReader,
         length: number,
         options: BinaryReadOptions,
-        target?: SynchronizerUpgradeAnnouncement
-    ): SynchronizerUpgradeAnnouncement
+        target?: LsuSequencerConnectionSuccessor
+    ): LsuSequencerConnectionSuccessor
     internalBinaryWrite(
-        message: SynchronizerUpgradeAnnouncement,
+        message: LsuSequencerConnectionSuccessor,
         writer: IBinaryWriter,
         options: BinaryWriteOptions
     ): IBinaryWriter
 }
 /**
- * @generated MessageType for protobuf message com.digitalasset.canton.protocol.v30.SynchronizerUpgradeAnnouncement
+ * @generated MessageType for protobuf message com.digitalasset.canton.protocol.v30.LsuSequencerConnectionSuccessor
  */
-export declare const SynchronizerUpgradeAnnouncement: SynchronizerUpgradeAnnouncement$Type
-declare class SequencerConnectionSuccessor$Type extends MessageType<SequencerConnectionSuccessor> {
+export declare const LsuSequencerConnectionSuccessor: LsuSequencerConnectionSuccessor$Type
+declare class LsuSequencerConnectionSuccessor_SequencerConnection$Type extends MessageType<LsuSequencerConnectionSuccessor_SequencerConnection> {
     constructor()
     create(
-        value?: PartialMessage<SequencerConnectionSuccessor>
-    ): SequencerConnectionSuccessor
+        value?: PartialMessage<LsuSequencerConnectionSuccessor_SequencerConnection>
+    ): LsuSequencerConnectionSuccessor_SequencerConnection
     internalBinaryRead(
         reader: IBinaryReader,
         length: number,
         options: BinaryReadOptions,
-        target?: SequencerConnectionSuccessor
-    ): SequencerConnectionSuccessor
+        target?: LsuSequencerConnectionSuccessor_SequencerConnection
+    ): LsuSequencerConnectionSuccessor_SequencerConnection
     internalBinaryWrite(
-        message: SequencerConnectionSuccessor,
+        message: LsuSequencerConnectionSuccessor_SequencerConnection,
         writer: IBinaryWriter,
         options: BinaryWriteOptions
     ): IBinaryWriter
 }
 /**
- * @generated MessageType for protobuf message com.digitalasset.canton.protocol.v30.SequencerConnectionSuccessor
+ * @generated MessageType for protobuf message com.digitalasset.canton.protocol.v30.LsuSequencerConnectionSuccessor.SequencerConnection
  */
-export declare const SequencerConnectionSuccessor: SequencerConnectionSuccessor$Type
-declare class SequencerConnectionSuccessor_SequencerConnection$Type extends MessageType<SequencerConnectionSuccessor_SequencerConnection> {
-    constructor()
-    create(
-        value?: PartialMessage<SequencerConnectionSuccessor_SequencerConnection>
-    ): SequencerConnectionSuccessor_SequencerConnection
-    internalBinaryRead(
-        reader: IBinaryReader,
-        length: number,
-        options: BinaryReadOptions,
-        target?: SequencerConnectionSuccessor_SequencerConnection
-    ): SequencerConnectionSuccessor_SequencerConnection
-    internalBinaryWrite(
-        message: SequencerConnectionSuccessor_SequencerConnection,
-        writer: IBinaryWriter,
-        options: BinaryWriteOptions
-    ): IBinaryWriter
-}
-/**
- * @generated MessageType for protobuf message com.digitalasset.canton.protocol.v30.SequencerConnectionSuccessor.SequencerConnection
- */
-export declare const SequencerConnectionSuccessor_SequencerConnection: SequencerConnectionSuccessor_SequencerConnection$Type
-declare class SequencerConnectionSuccessor_SequencerConnection_Grpc$Type extends MessageType<SequencerConnectionSuccessor_SequencerConnection_Grpc> {
-    constructor()
-    create(
-        value?: PartialMessage<SequencerConnectionSuccessor_SequencerConnection_Grpc>
-    ): SequencerConnectionSuccessor_SequencerConnection_Grpc
-    internalBinaryRead(
-        reader: IBinaryReader,
-        length: number,
-        options: BinaryReadOptions,
-        target?: SequencerConnectionSuccessor_SequencerConnection_Grpc
-    ): SequencerConnectionSuccessor_SequencerConnection_Grpc
-    internalBinaryWrite(
-        message: SequencerConnectionSuccessor_SequencerConnection_Grpc,
-        writer: IBinaryWriter,
-        options: BinaryWriteOptions
-    ): IBinaryWriter
-}
-/**
- * @generated MessageType for protobuf message com.digitalasset.canton.protocol.v30.SequencerConnectionSuccessor.SequencerConnection.Grpc
- */
-export declare const SequencerConnectionSuccessor_SequencerConnection_Grpc: SequencerConnectionSuccessor_SequencerConnection_Grpc$Type
+export declare const LsuSequencerConnectionSuccessor_SequencerConnection: LsuSequencerConnectionSuccessor_SequencerConnection$Type
 declare class TopologyMapping$Type extends MessageType<TopologyMapping> {
     constructor()
     create(value?: PartialMessage<TopologyMapping>): TopologyMapping

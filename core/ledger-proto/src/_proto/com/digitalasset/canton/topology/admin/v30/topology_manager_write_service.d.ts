@@ -264,6 +264,32 @@ export interface ImportTopologySnapshotRequest {
  */
 export interface ImportTopologySnapshotResponse {}
 /**
+ * *
+ * Same message as AddTransactionsRequest, except that transactions are encoded in a byte string
+ *
+ * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.ImportTopologySnapshotV2Request
+ */
+export interface ImportTopologySnapshotV2Request {
+    /**
+     * @generated from protobuf field: bytes topology_snapshot = 1
+     */
+    topologySnapshot: Uint8Array
+    /**
+     * @generated from protobuf field: com.digitalasset.canton.topology.admin.v30.StoreId store = 2
+     */
+    store?: StoreId
+    /**
+     * * Optional timeout to wait for the transaction to become effective in the store.
+     *
+     * @generated from protobuf field: google.protobuf.Duration wait_to_become_effective = 3
+     */
+    waitToBecomeEffective?: Duration
+}
+/**
+ * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.ImportTopologySnapshotV2Response
+ */
+export interface ImportTopologySnapshotV2Response {}
+/**
  * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.SignTransactionsRequest
  */
 export interface SignTransactionsRequest {
@@ -372,12 +398,6 @@ export declare enum ForceFlag {
      */
     LEDGER_TIME_RECORD_TIME_TOLERANCE_INCREASE = 2,
     /**
-     * * Required when revoking the vetting of a package
-     *
-     * @generated from protobuf enum value: FORCE_FLAG_ALLOW_UNVET_PACKAGE = 3;
-     */
-    ALLOW_UNVET_PACKAGE = 3,
-    /**
      * * Required when vetting unknown packages (not uploaded).
      *
      * @generated from protobuf enum value: FORCE_FLAG_ALLOW_UNKNOWN_PACKAGE = 4;
@@ -404,12 +424,6 @@ export declare enum ForceFlag {
      */
     ALLOW_UNVALIDATED_SIGNING_KEYS = 7,
     /**
-     * * Required when unvetting a package with active contracts
-     *
-     * @generated from protobuf enum value: FORCE_FLAG_ALLOW_UNVET_PACKAGE_WITH_ACTIVE_CONTRACTS = 8;
-     */
-    ALLOW_UNVET_PACKAGE_WITH_ACTIVE_CONTRACTS = 8,
-    /**
      * * Required when increasing the submission time record time tolerance
      *
      * @generated from protobuf enum value: FORCE_FLAG_PREPARATION_TIME_RECORD_TIME_TOLERANCE_INCREASE = 9;
@@ -428,6 +442,24 @@ export declare enum ForceFlag {
      * @generated from protobuf enum value: FORCE_FLAG_ALLOW_INSUFFICIENT_SIGNATORY_ASSIGNING_PARTICIPANTS_FOR_PARTY = 11;
      */
     ALLOW_INSUFFICIENT_SIGNATORY_ASSIGNING_PARTICIPANTS_FOR_PARTY = 11,
+    /**
+     * * Required when vetting a package that fails upgrade checking
+     *
+     * @generated from protobuf enum value: FORCE_FLAG_ALLOW_VET_INCOMPATIBLE_UPGRADES = 12;
+     */
+    ALLOW_VET_INCOMPATIBLE_UPGRADES = 12,
+    /**
+     * * Required when submitting dynamic synchronizer parameters that have out-of-bounds values
+     *
+     * @generated from protobuf enum value: FORCE_FLAG_ALLOW_OUT_OF_BOUNDS_VALUE = 13;
+     */
+    ALLOW_OUT_OF_BOUNDS_VALUE = 13,
+    /**
+     * * Required when changing the confirming threshold to a value higher than the number of confirming participants
+     *
+     * @generated from protobuf enum value: FORCE_FLAG_ALLOW_CONFIRMING_THRESHOLD_CANNOT_BE_MET = 14;
+     */
+    ALLOW_CONFIRMING_THRESHOLD_CANNOT_BE_MET = 14,
 }
 declare class GenerateTransactionsRequest$Type extends MessageType<GenerateTransactionsRequest> {
     constructor()
@@ -656,6 +688,48 @@ declare class ImportTopologySnapshotResponse$Type extends MessageType<ImportTopo
  * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.ImportTopologySnapshotResponse
  */
 export declare const ImportTopologySnapshotResponse: ImportTopologySnapshotResponse$Type
+declare class ImportTopologySnapshotV2Request$Type extends MessageType<ImportTopologySnapshotV2Request> {
+    constructor()
+    create(
+        value?: PartialMessage<ImportTopologySnapshotV2Request>
+    ): ImportTopologySnapshotV2Request
+    internalBinaryRead(
+        reader: IBinaryReader,
+        length: number,
+        options: BinaryReadOptions,
+        target?: ImportTopologySnapshotV2Request
+    ): ImportTopologySnapshotV2Request
+    internalBinaryWrite(
+        message: ImportTopologySnapshotV2Request,
+        writer: IBinaryWriter,
+        options: BinaryWriteOptions
+    ): IBinaryWriter
+}
+/**
+ * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.ImportTopologySnapshotV2Request
+ */
+export declare const ImportTopologySnapshotV2Request: ImportTopologySnapshotV2Request$Type
+declare class ImportTopologySnapshotV2Response$Type extends MessageType<ImportTopologySnapshotV2Response> {
+    constructor()
+    create(
+        value?: PartialMessage<ImportTopologySnapshotV2Response>
+    ): ImportTopologySnapshotV2Response
+    internalBinaryRead(
+        reader: IBinaryReader,
+        length: number,
+        options: BinaryReadOptions,
+        target?: ImportTopologySnapshotV2Response
+    ): ImportTopologySnapshotV2Response
+    internalBinaryWrite(
+        message: ImportTopologySnapshotV2Response,
+        writer: IBinaryWriter,
+        options: BinaryWriteOptions
+    ): IBinaryWriter
+}
+/**
+ * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.ImportTopologySnapshotV2Response
+ */
+export declare const ImportTopologySnapshotV2Response: ImportTopologySnapshotV2Response$Type
 declare class SignTransactionsRequest$Type extends MessageType<SignTransactionsRequest> {
     constructor()
     create(

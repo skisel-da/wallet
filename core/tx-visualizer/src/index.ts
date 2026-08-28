@@ -182,6 +182,15 @@ export type TopologyTransactionSummary =
           party: string
           threshold: number
           participants: TopologyHostingParticipant[]
+          /**
+           * Present only when Canton put the party's protocol signing keys
+           * directly on `PartyToParticipant.party_signing_keys` (field 6),
+           * rather than in a separate `PartyToKeyMapping` transaction.
+           */
+          partySigningKeys?: {
+              threshold: number
+              signingKeyCount: number
+          }
       }
     | {
           kind: 'partyToKeyMapping'
@@ -234,6 +243,18 @@ export function summarizeTopologyTransaction(
                         permission: p.permission,
                     })
                 ),
+                ...(mapping.partyToParticipant.partySigningKeys
+                    ? {
+                          partySigningKeys: {
+                              threshold:
+                                  mapping.partyToParticipant.partySigningKeys
+                                      .threshold,
+                              signingKeyCount:
+                                  mapping.partyToParticipant.partySigningKeys
+                                      .keys.length,
+                          },
+                      }
+                    : {}),
             }
         case 'partyToKeyMapping':
             return {

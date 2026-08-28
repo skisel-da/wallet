@@ -51,46 +51,9 @@ export interface TopologyTransactions_Item {
     rejectionReason?: string
 }
 /**
- * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.StoreId
+ * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.Synchronizer
  */
-export interface StoreId {
-    /**
-     * @generated from protobuf oneof: store
-     */
-    store:
-        | {
-              oneofKind: 'authorized'
-              /**
-               * @generated from protobuf field: com.digitalasset.canton.topology.admin.v30.StoreId.Authorized authorized = 1
-               */
-              authorized: StoreId_Authorized
-          }
-        | {
-              oneofKind: 'synchronizer'
-              /**
-               * @generated from protobuf field: com.digitalasset.canton.topology.admin.v30.StoreId.Synchronizer synchronizer = 2
-               */
-              synchronizer: StoreId_Synchronizer
-          }
-        | {
-              oneofKind: 'temporary'
-              /**
-               * @generated from protobuf field: com.digitalasset.canton.topology.admin.v30.StoreId.Temporary temporary = 3
-               */
-              temporary: StoreId_Temporary
-          }
-        | {
-              oneofKind: undefined
-          }
-}
-/**
- * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.StoreId.Authorized
- */
-export interface StoreId_Authorized {}
-/**
- * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.StoreId.Synchronizer
- */
-export interface StoreId_Synchronizer {
+export interface Synchronizer {
     /**
      * @generated from protobuf oneof: kind
      */
@@ -114,6 +77,43 @@ export interface StoreId_Synchronizer {
           }
 }
 /**
+ * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.StoreId
+ */
+export interface StoreId {
+    /**
+     * @generated from protobuf oneof: store
+     */
+    store:
+        | {
+              oneofKind: 'authorized'
+              /**
+               * @generated from protobuf field: com.digitalasset.canton.topology.admin.v30.StoreId.Authorized authorized = 1
+               */
+              authorized: StoreId_Authorized
+          }
+        | {
+              oneofKind: 'synchronizer'
+              /**
+               * @generated from protobuf field: com.digitalasset.canton.topology.admin.v30.Synchronizer synchronizer = 2
+               */
+              synchronizer: Synchronizer
+          }
+        | {
+              oneofKind: 'temporary'
+              /**
+               * @generated from protobuf field: com.digitalasset.canton.topology.admin.v30.StoreId.Temporary temporary = 3
+               */
+              temporary: StoreId_Temporary
+          }
+        | {
+              oneofKind: undefined
+          }
+}
+/**
+ * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.StoreId.Authorized
+ */
+export interface StoreId_Authorized {}
+/**
  * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.StoreId.Temporary
  */
 export interface StoreId_Temporary {
@@ -121,6 +121,30 @@ export interface StoreId_Temporary {
      * @generated from protobuf field: string name = 1
      */
     name: string
+}
+/**
+ * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.SynchronizerPredecessor
+ */
+export interface SynchronizerPredecessor {
+    /**
+     * Id of the predecessor.
+     *
+     * @generated from protobuf field: string predecessor_physical_id = 1
+     */
+    predecessorPhysicalId: string
+    /**
+     * When the upgrade happened/is supposed to happen.
+     *
+     * @generated from protobuf field: google.protobuf.Timestamp upgrade_time = 2
+     */
+    upgradeTime?: Timestamp
+    /**
+     * Whether the participant is performing a late synchronizer upgrade.
+     * default: false
+     *
+     * @generated from protobuf field: bool is_late_upgrade = 3
+     */
+    isLateUpgrade: boolean
 }
 declare class TopologyTransactions$Type extends MessageType<TopologyTransactions> {
     constructor()
@@ -162,6 +186,25 @@ declare class TopologyTransactions_Item$Type extends MessageType<TopologyTransac
  * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.TopologyTransactions.Item
  */
 export declare const TopologyTransactions_Item: TopologyTransactions_Item$Type
+declare class Synchronizer$Type extends MessageType<Synchronizer> {
+    constructor()
+    create(value?: PartialMessage<Synchronizer>): Synchronizer
+    internalBinaryRead(
+        reader: IBinaryReader,
+        length: number,
+        options: BinaryReadOptions,
+        target?: Synchronizer
+    ): Synchronizer
+    internalBinaryWrite(
+        message: Synchronizer,
+        writer: IBinaryWriter,
+        options: BinaryWriteOptions
+    ): IBinaryWriter
+}
+/**
+ * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.Synchronizer
+ */
+export declare const Synchronizer: Synchronizer$Type
 declare class StoreId$Type extends MessageType<StoreId> {
     constructor()
     create(value?: PartialMessage<StoreId>): StoreId
@@ -200,25 +243,6 @@ declare class StoreId_Authorized$Type extends MessageType<StoreId_Authorized> {
  * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.StoreId.Authorized
  */
 export declare const StoreId_Authorized: StoreId_Authorized$Type
-declare class StoreId_Synchronizer$Type extends MessageType<StoreId_Synchronizer> {
-    constructor()
-    create(value?: PartialMessage<StoreId_Synchronizer>): StoreId_Synchronizer
-    internalBinaryRead(
-        reader: IBinaryReader,
-        length: number,
-        options: BinaryReadOptions,
-        target?: StoreId_Synchronizer
-    ): StoreId_Synchronizer
-    internalBinaryWrite(
-        message: StoreId_Synchronizer,
-        writer: IBinaryWriter,
-        options: BinaryWriteOptions
-    ): IBinaryWriter
-}
-/**
- * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.StoreId.Synchronizer
- */
-export declare const StoreId_Synchronizer: StoreId_Synchronizer$Type
 declare class StoreId_Temporary$Type extends MessageType<StoreId_Temporary> {
     constructor()
     create(value?: PartialMessage<StoreId_Temporary>): StoreId_Temporary
@@ -238,5 +262,26 @@ declare class StoreId_Temporary$Type extends MessageType<StoreId_Temporary> {
  * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.StoreId.Temporary
  */
 export declare const StoreId_Temporary: StoreId_Temporary$Type
+declare class SynchronizerPredecessor$Type extends MessageType<SynchronizerPredecessor> {
+    constructor()
+    create(
+        value?: PartialMessage<SynchronizerPredecessor>
+    ): SynchronizerPredecessor
+    internalBinaryRead(
+        reader: IBinaryReader,
+        length: number,
+        options: BinaryReadOptions,
+        target?: SynchronizerPredecessor
+    ): SynchronizerPredecessor
+    internalBinaryWrite(
+        message: SynchronizerPredecessor,
+        writer: IBinaryWriter,
+        options: BinaryWriteOptions
+    ): IBinaryWriter
+}
+/**
+ * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.SynchronizerPredecessor
+ */
+export declare const SynchronizerPredecessor: SynchronizerPredecessor$Type
 export {}
 //# sourceMappingURL=common.d.ts.map

@@ -8,6 +8,8 @@ import type { GenerateTransactionsResponse } from './topology_manager_write_serv
 import type { GenerateTransactionsRequest } from './topology_manager_write_service.js'
 import type { SignTransactionsResponse } from './topology_manager_write_service.js'
 import type { SignTransactionsRequest } from './topology_manager_write_service.js'
+import type { ImportTopologySnapshotV2Response } from './topology_manager_write_service.js'
+import type { ImportTopologySnapshotV2Request } from './topology_manager_write_service.js'
 import type { ImportTopologySnapshotResponse } from './topology_manager_write_service.js'
 import type { ImportTopologySnapshotRequest } from './topology_manager_write_service.js'
 import type { ClientStreamingCall } from '@protobuf-ts/runtime-rpc'
@@ -41,6 +43,9 @@ export interface ITopologyManagerWriteServiceClient {
         options?: RpcOptions
     ): UnaryCall<AddTransactionsRequest, AddTransactionsResponse>
     /**
+     * Deprecated in favor of ImportTopologySnapshotV2
+     *
+     * @deprecated
      * @generated from protobuf rpc: ImportTopologySnapshot
      */
     importTopologySnapshot(
@@ -48,6 +53,15 @@ export interface ITopologyManagerWriteServiceClient {
     ): ClientStreamingCall<
         ImportTopologySnapshotRequest,
         ImportTopologySnapshotResponse
+    >
+    /**
+     * @generated from protobuf rpc: ImportTopologySnapshotV2
+     */
+    importTopologySnapshotV2(
+        options?: RpcOptions
+    ): ClientStreamingCall<
+        ImportTopologySnapshotV2Request,
+        ImportTopologySnapshotV2Response
     >
     /**
      * @generated from protobuf rpc: SignTransactions
@@ -125,6 +139,9 @@ export declare class TopologyManagerWriteServiceClient
         options?: RpcOptions
     ): UnaryCall<AddTransactionsRequest, AddTransactionsResponse>
     /**
+     * Deprecated in favor of ImportTopologySnapshotV2
+     *
+     * @deprecated
      * @generated from protobuf rpc: ImportTopologySnapshot
      */
     importTopologySnapshot(
@@ -132,6 +149,15 @@ export declare class TopologyManagerWriteServiceClient
     ): ClientStreamingCall<
         ImportTopologySnapshotRequest,
         ImportTopologySnapshotResponse
+    >
+    /**
+     * @generated from protobuf rpc: ImportTopologySnapshotV2
+     */
+    importTopologySnapshotV2(
+        options?: RpcOptions
+    ): ClientStreamingCall<
+        ImportTopologySnapshotV2Request,
+        ImportTopologySnapshotV2Response
     >
     /**
      * @generated from protobuf rpc: SignTransactions

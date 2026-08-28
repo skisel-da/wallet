@@ -276,7 +276,6 @@ export interface FieldDescriptorProto {
      * For booleans, "true" or "false".
      * For strings, contains the default text contents (not escaped in any way).
      * For bytes, contains the C escaped value.  All bytes >= 128 are escaped.
-     * TODO(kenton):  Base-64 encode?
      *
      * @generated from protobuf field: optional string default_value = 7
      */
@@ -978,9 +977,23 @@ export interface FieldOptions {
      * check its required fields, regardless of whether or not the message has
      * been parsed.
      *
+     * As of 2021, lazy does no correctness checks on the byte stream during
+     * parsing.  This may lead to crashes if and when an invalid byte stream is
+     * finally parsed upon access.
+     *
+     * TODO(b/211906113):  Enable validation on lazy fields.
+     *
      * @generated from protobuf field: optional bool lazy = 5 [default = false]
      */
     lazy?: boolean
+    /**
+     * unverified_lazy does no correctness checks on the byte stream. This should
+     * only be used where lazy with verification is prohibitive for performance
+     * reasons.
+     *
+     * @generated from protobuf field: optional bool unverified_lazy = 15 [default = false]
+     */
+    unverifiedLazy?: boolean
     /**
      * Is this field deprecated?
      * Depending on the target platform, this can emit Deprecated annotations
@@ -1229,8 +1242,8 @@ export interface UninterpretedOption {
  * The name of the uninterpreted option.  Each string represents a segment in
  * a dot-separated name.  is_extension is true iff a segment represents an
  * extension (denoted with parentheses in options specs in .proto files).
- * E.g.,{ ["foo", false], ["bar.baz", true], ["qux", false] } represents
- * "foo.(bar.baz).qux".
+ * E.g.,{ ["foo", false], ["bar.baz", true], ["moo", false] } represents
+ * "foo.(bar.baz).moo".
  *
  * @generated from protobuf message google.protobuf.UninterpretedOption.NamePart
  */
@@ -1312,8 +1325,8 @@ export interface SourceCodeInfo_Location {
      * location.
      *
      * Each element is a field number or an index.  They form a path from
-     * the root FileDescriptorProto to the place where the definition.  For
-     * example, this path:
+     * the root FileDescriptorProto to the place where the definition occurs.
+     * For example, this path:
      *   [ 4, 3, 2, 7, 1 ]
      * refers to:
      *   file.message_type(3)  // 4, 3
@@ -1373,13 +1386,13 @@ export interface SourceCodeInfo_Location {
      *   // Comment attached to baz.
      *   // Another line attached to baz.
      *
-     *   // Comment attached to qux.
+     *   // Comment attached to moo.
      *   //
-     *   // Another line attached to qux.
-     *   optional double qux = 4;
+     *   // Another line attached to moo.
+     *   optional double moo = 4;
      *
      *   // Detached comment for corge. This is not leading or trailing comments
-     *   // to qux or corge because there are blank lines separating it from
+     *   // to moo or corge because there are blank lines separating it from
      *   // both.
      *
      *   // Detached comment for corge paragraph 2.
@@ -3876,6 +3889,13 @@ class FieldOptions$Type extends MessageType<FieldOptions> {
                 T: 8 /*ScalarType.BOOL*/,
             },
             {
+                no: 15,
+                name: 'unverified_lazy',
+                kind: 'scalar',
+                opt: true,
+                T: 8 /*ScalarType.BOOL*/,
+            },
+            {
                 no: 3,
                 name: 'deprecated',
                 kind: 'scalar',
@@ -3927,6 +3947,9 @@ class FieldOptions$Type extends MessageType<FieldOptions> {
                     break
                 case /* optional bool lazy = 5 [default = false] */ 5:
                     message.lazy = reader.bool()
+                    break
+                case /* optional bool unverified_lazy = 15 [default = false] */ 15:
+                    message.unverifiedLazy = reader.bool()
                     break
                 case /* optional bool deprecated = 3 [default = false] */ 3:
                     message.deprecated = reader.bool()
@@ -3985,6 +4008,9 @@ class FieldOptions$Type extends MessageType<FieldOptions> {
         /* optional bool weak = 10 [default = false]; */
         if (message.weak !== undefined)
             writer.tag(10, WireType.Varint).bool(message.weak)
+        /* optional bool unverified_lazy = 15 [default = false]; */
+        if (message.unverifiedLazy !== undefined)
+            writer.tag(15, WireType.Varint).bool(message.unverifiedLazy)
         /* repeated google.protobuf.UninterpretedOption uninterpreted_option = 999; */
         for (let i = 0; i < message.uninterpretedOption.length; i++)
             UninterpretedOption.internalBinaryWrite(

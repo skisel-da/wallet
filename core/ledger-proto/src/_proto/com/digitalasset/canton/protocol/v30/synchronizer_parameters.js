@@ -225,12 +225,6 @@ class DynamicSynchronizerParameters$Type extends MessageType {
                     T: () => Duration,
                 },
                 {
-                    no: 4,
-                    name: 'topology_change_delay',
-                    kind: 'message',
-                    T: () => Duration,
-                },
-                {
                     no: 5,
                     name: 'ledger_time_record_time_tolerance',
                     kind: 'message',
@@ -298,7 +292,7 @@ class DynamicSynchronizerParameters$Type extends MessageType {
             {
                 'scalapb.message': {
                     companionExtends: [
-                        'com.digitalasset.canton.version.AlphaProtoVersion',
+                        'com.digitalasset.canton.version.StableProtoVersion',
                     ],
                 },
             }
@@ -343,14 +337,6 @@ class DynamicSynchronizerParameters$Type extends MessageType {
                             options,
                             message.assignmentExclusivityTimeout
                         )
-                    break
-                case /* google.protobuf.Duration topology_change_delay */ 4:
-                    message.topologyChangeDelay = Duration.internalBinaryRead(
-                        reader,
-                        reader.uint32(),
-                        options,
-                        message.topologyChangeDelay
-                    )
                     break
                 case /* google.protobuf.Duration ledger_time_record_time_tolerance */ 5:
                     message.ledgerTimeRecordTimeTolerance =
@@ -469,13 +455,6 @@ class DynamicSynchronizerParameters$Type extends MessageType {
             Duration.internalBinaryWrite(
                 message.assignmentExclusivityTimeout,
                 writer.tag(3, WireType.LengthDelimited).fork(),
-                options
-            ).join()
-        /* google.protobuf.Duration topology_change_delay = 4; */
-        if (message.topologyChangeDelay)
-            Duration.internalBinaryWrite(
-                message.topologyChangeDelay,
-                writer.tag(4, WireType.LengthDelimited).fork(),
                 options
             ).join()
         /* google.protobuf.Duration ledger_time_record_time_tolerance = 5; */

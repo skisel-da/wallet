@@ -10,6 +10,7 @@ import { Duration } from '../../../../../google/protobuf/duration.js'
  */
 export interface TrafficControlParameters {
     /**
+     * [doc-entry-start: TrafficControlParameters]
      * In bytes, the maximum amount of base traffic that can be accumulated
      *
      * @generated from protobuf field: uint64 max_base_traffic_amount = 1
@@ -49,6 +50,13 @@ export interface TrafficControlParameters {
      * @generated from protobuf field: optional uint64 base_event_cost = 7
      */
     baseEventCost?: bigint
+    /**
+     * Whether to charge for confirmation responses
+     * Default: false
+     *
+     * @generated from protobuf field: bool free_confirmation_responses = 8
+     */
+    freeConfirmationResponses: boolean
 }
 /**
  * Message representing a traffic receipt included in SequencedEvent receipts to update sender about

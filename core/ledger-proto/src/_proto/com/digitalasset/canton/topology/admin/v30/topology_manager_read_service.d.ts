@@ -6,11 +6,11 @@ import type { IBinaryReader } from '@protobuf-ts/runtime'
 import type { PartialMessage } from '@protobuf-ts/runtime'
 import { MessageType } from '@protobuf-ts/runtime'
 import { TopologyTransactions } from './common.js'
-import { SequencerConnectionSuccessor } from '../../../protocol/v30/topology.js'
-import { SynchronizerUpgradeAnnouncement } from '../../../protocol/v30/topology.js'
-import { PurgeTopologyTransaction } from '../../../protocol/v30/topology.js'
+import { LsuSequencerConnectionSuccessor } from '../../../protocol/v30/topology.js'
+import { LsuAnnouncement } from '../../../protocol/v30/topology.js'
 import { SequencerSynchronizerState } from '../../../protocol/v30/topology.js'
 import { MediatorSynchronizerState } from '../../../protocol/v30/topology.js'
+import { DynamicSequencingParameters } from '../../../protocol/v30/sequencing_parameters.js'
 import { DynamicSynchronizerParameters } from '../../../protocol/v30/synchronizer_parameters.js'
 import { PartyToParticipant } from '../../../protocol/v30/topology.js'
 import { VettedPackages } from '../../../protocol/v30/topology.js'
@@ -493,6 +493,41 @@ export interface ListSynchronizerParametersStateResponse_Result {
     item?: DynamicSynchronizerParameters
 }
 /**
+ * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.ListSequencingParametersStateRequest
+ */
+export interface ListSequencingParametersStateRequest {
+    /**
+     * @generated from protobuf field: com.digitalasset.canton.topology.admin.v30.BaseQuery base_query = 1
+     */
+    baseQuery?: BaseQuery
+    /**
+     * @generated from protobuf field: string filter_synchronizer_id = 2
+     */
+    filterSynchronizerId: string
+}
+/**
+ * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.ListSequencingParametersStateResponse
+ */
+export interface ListSequencingParametersStateResponse {
+    /**
+     * @generated from protobuf field: repeated com.digitalasset.canton.topology.admin.v30.ListSequencingParametersStateResponse.Result results = 1
+     */
+    results: ListSequencingParametersStateResponse_Result[]
+}
+/**
+ * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.ListSequencingParametersStateResponse.Result
+ */
+export interface ListSequencingParametersStateResponse_Result {
+    /**
+     * @generated from protobuf field: com.digitalasset.canton.topology.admin.v30.BaseResult context = 1
+     */
+    context?: BaseResult
+    /**
+     * @generated from protobuf field: com.digitalasset.canton.protocol.v30.DynamicSequencingParameters item = 2
+     */
+    item?: DynamicSequencingParameters
+}
+/**
  * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.ListMediatorSynchronizerStateRequest
  */
 export interface ListMediatorSynchronizerStateRequest {
@@ -563,9 +598,9 @@ export interface ListSequencerSynchronizerStateResponse_Result {
     item?: SequencerSynchronizerState
 }
 /**
- * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.ListPurgeTopologyTransactionRequest
+ * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.ListLsuAnnouncementRequest
  */
-export interface ListPurgeTopologyTransactionRequest {
+export interface ListLsuAnnouncementRequest {
     /**
      * @generated from protobuf field: com.digitalasset.canton.topology.admin.v30.BaseQuery base_query = 1
      */
@@ -576,66 +611,31 @@ export interface ListPurgeTopologyTransactionRequest {
     filterSynchronizerId: string
 }
 /**
- * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.ListPurgeTopologyTransactionResponse
+ * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.ListLsuAnnouncementResponse
  */
-export interface ListPurgeTopologyTransactionResponse {
+export interface ListLsuAnnouncementResponse {
     /**
-     * @generated from protobuf field: repeated com.digitalasset.canton.topology.admin.v30.ListPurgeTopologyTransactionResponse.Result results = 1
+     * @generated from protobuf field: repeated com.digitalasset.canton.topology.admin.v30.ListLsuAnnouncementResponse.Result results = 1
      */
-    results: ListPurgeTopologyTransactionResponse_Result[]
+    results: ListLsuAnnouncementResponse_Result[]
 }
 /**
- * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.ListPurgeTopologyTransactionResponse.Result
+ * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.ListLsuAnnouncementResponse.Result
  */
-export interface ListPurgeTopologyTransactionResponse_Result {
+export interface ListLsuAnnouncementResponse_Result {
     /**
      * @generated from protobuf field: com.digitalasset.canton.topology.admin.v30.BaseResult context = 1
      */
     context?: BaseResult
     /**
-     * @generated from protobuf field: com.digitalasset.canton.protocol.v30.PurgeTopologyTransaction item = 2
+     * @generated from protobuf field: com.digitalasset.canton.protocol.v30.LsuAnnouncement item = 2
      */
-    item?: PurgeTopologyTransaction
+    item?: LsuAnnouncement
 }
 /**
- * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.ListSynchronizerUpgradeAnnouncementRequest
+ * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.ListLsuSequencerConnectionSuccessorRequest
  */
-export interface ListSynchronizerUpgradeAnnouncementRequest {
-    /**
-     * @generated from protobuf field: com.digitalasset.canton.topology.admin.v30.BaseQuery base_query = 1
-     */
-    baseQuery?: BaseQuery
-    /**
-     * @generated from protobuf field: string filter_synchronizer_id = 2
-     */
-    filterSynchronizerId: string
-}
-/**
- * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.ListSynchronizerUpgradeAnnouncementResponse
- */
-export interface ListSynchronizerUpgradeAnnouncementResponse {
-    /**
-     * @generated from protobuf field: repeated com.digitalasset.canton.topology.admin.v30.ListSynchronizerUpgradeAnnouncementResponse.Result results = 1
-     */
-    results: ListSynchronizerUpgradeAnnouncementResponse_Result[]
-}
-/**
- * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.ListSynchronizerUpgradeAnnouncementResponse.Result
- */
-export interface ListSynchronizerUpgradeAnnouncementResponse_Result {
-    /**
-     * @generated from protobuf field: com.digitalasset.canton.topology.admin.v30.BaseResult context = 1
-     */
-    context?: BaseResult
-    /**
-     * @generated from protobuf field: com.digitalasset.canton.protocol.v30.SynchronizerUpgradeAnnouncement item = 2
-     */
-    item?: SynchronizerUpgradeAnnouncement
-}
-/**
- * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.ListSequencerConnectionSuccessorRequest
- */
-export interface ListSequencerConnectionSuccessorRequest {
+export interface ListLsuSequencerConnectionSuccessorRequest {
     /**
      * @generated from protobuf field: com.digitalasset.canton.topology.admin.v30.BaseQuery base_query = 1
      */
@@ -644,28 +644,32 @@ export interface ListSequencerConnectionSuccessorRequest {
      * @generated from protobuf field: string filter_sequencer_id = 2
      */
     filterSequencerId: string
-}
-/**
- * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.ListSequencerConnectionSuccessorResponse
- */
-export interface ListSequencerConnectionSuccessorResponse {
     /**
-     * @generated from protobuf field: repeated com.digitalasset.canton.topology.admin.v30.ListSequencerConnectionSuccessorResponse.Result results = 1
+     * @generated from protobuf field: string filter_successor_physical_synchronizer_id = 3
      */
-    results: ListSequencerConnectionSuccessorResponse_Result[]
+    filterSuccessorPhysicalSynchronizerId: string
 }
 /**
- * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.ListSequencerConnectionSuccessorResponse.Result
+ * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.ListLsuSequencerConnectionSuccessorResponse
  */
-export interface ListSequencerConnectionSuccessorResponse_Result {
+export interface ListLsuSequencerConnectionSuccessorResponse {
+    /**
+     * @generated from protobuf field: repeated com.digitalasset.canton.topology.admin.v30.ListLsuSequencerConnectionSuccessorResponse.Result results = 1
+     */
+    results: ListLsuSequencerConnectionSuccessorResponse_Result[]
+}
+/**
+ * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.ListLsuSequencerConnectionSuccessorResponse.Result
+ */
+export interface ListLsuSequencerConnectionSuccessorResponse_Result {
     /**
      * @generated from protobuf field: com.digitalasset.canton.topology.admin.v30.BaseResult context = 1
      */
     context?: BaseResult
     /**
-     * @generated from protobuf field: com.digitalasset.canton.protocol.v30.SequencerConnectionSuccessor item = 2
+     * @generated from protobuf field: com.digitalasset.canton.protocol.v30.LsuSequencerConnectionSuccessor item = 2
      */
-    item?: SequencerConnectionSuccessor
+    item?: LsuSequencerConnectionSuccessor
 }
 /**
  * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.ListAvailableStoresRequest
@@ -681,6 +685,7 @@ export interface ListAvailableStoresResponse {
     storeIds: StoreId[]
 }
 /**
+ * @deprecated
  * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.ListAllRequest
  */
 export interface ListAllRequest {
@@ -700,6 +705,47 @@ export interface ListAllRequest {
     filterNamespace: string
 }
 /**
+ * @deprecated
+ * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.ListAllResponse
+ */
+export interface ListAllResponse {
+    /**
+     * @generated from protobuf field: com.digitalasset.canton.topology.admin.v30.TopologyTransactions result = 1
+     */
+    result?: TopologyTransactions
+}
+/**
+ * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.ListAllV2Request
+ */
+export interface ListAllV2Request {
+    /**
+     * @generated from protobuf field: com.digitalasset.canton.topology.admin.v30.BaseQuery base_query = 1
+     */
+    baseQuery?: BaseQuery
+    /**
+     * * The list of topology mappings to include in the result.
+     * Empty means no inclusion filter (all mappings returned).
+     * Use this instead of ListAllRequest to avoid sending mapping codes
+     * unknown to older servers.
+     *
+     * @generated from protobuf field: repeated string include_mappings = 2
+     */
+    includeMappings: string[]
+    /**
+     * @generated from protobuf field: string filter_namespace = 3
+     */
+    filterNamespace: string
+}
+/**
+ * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.ListAllV2Response
+ */
+export interface ListAllV2Response {
+    /**
+     * @generated from protobuf field: com.digitalasset.canton.topology.admin.v30.TopologyTransactions result = 1
+     */
+    result?: TopologyTransactions
+}
+/**
  * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.ExportTopologySnapshotRequest
  */
 export interface ExportTopologySnapshotRequest {
@@ -717,18 +763,35 @@ export interface ExportTopologySnapshotRequest {
     filterNamespace: string
 }
 /**
- * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.ListAllResponse
- */
-export interface ListAllResponse {
-    /**
-     * @generated from protobuf field: com.digitalasset.canton.topology.admin.v30.TopologyTransactions result = 1
-     */
-    result?: TopologyTransactions
-}
-/**
  * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.ExportTopologySnapshotResponse
  */
 export interface ExportTopologySnapshotResponse {
+    /**
+     * @generated from protobuf field: bytes chunk = 1
+     */
+    chunk: Uint8Array
+}
+/**
+ * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.ExportTopologySnapshotV2Request
+ */
+export interface ExportTopologySnapshotV2Request {
+    /**
+     * @generated from protobuf field: com.digitalasset.canton.topology.admin.v30.BaseQuery base_query = 1
+     */
+    baseQuery?: BaseQuery
+    /**
+     * @generated from protobuf field: repeated string exclude_mappings = 2
+     */
+    excludeMappings: string[]
+    /**
+     * @generated from protobuf field: string filter_namespace = 3
+     */
+    filterNamespace: string
+}
+/**
+ * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.ExportTopologySnapshotV2Response
+ */
+export interface ExportTopologySnapshotV2Response {
     /**
      * @generated from protobuf field: bytes chunk = 1
      */
@@ -755,6 +818,65 @@ export interface GenesisStateRequest {
  * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.GenesisStateResponse
  */
 export interface GenesisStateResponse {
+    /**
+     * versioned stored topology transactions
+     *
+     * @generated from protobuf field: bytes chunk = 1
+     */
+    chunk: Uint8Array
+}
+/**
+ * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.GenesisStateV2Request
+ */
+export interface GenesisStateV2Request {
+    /**
+     * Must be specified if the genesis state is requested from a participant node.
+     *
+     * @generated from protobuf field: optional com.digitalasset.canton.topology.admin.v30.StoreId synchronizer_store = 1
+     */
+    synchronizerStore?: StoreId
+    /**
+     * Optional - the effective time used to fetch the topology transactions. If not provided the effective time of the last topology transaction is used.
+     *
+     * @generated from protobuf field: google.protobuf.Timestamp timestamp = 2
+     */
+    timestamp?: Timestamp
+}
+/**
+ * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.GenesisStateV2Response
+ */
+export interface GenesisStateV2Response {
+    /**
+     * versioned stored topology transactions
+     *
+     * @generated from protobuf field: bytes chunk = 1
+     */
+    chunk: Uint8Array
+}
+/**
+ * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.SequencerLsuStateRequest
+ */
+export interface SequencerLsuStateRequest {
+    /**
+     * Must be specified if the node is configured with more than one active synchronizer.
+     *
+     * @generated from protobuf field: optional com.digitalasset.canton.topology.admin.v30.StoreId synchronizer_store = 1
+     */
+    synchronizerStore?: StoreId
+    /**
+     * The effective time used to fetch the topology transactions
+     * MUST be empty for regular LSUs.
+     * SHOULD be defined in a disaster recovery scenario when requesting the topology from a synchronizer
+     * without an announced LSU.
+     *
+     * @generated from protobuf field: optional google.protobuf.Timestamp timestamp = 2
+     */
+    timestamp?: Timestamp
+}
+/**
+ * @generated from protobuf message com.digitalasset.canton.topology.admin.v30.SequencerLsuStateResponse
+ */
+export interface SequencerLsuStateResponse {
     /**
      * versioned stored topology transactions
      *
@@ -1449,6 +1571,69 @@ declare class ListSynchronizerParametersStateResponse_Result$Type extends Messag
  * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.ListSynchronizerParametersStateResponse.Result
  */
 export declare const ListSynchronizerParametersStateResponse_Result: ListSynchronizerParametersStateResponse_Result$Type
+declare class ListSequencingParametersStateRequest$Type extends MessageType<ListSequencingParametersStateRequest> {
+    constructor()
+    create(
+        value?: PartialMessage<ListSequencingParametersStateRequest>
+    ): ListSequencingParametersStateRequest
+    internalBinaryRead(
+        reader: IBinaryReader,
+        length: number,
+        options: BinaryReadOptions,
+        target?: ListSequencingParametersStateRequest
+    ): ListSequencingParametersStateRequest
+    internalBinaryWrite(
+        message: ListSequencingParametersStateRequest,
+        writer: IBinaryWriter,
+        options: BinaryWriteOptions
+    ): IBinaryWriter
+}
+/**
+ * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.ListSequencingParametersStateRequest
+ */
+export declare const ListSequencingParametersStateRequest: ListSequencingParametersStateRequest$Type
+declare class ListSequencingParametersStateResponse$Type extends MessageType<ListSequencingParametersStateResponse> {
+    constructor()
+    create(
+        value?: PartialMessage<ListSequencingParametersStateResponse>
+    ): ListSequencingParametersStateResponse
+    internalBinaryRead(
+        reader: IBinaryReader,
+        length: number,
+        options: BinaryReadOptions,
+        target?: ListSequencingParametersStateResponse
+    ): ListSequencingParametersStateResponse
+    internalBinaryWrite(
+        message: ListSequencingParametersStateResponse,
+        writer: IBinaryWriter,
+        options: BinaryWriteOptions
+    ): IBinaryWriter
+}
+/**
+ * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.ListSequencingParametersStateResponse
+ */
+export declare const ListSequencingParametersStateResponse: ListSequencingParametersStateResponse$Type
+declare class ListSequencingParametersStateResponse_Result$Type extends MessageType<ListSequencingParametersStateResponse_Result> {
+    constructor()
+    create(
+        value?: PartialMessage<ListSequencingParametersStateResponse_Result>
+    ): ListSequencingParametersStateResponse_Result
+    internalBinaryRead(
+        reader: IBinaryReader,
+        length: number,
+        options: BinaryReadOptions,
+        target?: ListSequencingParametersStateResponse_Result
+    ): ListSequencingParametersStateResponse_Result
+    internalBinaryWrite(
+        message: ListSequencingParametersStateResponse_Result,
+        writer: IBinaryWriter,
+        options: BinaryWriteOptions
+    ): IBinaryWriter
+}
+/**
+ * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.ListSequencingParametersStateResponse.Result
+ */
+export declare const ListSequencingParametersStateResponse_Result: ListSequencingParametersStateResponse_Result$Type
 declare class ListMediatorSynchronizerStateRequest$Type extends MessageType<ListMediatorSynchronizerStateRequest> {
     constructor()
     create(
@@ -1575,195 +1760,132 @@ declare class ListSequencerSynchronizerStateResponse_Result$Type extends Message
  * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.ListSequencerSynchronizerStateResponse.Result
  */
 export declare const ListSequencerSynchronizerStateResponse_Result: ListSequencerSynchronizerStateResponse_Result$Type
-declare class ListPurgeTopologyTransactionRequest$Type extends MessageType<ListPurgeTopologyTransactionRequest> {
+declare class ListLsuAnnouncementRequest$Type extends MessageType<ListLsuAnnouncementRequest> {
     constructor()
     create(
-        value?: PartialMessage<ListPurgeTopologyTransactionRequest>
-    ): ListPurgeTopologyTransactionRequest
+        value?: PartialMessage<ListLsuAnnouncementRequest>
+    ): ListLsuAnnouncementRequest
     internalBinaryRead(
         reader: IBinaryReader,
         length: number,
         options: BinaryReadOptions,
-        target?: ListPurgeTopologyTransactionRequest
-    ): ListPurgeTopologyTransactionRequest
+        target?: ListLsuAnnouncementRequest
+    ): ListLsuAnnouncementRequest
     internalBinaryWrite(
-        message: ListPurgeTopologyTransactionRequest,
+        message: ListLsuAnnouncementRequest,
         writer: IBinaryWriter,
         options: BinaryWriteOptions
     ): IBinaryWriter
 }
 /**
- * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.ListPurgeTopologyTransactionRequest
+ * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.ListLsuAnnouncementRequest
  */
-export declare const ListPurgeTopologyTransactionRequest: ListPurgeTopologyTransactionRequest$Type
-declare class ListPurgeTopologyTransactionResponse$Type extends MessageType<ListPurgeTopologyTransactionResponse> {
+export declare const ListLsuAnnouncementRequest: ListLsuAnnouncementRequest$Type
+declare class ListLsuAnnouncementResponse$Type extends MessageType<ListLsuAnnouncementResponse> {
     constructor()
     create(
-        value?: PartialMessage<ListPurgeTopologyTransactionResponse>
-    ): ListPurgeTopologyTransactionResponse
+        value?: PartialMessage<ListLsuAnnouncementResponse>
+    ): ListLsuAnnouncementResponse
     internalBinaryRead(
         reader: IBinaryReader,
         length: number,
         options: BinaryReadOptions,
-        target?: ListPurgeTopologyTransactionResponse
-    ): ListPurgeTopologyTransactionResponse
+        target?: ListLsuAnnouncementResponse
+    ): ListLsuAnnouncementResponse
     internalBinaryWrite(
-        message: ListPurgeTopologyTransactionResponse,
+        message: ListLsuAnnouncementResponse,
         writer: IBinaryWriter,
         options: BinaryWriteOptions
     ): IBinaryWriter
 }
 /**
- * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.ListPurgeTopologyTransactionResponse
+ * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.ListLsuAnnouncementResponse
  */
-export declare const ListPurgeTopologyTransactionResponse: ListPurgeTopologyTransactionResponse$Type
-declare class ListPurgeTopologyTransactionResponse_Result$Type extends MessageType<ListPurgeTopologyTransactionResponse_Result> {
+export declare const ListLsuAnnouncementResponse: ListLsuAnnouncementResponse$Type
+declare class ListLsuAnnouncementResponse_Result$Type extends MessageType<ListLsuAnnouncementResponse_Result> {
     constructor()
     create(
-        value?: PartialMessage<ListPurgeTopologyTransactionResponse_Result>
-    ): ListPurgeTopologyTransactionResponse_Result
+        value?: PartialMessage<ListLsuAnnouncementResponse_Result>
+    ): ListLsuAnnouncementResponse_Result
     internalBinaryRead(
         reader: IBinaryReader,
         length: number,
         options: BinaryReadOptions,
-        target?: ListPurgeTopologyTransactionResponse_Result
-    ): ListPurgeTopologyTransactionResponse_Result
+        target?: ListLsuAnnouncementResponse_Result
+    ): ListLsuAnnouncementResponse_Result
     internalBinaryWrite(
-        message: ListPurgeTopologyTransactionResponse_Result,
+        message: ListLsuAnnouncementResponse_Result,
         writer: IBinaryWriter,
         options: BinaryWriteOptions
     ): IBinaryWriter
 }
 /**
- * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.ListPurgeTopologyTransactionResponse.Result
+ * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.ListLsuAnnouncementResponse.Result
  */
-export declare const ListPurgeTopologyTransactionResponse_Result: ListPurgeTopologyTransactionResponse_Result$Type
-declare class ListSynchronizerUpgradeAnnouncementRequest$Type extends MessageType<ListSynchronizerUpgradeAnnouncementRequest> {
+export declare const ListLsuAnnouncementResponse_Result: ListLsuAnnouncementResponse_Result$Type
+declare class ListLsuSequencerConnectionSuccessorRequest$Type extends MessageType<ListLsuSequencerConnectionSuccessorRequest> {
     constructor()
     create(
-        value?: PartialMessage<ListSynchronizerUpgradeAnnouncementRequest>
-    ): ListSynchronizerUpgradeAnnouncementRequest
+        value?: PartialMessage<ListLsuSequencerConnectionSuccessorRequest>
+    ): ListLsuSequencerConnectionSuccessorRequest
     internalBinaryRead(
         reader: IBinaryReader,
         length: number,
         options: BinaryReadOptions,
-        target?: ListSynchronizerUpgradeAnnouncementRequest
-    ): ListSynchronizerUpgradeAnnouncementRequest
+        target?: ListLsuSequencerConnectionSuccessorRequest
+    ): ListLsuSequencerConnectionSuccessorRequest
     internalBinaryWrite(
-        message: ListSynchronizerUpgradeAnnouncementRequest,
+        message: ListLsuSequencerConnectionSuccessorRequest,
         writer: IBinaryWriter,
         options: BinaryWriteOptions
     ): IBinaryWriter
 }
 /**
- * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.ListSynchronizerUpgradeAnnouncementRequest
+ * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.ListLsuSequencerConnectionSuccessorRequest
  */
-export declare const ListSynchronizerUpgradeAnnouncementRequest: ListSynchronizerUpgradeAnnouncementRequest$Type
-declare class ListSynchronizerUpgradeAnnouncementResponse$Type extends MessageType<ListSynchronizerUpgradeAnnouncementResponse> {
+export declare const ListLsuSequencerConnectionSuccessorRequest: ListLsuSequencerConnectionSuccessorRequest$Type
+declare class ListLsuSequencerConnectionSuccessorResponse$Type extends MessageType<ListLsuSequencerConnectionSuccessorResponse> {
     constructor()
     create(
-        value?: PartialMessage<ListSynchronizerUpgradeAnnouncementResponse>
-    ): ListSynchronizerUpgradeAnnouncementResponse
+        value?: PartialMessage<ListLsuSequencerConnectionSuccessorResponse>
+    ): ListLsuSequencerConnectionSuccessorResponse
     internalBinaryRead(
         reader: IBinaryReader,
         length: number,
         options: BinaryReadOptions,
-        target?: ListSynchronizerUpgradeAnnouncementResponse
-    ): ListSynchronizerUpgradeAnnouncementResponse
+        target?: ListLsuSequencerConnectionSuccessorResponse
+    ): ListLsuSequencerConnectionSuccessorResponse
     internalBinaryWrite(
-        message: ListSynchronizerUpgradeAnnouncementResponse,
+        message: ListLsuSequencerConnectionSuccessorResponse,
         writer: IBinaryWriter,
         options: BinaryWriteOptions
     ): IBinaryWriter
 }
 /**
- * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.ListSynchronizerUpgradeAnnouncementResponse
+ * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.ListLsuSequencerConnectionSuccessorResponse
  */
-export declare const ListSynchronizerUpgradeAnnouncementResponse: ListSynchronizerUpgradeAnnouncementResponse$Type
-declare class ListSynchronizerUpgradeAnnouncementResponse_Result$Type extends MessageType<ListSynchronizerUpgradeAnnouncementResponse_Result> {
+export declare const ListLsuSequencerConnectionSuccessorResponse: ListLsuSequencerConnectionSuccessorResponse$Type
+declare class ListLsuSequencerConnectionSuccessorResponse_Result$Type extends MessageType<ListLsuSequencerConnectionSuccessorResponse_Result> {
     constructor()
     create(
-        value?: PartialMessage<ListSynchronizerUpgradeAnnouncementResponse_Result>
-    ): ListSynchronizerUpgradeAnnouncementResponse_Result
+        value?: PartialMessage<ListLsuSequencerConnectionSuccessorResponse_Result>
+    ): ListLsuSequencerConnectionSuccessorResponse_Result
     internalBinaryRead(
         reader: IBinaryReader,
         length: number,
         options: BinaryReadOptions,
-        target?: ListSynchronizerUpgradeAnnouncementResponse_Result
-    ): ListSynchronizerUpgradeAnnouncementResponse_Result
+        target?: ListLsuSequencerConnectionSuccessorResponse_Result
+    ): ListLsuSequencerConnectionSuccessorResponse_Result
     internalBinaryWrite(
-        message: ListSynchronizerUpgradeAnnouncementResponse_Result,
+        message: ListLsuSequencerConnectionSuccessorResponse_Result,
         writer: IBinaryWriter,
         options: BinaryWriteOptions
     ): IBinaryWriter
 }
 /**
- * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.ListSynchronizerUpgradeAnnouncementResponse.Result
+ * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.ListLsuSequencerConnectionSuccessorResponse.Result
  */
-export declare const ListSynchronizerUpgradeAnnouncementResponse_Result: ListSynchronizerUpgradeAnnouncementResponse_Result$Type
-declare class ListSequencerConnectionSuccessorRequest$Type extends MessageType<ListSequencerConnectionSuccessorRequest> {
-    constructor()
-    create(
-        value?: PartialMessage<ListSequencerConnectionSuccessorRequest>
-    ): ListSequencerConnectionSuccessorRequest
-    internalBinaryRead(
-        reader: IBinaryReader,
-        length: number,
-        options: BinaryReadOptions,
-        target?: ListSequencerConnectionSuccessorRequest
-    ): ListSequencerConnectionSuccessorRequest
-    internalBinaryWrite(
-        message: ListSequencerConnectionSuccessorRequest,
-        writer: IBinaryWriter,
-        options: BinaryWriteOptions
-    ): IBinaryWriter
-}
-/**
- * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.ListSequencerConnectionSuccessorRequest
- */
-export declare const ListSequencerConnectionSuccessorRequest: ListSequencerConnectionSuccessorRequest$Type
-declare class ListSequencerConnectionSuccessorResponse$Type extends MessageType<ListSequencerConnectionSuccessorResponse> {
-    constructor()
-    create(
-        value?: PartialMessage<ListSequencerConnectionSuccessorResponse>
-    ): ListSequencerConnectionSuccessorResponse
-    internalBinaryRead(
-        reader: IBinaryReader,
-        length: number,
-        options: BinaryReadOptions,
-        target?: ListSequencerConnectionSuccessorResponse
-    ): ListSequencerConnectionSuccessorResponse
-    internalBinaryWrite(
-        message: ListSequencerConnectionSuccessorResponse,
-        writer: IBinaryWriter,
-        options: BinaryWriteOptions
-    ): IBinaryWriter
-}
-/**
- * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.ListSequencerConnectionSuccessorResponse
- */
-export declare const ListSequencerConnectionSuccessorResponse: ListSequencerConnectionSuccessorResponse$Type
-declare class ListSequencerConnectionSuccessorResponse_Result$Type extends MessageType<ListSequencerConnectionSuccessorResponse_Result> {
-    constructor()
-    create(
-        value?: PartialMessage<ListSequencerConnectionSuccessorResponse_Result>
-    ): ListSequencerConnectionSuccessorResponse_Result
-    internalBinaryRead(
-        reader: IBinaryReader,
-        length: number,
-        options: BinaryReadOptions,
-        target?: ListSequencerConnectionSuccessorResponse_Result
-    ): ListSequencerConnectionSuccessorResponse_Result
-    internalBinaryWrite(
-        message: ListSequencerConnectionSuccessorResponse_Result,
-        writer: IBinaryWriter,
-        options: BinaryWriteOptions
-    ): IBinaryWriter
-}
-/**
- * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.ListSequencerConnectionSuccessorResponse.Result
- */
-export declare const ListSequencerConnectionSuccessorResponse_Result: ListSequencerConnectionSuccessorResponse_Result$Type
+export declare const ListLsuSequencerConnectionSuccessorResponse_Result: ListLsuSequencerConnectionSuccessorResponse_Result$Type
 declare class ListAvailableStoresRequest$Type extends MessageType<ListAvailableStoresRequest> {
     constructor()
     create(
@@ -1822,9 +1944,68 @@ declare class ListAllRequest$Type extends MessageType<ListAllRequest> {
     ): IBinaryWriter
 }
 /**
+ * @deprecated
  * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.ListAllRequest
  */
 export declare const ListAllRequest: ListAllRequest$Type
+declare class ListAllResponse$Type extends MessageType<ListAllResponse> {
+    constructor()
+    create(value?: PartialMessage<ListAllResponse>): ListAllResponse
+    internalBinaryRead(
+        reader: IBinaryReader,
+        length: number,
+        options: BinaryReadOptions,
+        target?: ListAllResponse
+    ): ListAllResponse
+    internalBinaryWrite(
+        message: ListAllResponse,
+        writer: IBinaryWriter,
+        options: BinaryWriteOptions
+    ): IBinaryWriter
+}
+/**
+ * @deprecated
+ * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.ListAllResponse
+ */
+export declare const ListAllResponse: ListAllResponse$Type
+declare class ListAllV2Request$Type extends MessageType<ListAllV2Request> {
+    constructor()
+    create(value?: PartialMessage<ListAllV2Request>): ListAllV2Request
+    internalBinaryRead(
+        reader: IBinaryReader,
+        length: number,
+        options: BinaryReadOptions,
+        target?: ListAllV2Request
+    ): ListAllV2Request
+    internalBinaryWrite(
+        message: ListAllV2Request,
+        writer: IBinaryWriter,
+        options: BinaryWriteOptions
+    ): IBinaryWriter
+}
+/**
+ * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.ListAllV2Request
+ */
+export declare const ListAllV2Request: ListAllV2Request$Type
+declare class ListAllV2Response$Type extends MessageType<ListAllV2Response> {
+    constructor()
+    create(value?: PartialMessage<ListAllV2Response>): ListAllV2Response
+    internalBinaryRead(
+        reader: IBinaryReader,
+        length: number,
+        options: BinaryReadOptions,
+        target?: ListAllV2Response
+    ): ListAllV2Response
+    internalBinaryWrite(
+        message: ListAllV2Response,
+        writer: IBinaryWriter,
+        options: BinaryWriteOptions
+    ): IBinaryWriter
+}
+/**
+ * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.ListAllV2Response
+ */
+export declare const ListAllV2Response: ListAllV2Response$Type
 declare class ExportTopologySnapshotRequest$Type extends MessageType<ExportTopologySnapshotRequest> {
     constructor()
     create(
@@ -1846,25 +2027,6 @@ declare class ExportTopologySnapshotRequest$Type extends MessageType<ExportTopol
  * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.ExportTopologySnapshotRequest
  */
 export declare const ExportTopologySnapshotRequest: ExportTopologySnapshotRequest$Type
-declare class ListAllResponse$Type extends MessageType<ListAllResponse> {
-    constructor()
-    create(value?: PartialMessage<ListAllResponse>): ListAllResponse
-    internalBinaryRead(
-        reader: IBinaryReader,
-        length: number,
-        options: BinaryReadOptions,
-        target?: ListAllResponse
-    ): ListAllResponse
-    internalBinaryWrite(
-        message: ListAllResponse,
-        writer: IBinaryWriter,
-        options: BinaryWriteOptions
-    ): IBinaryWriter
-}
-/**
- * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.ListAllResponse
- */
-export declare const ListAllResponse: ListAllResponse$Type
 declare class ExportTopologySnapshotResponse$Type extends MessageType<ExportTopologySnapshotResponse> {
     constructor()
     create(
@@ -1886,6 +2048,48 @@ declare class ExportTopologySnapshotResponse$Type extends MessageType<ExportTopo
  * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.ExportTopologySnapshotResponse
  */
 export declare const ExportTopologySnapshotResponse: ExportTopologySnapshotResponse$Type
+declare class ExportTopologySnapshotV2Request$Type extends MessageType<ExportTopologySnapshotV2Request> {
+    constructor()
+    create(
+        value?: PartialMessage<ExportTopologySnapshotV2Request>
+    ): ExportTopologySnapshotV2Request
+    internalBinaryRead(
+        reader: IBinaryReader,
+        length: number,
+        options: BinaryReadOptions,
+        target?: ExportTopologySnapshotV2Request
+    ): ExportTopologySnapshotV2Request
+    internalBinaryWrite(
+        message: ExportTopologySnapshotV2Request,
+        writer: IBinaryWriter,
+        options: BinaryWriteOptions
+    ): IBinaryWriter
+}
+/**
+ * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.ExportTopologySnapshotV2Request
+ */
+export declare const ExportTopologySnapshotV2Request: ExportTopologySnapshotV2Request$Type
+declare class ExportTopologySnapshotV2Response$Type extends MessageType<ExportTopologySnapshotV2Response> {
+    constructor()
+    create(
+        value?: PartialMessage<ExportTopologySnapshotV2Response>
+    ): ExportTopologySnapshotV2Response
+    internalBinaryRead(
+        reader: IBinaryReader,
+        length: number,
+        options: BinaryReadOptions,
+        target?: ExportTopologySnapshotV2Response
+    ): ExportTopologySnapshotV2Response
+    internalBinaryWrite(
+        message: ExportTopologySnapshotV2Response,
+        writer: IBinaryWriter,
+        options: BinaryWriteOptions
+    ): IBinaryWriter
+}
+/**
+ * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.ExportTopologySnapshotV2Response
+ */
+export declare const ExportTopologySnapshotV2Response: ExportTopologySnapshotV2Response$Type
 declare class GenesisStateRequest$Type extends MessageType<GenesisStateRequest> {
     constructor()
     create(value?: PartialMessage<GenesisStateRequest>): GenesisStateRequest
@@ -1924,6 +2128,88 @@ declare class GenesisStateResponse$Type extends MessageType<GenesisStateResponse
  * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.GenesisStateResponse
  */
 export declare const GenesisStateResponse: GenesisStateResponse$Type
+declare class GenesisStateV2Request$Type extends MessageType<GenesisStateV2Request> {
+    constructor()
+    create(value?: PartialMessage<GenesisStateV2Request>): GenesisStateV2Request
+    internalBinaryRead(
+        reader: IBinaryReader,
+        length: number,
+        options: BinaryReadOptions,
+        target?: GenesisStateV2Request
+    ): GenesisStateV2Request
+    internalBinaryWrite(
+        message: GenesisStateV2Request,
+        writer: IBinaryWriter,
+        options: BinaryWriteOptions
+    ): IBinaryWriter
+}
+/**
+ * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.GenesisStateV2Request
+ */
+export declare const GenesisStateV2Request: GenesisStateV2Request$Type
+declare class GenesisStateV2Response$Type extends MessageType<GenesisStateV2Response> {
+    constructor()
+    create(
+        value?: PartialMessage<GenesisStateV2Response>
+    ): GenesisStateV2Response
+    internalBinaryRead(
+        reader: IBinaryReader,
+        length: number,
+        options: BinaryReadOptions,
+        target?: GenesisStateV2Response
+    ): GenesisStateV2Response
+    internalBinaryWrite(
+        message: GenesisStateV2Response,
+        writer: IBinaryWriter,
+        options: BinaryWriteOptions
+    ): IBinaryWriter
+}
+/**
+ * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.GenesisStateV2Response
+ */
+export declare const GenesisStateV2Response: GenesisStateV2Response$Type
+declare class SequencerLsuStateRequest$Type extends MessageType<SequencerLsuStateRequest> {
+    constructor()
+    create(
+        value?: PartialMessage<SequencerLsuStateRequest>
+    ): SequencerLsuStateRequest
+    internalBinaryRead(
+        reader: IBinaryReader,
+        length: number,
+        options: BinaryReadOptions,
+        target?: SequencerLsuStateRequest
+    ): SequencerLsuStateRequest
+    internalBinaryWrite(
+        message: SequencerLsuStateRequest,
+        writer: IBinaryWriter,
+        options: BinaryWriteOptions
+    ): IBinaryWriter
+}
+/**
+ * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.SequencerLsuStateRequest
+ */
+export declare const SequencerLsuStateRequest: SequencerLsuStateRequest$Type
+declare class SequencerLsuStateResponse$Type extends MessageType<SequencerLsuStateResponse> {
+    constructor()
+    create(
+        value?: PartialMessage<SequencerLsuStateResponse>
+    ): SequencerLsuStateResponse
+    internalBinaryRead(
+        reader: IBinaryReader,
+        length: number,
+        options: BinaryReadOptions,
+        target?: SequencerLsuStateResponse
+    ): SequencerLsuStateResponse
+    internalBinaryWrite(
+        message: SequencerLsuStateResponse,
+        writer: IBinaryWriter,
+        options: BinaryWriteOptions
+    ): IBinaryWriter
+}
+/**
+ * @generated MessageType for protobuf message com.digitalasset.canton.topology.admin.v30.SequencerLsuStateResponse
+ */
+export declare const SequencerLsuStateResponse: SequencerLsuStateResponse$Type
 /**
  * @generated ServiceType for protobuf service com.digitalasset.canton.topology.admin.v30.TopologyManagerReadService
  */

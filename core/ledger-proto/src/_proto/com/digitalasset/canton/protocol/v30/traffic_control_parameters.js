@@ -48,11 +48,17 @@ class TrafficControlParameters$Type extends MessageType {
                     T: 4 /*ScalarType.UINT64*/,
                     L: 0 /*LongType.BIGINT*/,
                 },
+                {
+                    no: 8,
+                    name: 'free_confirmation_responses',
+                    kind: 'scalar',
+                    T: 8 /*ScalarType.BOOL*/,
+                },
             ],
             {
                 'scalapb.message': {
                     companionExtends: [
-                        'com.digitalasset.canton.version.AlphaProtoVersion',
+                        'com.digitalasset.canton.version.StableProtoVersion',
                     ],
                 },
             }
@@ -63,6 +69,7 @@ class TrafficControlParameters$Type extends MessageType {
         message.maxBaseTrafficAmount = 0n
         message.readVsWriteScalingFactor = 0
         message.enforceRateLimiting = false
+        message.freeConfirmationResponses = false
         if (value !== undefined) reflectionMergePartial(this, message, value)
         return message
     }
@@ -101,6 +108,9 @@ class TrafficControlParameters$Type extends MessageType {
                     break
                 case /* optional uint64 base_event_cost */ 7:
                     message.baseEventCost = reader.uint64().toBigInt()
+                    break
+                case /* bool free_confirmation_responses */ 8:
+                    message.freeConfirmationResponses = reader.bool()
                     break
                 default:
                     let u = options.readUnknownField
@@ -150,6 +160,11 @@ class TrafficControlParameters$Type extends MessageType {
         /* optional uint64 base_event_cost = 7; */
         if (message.baseEventCost !== undefined)
             writer.tag(7, WireType.Varint).uint64(message.baseEventCost)
+        /* bool free_confirmation_responses = 8; */
+        if (message.freeConfirmationResponses !== false)
+            writer
+                .tag(8, WireType.Varint)
+                .bool(message.freeConfirmationResponses)
         let u = options.writeUnknownFields
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(
@@ -195,7 +210,7 @@ class TrafficReceipt$Type extends MessageType {
             {
                 'scalapb.message': {
                     companionExtends: [
-                        'com.digitalasset.canton.version.AlphaProtoVersion',
+                        'com.digitalasset.canton.version.StableProtoVersion',
                     ],
                 },
             }
@@ -311,7 +326,7 @@ class TrafficConsumed$Type extends MessageType {
             {
                 'scalapb.message': {
                     companionExtends: [
-                        'com.digitalasset.canton.version.AlphaProtoVersion',
+                        'com.digitalasset.canton.version.StableProtoVersion',
                     ],
                 },
             }
@@ -433,7 +448,7 @@ class TrafficPurchased$Type extends MessageType {
             {
                 'scalapb.message': {
                     companionExtends: [
-                        'com.digitalasset.canton.version.AlphaProtoVersion',
+                        'com.digitalasset.canton.version.StableProtoVersion',
                     ],
                 },
             }
@@ -681,7 +696,7 @@ class SetTrafficPurchasedMessage$Type extends MessageType {
             {
                 'scalapb.message': {
                     companionExtends: [
-                        'com.digitalasset.canton.version.AlphaProtoVersion',
+                        'com.digitalasset.canton.version.StableProtoVersion',
                     ],
                 },
             }

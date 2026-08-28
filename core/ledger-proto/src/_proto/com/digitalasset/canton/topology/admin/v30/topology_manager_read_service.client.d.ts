@@ -1,24 +1,32 @@
 import type { RpcTransport } from '@protobuf-ts/runtime-rpc'
 import type { ServiceInfo } from '@protobuf-ts/runtime-rpc'
+import type { SequencerLsuStateResponse } from './topology_manager_read_service.js'
+import type { SequencerLsuStateRequest } from './topology_manager_read_service.js'
+import type { GenesisStateV2Response } from './topology_manager_read_service.js'
+import type { GenesisStateV2Request } from './topology_manager_read_service.js'
 import type { GenesisStateResponse } from './topology_manager_read_service.js'
 import type { GenesisStateRequest } from './topology_manager_read_service.js'
+import type { ExportTopologySnapshotV2Response } from './topology_manager_read_service.js'
+import type { ExportTopologySnapshotV2Request } from './topology_manager_read_service.js'
 import type { ExportTopologySnapshotResponse } from './topology_manager_read_service.js'
 import type { ExportTopologySnapshotRequest } from './topology_manager_read_service.js'
 import type { ServerStreamingCall } from '@protobuf-ts/runtime-rpc'
+import type { ListAllV2Response } from './topology_manager_read_service.js'
+import type { ListAllV2Request } from './topology_manager_read_service.js'
 import type { ListAllResponse } from './topology_manager_read_service.js'
 import type { ListAllRequest } from './topology_manager_read_service.js'
 import type { ListAvailableStoresResponse } from './topology_manager_read_service.js'
 import type { ListAvailableStoresRequest } from './topology_manager_read_service.js'
-import type { ListSequencerConnectionSuccessorResponse } from './topology_manager_read_service.js'
-import type { ListSequencerConnectionSuccessorRequest } from './topology_manager_read_service.js'
-import type { ListSynchronizerUpgradeAnnouncementResponse } from './topology_manager_read_service.js'
-import type { ListSynchronizerUpgradeAnnouncementRequest } from './topology_manager_read_service.js'
-import type { ListPurgeTopologyTransactionResponse } from './topology_manager_read_service.js'
-import type { ListPurgeTopologyTransactionRequest } from './topology_manager_read_service.js'
+import type { ListLsuSequencerConnectionSuccessorResponse } from './topology_manager_read_service.js'
+import type { ListLsuSequencerConnectionSuccessorRequest } from './topology_manager_read_service.js'
+import type { ListLsuAnnouncementResponse } from './topology_manager_read_service.js'
+import type { ListLsuAnnouncementRequest } from './topology_manager_read_service.js'
 import type { ListSequencerSynchronizerStateResponse } from './topology_manager_read_service.js'
 import type { ListSequencerSynchronizerStateRequest } from './topology_manager_read_service.js'
 import type { ListMediatorSynchronizerStateResponse } from './topology_manager_read_service.js'
 import type { ListMediatorSynchronizerStateRequest } from './topology_manager_read_service.js'
+import type { ListSequencingParametersStateResponse } from './topology_manager_read_service.js'
+import type { ListSequencingParametersStateRequest } from './topology_manager_read_service.js'
 import type { ListSynchronizerParametersStateResponse } from './topology_manager_read_service.js'
 import type { ListSynchronizerParametersStateRequest } from './topology_manager_read_service.js'
 import type { ListPartyToParticipantResponse } from './topology_manager_read_service.js'
@@ -73,6 +81,8 @@ export interface ITopologyManagerReadServiceClient {
         options?: RpcOptions
     ): UnaryCall<ListOwnerToKeyMappingRequest, ListOwnerToKeyMappingResponse>
     /**
+     * Note that PartyToKeyMapping is deprecated in favor of PartyToParticipant
+     *
      * @generated from protobuf rpc: ListPartyToKeyMapping
      */
     listPartyToKeyMapping(
@@ -131,6 +141,16 @@ export interface ITopologyManagerReadServiceClient {
         ListSynchronizerParametersStateResponse
     >
     /**
+     * @generated from protobuf rpc: ListSequencingParametersState
+     */
+    listSequencingParametersState(
+        input: ListSequencingParametersStateRequest,
+        options?: RpcOptions
+    ): UnaryCall<
+        ListSequencingParametersStateRequest,
+        ListSequencingParametersStateResponse
+    >
+    /**
      * @generated from protobuf rpc: ListMediatorSynchronizerState
      */
     listMediatorSynchronizerState(
@@ -151,34 +171,21 @@ export interface ITopologyManagerReadServiceClient {
         ListSequencerSynchronizerStateResponse
     >
     /**
-     * @generated from protobuf rpc: ListPurgeTopologyTransaction
+     * @generated from protobuf rpc: ListLsuAnnouncement
      */
-    listPurgeTopologyTransaction(
-        input: ListPurgeTopologyTransactionRequest,
+    listLsuAnnouncement(
+        input: ListLsuAnnouncementRequest,
         options?: RpcOptions
-    ): UnaryCall<
-        ListPurgeTopologyTransactionRequest,
-        ListPurgeTopologyTransactionResponse
-    >
+    ): UnaryCall<ListLsuAnnouncementRequest, ListLsuAnnouncementResponse>
     /**
-     * @generated from protobuf rpc: ListSynchronizerUpgradeAnnouncement
+     * @generated from protobuf rpc: ListLsuSequencerConnectionSuccessor
      */
-    listSynchronizerUpgradeAnnouncement(
-        input: ListSynchronizerUpgradeAnnouncementRequest,
+    listLsuSequencerConnectionSuccessor(
+        input: ListLsuSequencerConnectionSuccessorRequest,
         options?: RpcOptions
     ): UnaryCall<
-        ListSynchronizerUpgradeAnnouncementRequest,
-        ListSynchronizerUpgradeAnnouncementResponse
-    >
-    /**
-     * @generated from protobuf rpc: ListSequencerConnectionSuccessor
-     */
-    listSequencerConnectionSuccessor(
-        input: ListSequencerConnectionSuccessorRequest,
-        options?: RpcOptions
-    ): UnaryCall<
-        ListSequencerConnectionSuccessorRequest,
-        ListSequencerConnectionSuccessorResponse
+        ListLsuSequencerConnectionSuccessorRequest,
+        ListLsuSequencerConnectionSuccessorResponse
     >
     /**
      * @generated from protobuf rpc: ListAvailableStores
@@ -188,6 +195,7 @@ export interface ITopologyManagerReadServiceClient {
         options?: RpcOptions
     ): UnaryCall<ListAvailableStoresRequest, ListAvailableStoresResponse>
     /**
+     * @deprecated
      * @generated from protobuf rpc: ListAll
      */
     listAll(
@@ -195,6 +203,16 @@ export interface ITopologyManagerReadServiceClient {
         options?: RpcOptions
     ): UnaryCall<ListAllRequest, ListAllResponse>
     /**
+     * @generated from protobuf rpc: ListAllV2
+     */
+    listAllV2(
+        input: ListAllV2Request,
+        options?: RpcOptions
+    ): UnaryCall<ListAllV2Request, ListAllV2Response>
+    /**
+     * Deprecated in favor of ExportTopologySnapshotV2
+     *
+     * @deprecated
      * @generated from protobuf rpc: ExportTopologySnapshot
      */
     exportTopologySnapshot(
@@ -205,15 +223,44 @@ export interface ITopologyManagerReadServiceClient {
         ExportTopologySnapshotResponse
     >
     /**
+     * @generated from protobuf rpc: ExportTopologySnapshotV2
+     */
+    exportTopologySnapshotV2(
+        input: ExportTopologySnapshotV2Request,
+        options?: RpcOptions
+    ): ServerStreamingCall<
+        ExportTopologySnapshotV2Request,
+        ExportTopologySnapshotV2Response
+    >
+    /**
      * Fetch the genesis topology state.
      * The returned bytestring can be used directly to initialize a sequencer.
+     * Deprecated in favor of GenesisStateV2
      *
+     * @deprecated
      * @generated from protobuf rpc: GenesisState
      */
     genesisState(
         input: GenesisStateRequest,
         options?: RpcOptions
     ): ServerStreamingCall<GenesisStateRequest, GenesisStateResponse>
+    /**
+     * @generated from protobuf rpc: GenesisStateV2
+     */
+    genesisStateV2(
+        input: GenesisStateV2Request,
+        options?: RpcOptions
+    ): ServerStreamingCall<GenesisStateV2Request, GenesisStateV2Response>
+    /**
+     * Fetch the topology state
+     * The returned bytestring can be used directly to initialize a successor sequencer
+     *
+     * @generated from protobuf rpc: SequencerLsuState
+     */
+    sequencerLsuState(
+        input: SequencerLsuStateRequest,
+        options?: RpcOptions
+    ): ServerStreamingCall<SequencerLsuStateRequest, SequencerLsuStateResponse>
 }
 /**
  * @generated from protobuf service com.digitalasset.canton.topology.admin.v30.TopologyManagerReadService
@@ -256,6 +303,8 @@ export declare class TopologyManagerReadServiceClient
         options?: RpcOptions
     ): UnaryCall<ListOwnerToKeyMappingRequest, ListOwnerToKeyMappingResponse>
     /**
+     * Note that PartyToKeyMapping is deprecated in favor of PartyToParticipant
+     *
      * @generated from protobuf rpc: ListPartyToKeyMapping
      */
     listPartyToKeyMapping(
@@ -314,6 +363,16 @@ export declare class TopologyManagerReadServiceClient
         ListSynchronizerParametersStateResponse
     >
     /**
+     * @generated from protobuf rpc: ListSequencingParametersState
+     */
+    listSequencingParametersState(
+        input: ListSequencingParametersStateRequest,
+        options?: RpcOptions
+    ): UnaryCall<
+        ListSequencingParametersStateRequest,
+        ListSequencingParametersStateResponse
+    >
+    /**
      * @generated from protobuf rpc: ListMediatorSynchronizerState
      */
     listMediatorSynchronizerState(
@@ -334,34 +393,21 @@ export declare class TopologyManagerReadServiceClient
         ListSequencerSynchronizerStateResponse
     >
     /**
-     * @generated from protobuf rpc: ListPurgeTopologyTransaction
+     * @generated from protobuf rpc: ListLsuAnnouncement
      */
-    listPurgeTopologyTransaction(
-        input: ListPurgeTopologyTransactionRequest,
+    listLsuAnnouncement(
+        input: ListLsuAnnouncementRequest,
         options?: RpcOptions
-    ): UnaryCall<
-        ListPurgeTopologyTransactionRequest,
-        ListPurgeTopologyTransactionResponse
-    >
+    ): UnaryCall<ListLsuAnnouncementRequest, ListLsuAnnouncementResponse>
     /**
-     * @generated from protobuf rpc: ListSynchronizerUpgradeAnnouncement
+     * @generated from protobuf rpc: ListLsuSequencerConnectionSuccessor
      */
-    listSynchronizerUpgradeAnnouncement(
-        input: ListSynchronizerUpgradeAnnouncementRequest,
+    listLsuSequencerConnectionSuccessor(
+        input: ListLsuSequencerConnectionSuccessorRequest,
         options?: RpcOptions
     ): UnaryCall<
-        ListSynchronizerUpgradeAnnouncementRequest,
-        ListSynchronizerUpgradeAnnouncementResponse
-    >
-    /**
-     * @generated from protobuf rpc: ListSequencerConnectionSuccessor
-     */
-    listSequencerConnectionSuccessor(
-        input: ListSequencerConnectionSuccessorRequest,
-        options?: RpcOptions
-    ): UnaryCall<
-        ListSequencerConnectionSuccessorRequest,
-        ListSequencerConnectionSuccessorResponse
+        ListLsuSequencerConnectionSuccessorRequest,
+        ListLsuSequencerConnectionSuccessorResponse
     >
     /**
      * @generated from protobuf rpc: ListAvailableStores
@@ -371,6 +417,7 @@ export declare class TopologyManagerReadServiceClient
         options?: RpcOptions
     ): UnaryCall<ListAvailableStoresRequest, ListAvailableStoresResponse>
     /**
+     * @deprecated
      * @generated from protobuf rpc: ListAll
      */
     listAll(
@@ -378,6 +425,16 @@ export declare class TopologyManagerReadServiceClient
         options?: RpcOptions
     ): UnaryCall<ListAllRequest, ListAllResponse>
     /**
+     * @generated from protobuf rpc: ListAllV2
+     */
+    listAllV2(
+        input: ListAllV2Request,
+        options?: RpcOptions
+    ): UnaryCall<ListAllV2Request, ListAllV2Response>
+    /**
+     * Deprecated in favor of ExportTopologySnapshotV2
+     *
+     * @deprecated
      * @generated from protobuf rpc: ExportTopologySnapshot
      */
     exportTopologySnapshot(
@@ -388,14 +445,43 @@ export declare class TopologyManagerReadServiceClient
         ExportTopologySnapshotResponse
     >
     /**
+     * @generated from protobuf rpc: ExportTopologySnapshotV2
+     */
+    exportTopologySnapshotV2(
+        input: ExportTopologySnapshotV2Request,
+        options?: RpcOptions
+    ): ServerStreamingCall<
+        ExportTopologySnapshotV2Request,
+        ExportTopologySnapshotV2Response
+    >
+    /**
      * Fetch the genesis topology state.
      * The returned bytestring can be used directly to initialize a sequencer.
+     * Deprecated in favor of GenesisStateV2
      *
+     * @deprecated
      * @generated from protobuf rpc: GenesisState
      */
     genesisState(
         input: GenesisStateRequest,
         options?: RpcOptions
     ): ServerStreamingCall<GenesisStateRequest, GenesisStateResponse>
+    /**
+     * @generated from protobuf rpc: GenesisStateV2
+     */
+    genesisStateV2(
+        input: GenesisStateV2Request,
+        options?: RpcOptions
+    ): ServerStreamingCall<GenesisStateV2Request, GenesisStateV2Response>
+    /**
+     * Fetch the topology state
+     * The returned bytestring can be used directly to initialize a successor sequencer
+     *
+     * @generated from protobuf rpc: SequencerLsuState
+     */
+    sequencerLsuState(
+        input: SequencerLsuStateRequest,
+        options?: RpcOptions
+    ): ServerStreamingCall<SequencerLsuStateRequest, SequencerLsuStateResponse>
 }
 //# sourceMappingURL=topology_manager_read_service.client.d.ts.map

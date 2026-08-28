@@ -33,6 +33,9 @@ export class TopologyManagerWriteServiceClient {
         return stackIntercept('unary', this._transport, method, opt, input)
     }
     /**
+     * Deprecated in favor of ImportTopologySnapshotV2
+     *
+     * @deprecated
      * @generated from protobuf rpc: ImportTopologySnapshot
      */
     importTopologySnapshot(options) {
@@ -41,10 +44,18 @@ export class TopologyManagerWriteServiceClient {
         return stackIntercept('clientStreaming', this._transport, method, opt)
     }
     /**
+     * @generated from protobuf rpc: ImportTopologySnapshotV2
+     */
+    importTopologySnapshotV2(options) {
+        const method = this.methods[3],
+            opt = this._transport.mergeOptions(options)
+        return stackIntercept('clientStreaming', this._transport, method, opt)
+    }
+    /**
      * @generated from protobuf rpc: SignTransactions
      */
     signTransactions(input, options) {
-        const method = this.methods[3],
+        const method = this.methods[4],
             opt = this._transport.mergeOptions(options)
         return stackIntercept('unary', this._transport, method, opt, input)
     }
@@ -54,7 +65,7 @@ export class TopologyManagerWriteServiceClient {
      * @generated from protobuf rpc: GenerateTransactions
      */
     generateTransactions(input, options) {
-        const method = this.methods[4],
+        const method = this.methods[5],
             opt = this._transport.mergeOptions(options)
         return stackIntercept('unary', this._transport, method, opt, input)
     }
@@ -65,7 +76,7 @@ export class TopologyManagerWriteServiceClient {
      * @generated from protobuf rpc: CreateTemporaryTopologyStore
      */
     createTemporaryTopologyStore(input, options) {
-        const method = this.methods[5],
+        const method = this.methods[6],
             opt = this._transport.mergeOptions(options)
         return stackIntercept('unary', this._transport, method, opt, input)
     }
@@ -76,7 +87,7 @@ export class TopologyManagerWriteServiceClient {
      * @generated from protobuf rpc: DropTemporaryTopologyStore
      */
     dropTemporaryTopologyStore(input, options) {
-        const method = this.methods[6],
+        const method = this.methods[7],
             opt = this._transport.mergeOptions(options)
         return stackIntercept('unary', this._transport, method, opt, input)
     }

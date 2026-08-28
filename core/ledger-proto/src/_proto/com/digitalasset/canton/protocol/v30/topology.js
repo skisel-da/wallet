@@ -2,7 +2,7 @@
 // @generated from protobuf file "com/digitalasset/canton/protocol/v30/topology.proto" (package "com.digitalasset.canton.protocol.v30", syntax proto3)
 // tslint:disable
 //
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
 import { WireType } from '@protobuf-ts/runtime'
@@ -12,6 +12,7 @@ import { MessageType } from '@protobuf-ts/runtime'
 import { Signature } from '../../crypto/v30/crypto.js'
 import { DynamicSequencingParameters } from './sequencing_parameters.js'
 import { DynamicSynchronizerParameters } from './synchronizer_parameters.js'
+import { SigningKeysWithThreshold } from '../../crypto/v30/crypto.js'
 import { Timestamp } from '../../../../../google/protobuf/timestamp.js'
 import { ParticipantSynchronizerLimits } from './synchronizer_parameters.js'
 import { PublicKey } from '../../crypto/v30/crypto.js'
@@ -156,12 +157,6 @@ export var Enums_TopologyMappingCode
         (Enums_TopologyMappingCode['SEQUENCER_SYNCHRONIZER_STATE'] = 13)
     ] = 'SEQUENCER_SYNCHRONIZER_STATE'
     /**
-     * @generated from protobuf enum value: TOPOLOGY_MAPPING_CODE_PURGE_TOPOLOGY_TXS = 15;
-     */
-    Enums_TopologyMappingCode[
-        (Enums_TopologyMappingCode['PURGE_TOPOLOGY_TXS'] = 15)
-    ] = 'PURGE_TOPOLOGY_TXS'
-    /**
      * @generated from protobuf enum value: TOPOLOGY_MAPPING_CODE_SEQUENCING_DYNAMIC_PARAMETERS_STATE = 17;
      */
     Enums_TopologyMappingCode[
@@ -174,11 +169,11 @@ export var Enums_TopologyMappingCode
         (Enums_TopologyMappingCode['PARTY_TO_KEY_MAPPING'] = 18)
     ] = 'PARTY_TO_KEY_MAPPING'
     /**
-     * @generated from protobuf enum value: TOPOLOGY_MAPPING_CODE_SYNCHRONIZER_MIGRATION_ANNOUNCEMENT = 19;
+     * @generated from protobuf enum value: TOPOLOGY_MAPPING_CODE_LSU_ANNOUNCEMENT = 19;
      */
     Enums_TopologyMappingCode[
-        (Enums_TopologyMappingCode['SYNCHRONIZER_MIGRATION_ANNOUNCEMENT'] = 19)
-    ] = 'SYNCHRONIZER_MIGRATION_ANNOUNCEMENT'
+        (Enums_TopologyMappingCode['LSU_ANNOUNCEMENT'] = 19)
+    ] = 'LSU_ANNOUNCEMENT'
     /**
      * @generated from protobuf enum value: TOPOLOGY_MAPPING_CODE_SEQUENCER_CONNECTION_SUCCESSOR = 20;
      */
@@ -186,6 +181,37 @@ export var Enums_TopologyMappingCode
         (Enums_TopologyMappingCode['SEQUENCER_CONNECTION_SUCCESSOR'] = 20)
     ] = 'SEQUENCER_CONNECTION_SUCCESSOR'
 })(Enums_TopologyMappingCode || (Enums_TopologyMappingCode = {}))
+/**
+ * @generated from protobuf enum com.digitalasset.canton.protocol.v30.Enums.ParticipantFeatureFlag
+ */
+export var Enums_ParticipantFeatureFlag
+;(function (Enums_ParticipantFeatureFlag) {
+    /**
+     * @generated from protobuf enum value: PARTICIPANT_FEATURE_FLAG_UNSPECIFIED = 0;
+     */
+    Enums_ParticipantFeatureFlag[
+        (Enums_ParticipantFeatureFlag['UNSPECIFIED'] = 0)
+    ] = 'UNSPECIFIED'
+    /**
+     * UNUSED in PV >= 34 - Was meant to tactically fix a bug in the external signing hash computation
+     * in model conformance in PV 33
+     *
+     * @generated from protobuf enum value: PARTICIPANT_FEATURE_FLAG_PV33_EXTERNAL_SIGNING_LOCAL_CONTRACT_IN_SUBVIEW = 1;
+     */
+    Enums_ParticipantFeatureFlag[
+        (Enums_ParticipantFeatureFlag[
+            'PV33_EXTERNAL_SIGNING_LOCAL_CONTRACT_IN_SUBVIEW'
+        ] = 1)
+    ] = 'PV33_EXTERNAL_SIGNING_LOCAL_CONTRACT_IN_SUBVIEW'
+    /**
+     * This flag indicates that the participant supports reassignments between synchronizers.
+     *
+     * @generated from protobuf enum value: PARTICIPANT_FEATURE_FLAG_ENABLE_MULTI_SYNCHRONIZER = 2;
+     */
+    Enums_ParticipantFeatureFlag[
+        (Enums_ParticipantFeatureFlag['ENABLE_MULTI_SYNCHRONIZER'] = 2)
+    ] = 'ENABLE_MULTI_SYNCHRONIZER'
+})(Enums_ParticipantFeatureFlag || (Enums_ParticipantFeatureFlag = {}))
 // @generated message type with reflection information, may provide speed optimized methods
 class Enums$Type extends MessageType {
     constructor() {
@@ -891,6 +917,7 @@ class PartyToKeyMapping$Type extends MessageType {
     }
 }
 /**
+ * @deprecated
  * @generated MessageType for protobuf message com.digitalasset.canton.protocol.v30.PartyToKeyMapping
  */
 export const PartyToKeyMapping = new PartyToKeyMapping$Type()
@@ -912,6 +939,17 @@ class SynchronizerTrustCertificate$Type extends MessageType {
                     kind: 'scalar',
                     T: 9 /*ScalarType.STRING*/,
                 },
+                {
+                    no: 5,
+                    name: 'feature_flags',
+                    kind: 'enum',
+                    repeat: 1 /*RepeatType.PACKED*/,
+                    T: () => [
+                        'com.digitalasset.canton.protocol.v30.Enums.ParticipantFeatureFlag',
+                        Enums_ParticipantFeatureFlag,
+                        'PARTICIPANT_FEATURE_FLAG_',
+                    ],
+                },
             ]
         )
     }
@@ -919,6 +957,7 @@ class SynchronizerTrustCertificate$Type extends MessageType {
         const message = globalThis.Object.create(this.messagePrototype)
         message.participantUid = ''
         message.synchronizerId = ''
+        message.featureFlags = []
         if (value !== undefined) reflectionMergePartial(this, message, value)
         return message
     }
@@ -933,6 +972,15 @@ class SynchronizerTrustCertificate$Type extends MessageType {
                     break
                 case /* string synchronizer_id */ 2:
                     message.synchronizerId = reader.string()
+                    break
+                case /* repeated com.digitalasset.canton.protocol.v30.Enums.ParticipantFeatureFlag feature_flags */ 5:
+                    if (wireType === WireType.LengthDelimited)
+                        for (
+                            let e = reader.int32() + reader.pos;
+                            reader.pos < e;
+                        )
+                            message.featureFlags.push(reader.int32())
+                    else message.featureFlags.push(reader.int32())
                     break
                 default:
                     let u = options.readUnknownField
@@ -964,6 +1012,13 @@ class SynchronizerTrustCertificate$Type extends MessageType {
             writer
                 .tag(2, WireType.LengthDelimited)
                 .string(message.synchronizerId)
+        /* repeated com.digitalasset.canton.protocol.v30.Enums.ParticipantFeatureFlag feature_flags = 5; */
+        if (message.featureFlags.length) {
+            writer.tag(5, WireType.LengthDelimited).fork()
+            for (let i = 0; i < message.featureFlags.length; i++)
+                writer.int32(message.featureFlags[i])
+            writer.join()
+        }
         let u = options.writeUnknownFields
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(
@@ -1435,6 +1490,12 @@ class PartyToParticipant$Type extends MessageType {
                 repeat: 2 /*RepeatType.UNPACKED*/,
                 T: () => PartyToParticipant_HostingParticipant,
             },
+            {
+                no: 6,
+                name: 'party_signing_keys',
+                kind: 'message',
+                T: () => SigningKeysWithThreshold,
+            },
         ])
     }
     create(value) {
@@ -1465,6 +1526,15 @@ class PartyToParticipant$Type extends MessageType {
                             options
                         )
                     )
+                    break
+                case /* optional com.digitalasset.canton.crypto.v30.SigningKeysWithThreshold party_signing_keys */ 6:
+                    message.partySigningKeys =
+                        SigningKeysWithThreshold.internalBinaryRead(
+                            reader,
+                            reader.uint32(),
+                            options,
+                            message.partySigningKeys
+                        )
                     break
                 default:
                     let u = options.readUnknownField
@@ -1497,6 +1567,13 @@ class PartyToParticipant$Type extends MessageType {
             PartyToParticipant_HostingParticipant.internalBinaryWrite(
                 message.participants[i],
                 writer.tag(3, WireType.LengthDelimited).fork(),
+                options
+            ).join()
+        /* optional com.digitalasset.canton.crypto.v30.SigningKeysWithThreshold party_signing_keys = 6; */
+        if (message.partySigningKeys)
+            SigningKeysWithThreshold.internalBinaryWrite(
+                message.partySigningKeys,
+                writer.tag(6, WireType.LengthDelimited).fork(),
                 options
             ).join()
         let u = options.writeUnknownFields
@@ -2094,125 +2171,25 @@ class SequencerSynchronizerState$Type extends MessageType {
  */
 export const SequencerSynchronizerState = new SequencerSynchronizerState$Type()
 // @generated message type with reflection information, may provide speed optimized methods
-class PurgeTopologyTransaction$Type extends MessageType {
+class LsuAnnouncement$Type extends MessageType {
     constructor() {
-        super('com.digitalasset.canton.protocol.v30.PurgeTopologyTransaction', [
+        super('com.digitalasset.canton.protocol.v30.LsuAnnouncement', [
             {
                 no: 1,
-                name: 'synchronizer_id',
+                name: 'successor_physical_synchronizer_id',
                 kind: 'scalar',
                 T: 9 /*ScalarType.STRING*/,
             },
             {
                 no: 2,
-                name: 'mappings',
+                name: 'upgrade_time',
                 kind: 'message',
-                repeat: 2 /*RepeatType.UNPACKED*/,
-                T: () => TopologyMapping,
+                T: () => Timestamp,
             },
         ])
     }
     create(value) {
         const message = globalThis.Object.create(this.messagePrototype)
-        message.synchronizerId = ''
-        message.mappings = []
-        if (value !== undefined) reflectionMergePartial(this, message, value)
-        return message
-    }
-    internalBinaryRead(reader, length, options, target) {
-        let message = target ?? this.create(),
-            end = reader.pos + length
-        while (reader.pos < end) {
-            let [fieldNo, wireType] = reader.tag()
-            switch (fieldNo) {
-                case /* string synchronizer_id */ 1:
-                    message.synchronizerId = reader.string()
-                    break
-                case /* repeated com.digitalasset.canton.protocol.v30.TopologyMapping mappings */ 2:
-                    message.mappings.push(
-                        TopologyMapping.internalBinaryRead(
-                            reader,
-                            reader.uint32(),
-                            options
-                        )
-                    )
-                    break
-                default:
-                    let u = options.readUnknownField
-                    if (u === 'throw')
-                        throw new globalThis.Error(
-                            `Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`
-                        )
-                    let d = reader.skip(wireType)
-                    if (u !== false)
-                        (u === true ? UnknownFieldHandler.onRead : u)(
-                            this.typeName,
-                            message,
-                            fieldNo,
-                            wireType,
-                            d
-                        )
-            }
-        }
-        return message
-    }
-    internalBinaryWrite(message, writer, options) {
-        /* string synchronizer_id = 1; */
-        if (message.synchronizerId !== '')
-            writer
-                .tag(1, WireType.LengthDelimited)
-                .string(message.synchronizerId)
-        /* repeated com.digitalasset.canton.protocol.v30.TopologyMapping mappings = 2; */
-        for (let i = 0; i < message.mappings.length; i++)
-            TopologyMapping.internalBinaryWrite(
-                message.mappings[i],
-                writer.tag(2, WireType.LengthDelimited).fork(),
-                options
-            ).join()
-        let u = options.writeUnknownFields
-        if (u !== false)
-            (u == true ? UnknownFieldHandler.onWrite : u)(
-                this.typeName,
-                message,
-                writer
-            )
-        return writer
-    }
-}
-/**
- * @generated MessageType for protobuf message com.digitalasset.canton.protocol.v30.PurgeTopologyTransaction
- */
-export const PurgeTopologyTransaction = new PurgeTopologyTransaction$Type()
-// @generated message type with reflection information, may provide speed optimized methods
-class SynchronizerUpgradeAnnouncement$Type extends MessageType {
-    constructor() {
-        super(
-            'com.digitalasset.canton.protocol.v30.SynchronizerUpgradeAnnouncement',
-            [
-                {
-                    no: 1,
-                    name: 'physical_synchronizer_id',
-                    kind: 'scalar',
-                    T: 9 /*ScalarType.STRING*/,
-                },
-                {
-                    no: 2,
-                    name: 'successor_physical_synchronizer_id',
-                    kind: 'scalar',
-                    T: 9 /*ScalarType.STRING*/,
-                },
-                {
-                    no: 3,
-                    name: 'upgrade_time',
-                    kind: 'message',
-                    T: () => Timestamp,
-                },
-            ]
-        )
-    }
-    create(value) {
-        const message = globalThis.Object.create(this.messagePrototype)
-        message.physicalSynchronizerId = ''
         message.successorPhysicalSynchronizerId = ''
         if (value !== undefined) reflectionMergePartial(this, message, value)
         return message
@@ -2223,13 +2200,10 @@ class SynchronizerUpgradeAnnouncement$Type extends MessageType {
         while (reader.pos < end) {
             let [fieldNo, wireType] = reader.tag()
             switch (fieldNo) {
-                case /* string physical_synchronizer_id */ 1:
-                    message.physicalSynchronizerId = reader.string()
-                    break
-                case /* string successor_physical_synchronizer_id */ 2:
+                case /* string successor_physical_synchronizer_id */ 1:
                     message.successorPhysicalSynchronizerId = reader.string()
                     break
-                case /* google.protobuf.Timestamp upgrade_time */ 3:
+                case /* google.protobuf.Timestamp upgrade_time */ 2:
                     message.upgradeTime = Timestamp.internalBinaryRead(
                         reader,
                         reader.uint32(),
@@ -2257,21 +2231,16 @@ class SynchronizerUpgradeAnnouncement$Type extends MessageType {
         return message
     }
     internalBinaryWrite(message, writer, options) {
-        /* string physical_synchronizer_id = 1; */
-        if (message.physicalSynchronizerId !== '')
-            writer
-                .tag(1, WireType.LengthDelimited)
-                .string(message.physicalSynchronizerId)
-        /* string successor_physical_synchronizer_id = 2; */
+        /* string successor_physical_synchronizer_id = 1; */
         if (message.successorPhysicalSynchronizerId !== '')
             writer
-                .tag(2, WireType.LengthDelimited)
+                .tag(1, WireType.LengthDelimited)
                 .string(message.successorPhysicalSynchronizerId)
-        /* google.protobuf.Timestamp upgrade_time = 3; */
+        /* google.protobuf.Timestamp upgrade_time = 2; */
         if (message.upgradeTime)
             Timestamp.internalBinaryWrite(
                 message.upgradeTime,
-                writer.tag(3, WireType.LengthDelimited).fork(),
+                writer.tag(2, WireType.LengthDelimited).fork(),
                 options
             ).join()
         let u = options.writeUnknownFields
@@ -2285,15 +2254,14 @@ class SynchronizerUpgradeAnnouncement$Type extends MessageType {
     }
 }
 /**
- * @generated MessageType for protobuf message com.digitalasset.canton.protocol.v30.SynchronizerUpgradeAnnouncement
+ * @generated MessageType for protobuf message com.digitalasset.canton.protocol.v30.LsuAnnouncement
  */
-export const SynchronizerUpgradeAnnouncement =
-    new SynchronizerUpgradeAnnouncement$Type()
+export const LsuAnnouncement = new LsuAnnouncement$Type()
 // @generated message type with reflection information, may provide speed optimized methods
-class SequencerConnectionSuccessor$Type extends MessageType {
+class LsuSequencerConnectionSuccessor$Type extends MessageType {
     constructor() {
         super(
-            'com.digitalasset.canton.protocol.v30.SequencerConnectionSuccessor',
+            'com.digitalasset.canton.protocol.v30.LsuSequencerConnectionSuccessor',
             [
                 {
                     no: 1,
@@ -2303,7 +2271,7 @@ class SequencerConnectionSuccessor$Type extends MessageType {
                 },
                 {
                     no: 2,
-                    name: 'physical_synchronizer_id',
+                    name: 'successor_physical_synchronizer_id',
                     kind: 'scalar',
                     T: 9 /*ScalarType.STRING*/,
                 },
@@ -2311,7 +2279,8 @@ class SequencerConnectionSuccessor$Type extends MessageType {
                     no: 3,
                     name: 'connection',
                     kind: 'message',
-                    T: () => SequencerConnectionSuccessor_SequencerConnection,
+                    T: () =>
+                        LsuSequencerConnectionSuccessor_SequencerConnection,
                 },
             ]
         )
@@ -2319,7 +2288,7 @@ class SequencerConnectionSuccessor$Type extends MessageType {
     create(value) {
         const message = globalThis.Object.create(this.messagePrototype)
         message.sequencerId = ''
-        message.physicalSynchronizerId = ''
+        message.successorPhysicalSynchronizerId = ''
         if (value !== undefined) reflectionMergePartial(this, message, value)
         return message
     }
@@ -2332,12 +2301,12 @@ class SequencerConnectionSuccessor$Type extends MessageType {
                 case /* string sequencer_id */ 1:
                     message.sequencerId = reader.string()
                     break
-                case /* string physical_synchronizer_id */ 2:
-                    message.physicalSynchronizerId = reader.string()
+                case /* string successor_physical_synchronizer_id */ 2:
+                    message.successorPhysicalSynchronizerId = reader.string()
                     break
-                case /* com.digitalasset.canton.protocol.v30.SequencerConnectionSuccessor.SequencerConnection connection */ 3:
+                case /* com.digitalasset.canton.protocol.v30.LsuSequencerConnectionSuccessor.SequencerConnection connection */ 3:
                     message.connection =
-                        SequencerConnectionSuccessor_SequencerConnection.internalBinaryRead(
+                        LsuSequencerConnectionSuccessor_SequencerConnection.internalBinaryRead(
                             reader,
                             reader.uint32(),
                             options,
@@ -2367,14 +2336,14 @@ class SequencerConnectionSuccessor$Type extends MessageType {
         /* string sequencer_id = 1; */
         if (message.sequencerId !== '')
             writer.tag(1, WireType.LengthDelimited).string(message.sequencerId)
-        /* string physical_synchronizer_id = 2; */
-        if (message.physicalSynchronizerId !== '')
+        /* string successor_physical_synchronizer_id = 2; */
+        if (message.successorPhysicalSynchronizerId !== '')
             writer
                 .tag(2, WireType.LengthDelimited)
-                .string(message.physicalSynchronizerId)
-        /* com.digitalasset.canton.protocol.v30.SequencerConnectionSuccessor.SequencerConnection connection = 3; */
+                .string(message.successorPhysicalSynchronizerId)
+        /* com.digitalasset.canton.protocol.v30.LsuSequencerConnectionSuccessor.SequencerConnection connection = 3; */
         if (message.connection)
-            SequencerConnectionSuccessor_SequencerConnection.internalBinaryWrite(
+            LsuSequencerConnectionSuccessor_SequencerConnection.internalBinaryWrite(
                 message.connection,
                 writer.tag(3, WireType.LengthDelimited).fork(),
                 options
@@ -2390,97 +2359,15 @@ class SequencerConnectionSuccessor$Type extends MessageType {
     }
 }
 /**
- * @generated MessageType for protobuf message com.digitalasset.canton.protocol.v30.SequencerConnectionSuccessor
+ * @generated MessageType for protobuf message com.digitalasset.canton.protocol.v30.LsuSequencerConnectionSuccessor
  */
-export const SequencerConnectionSuccessor =
-    new SequencerConnectionSuccessor$Type()
+export const LsuSequencerConnectionSuccessor =
+    new LsuSequencerConnectionSuccessor$Type()
 // @generated message type with reflection information, may provide speed optimized methods
-class SequencerConnectionSuccessor_SequencerConnection$Type extends MessageType {
+class LsuSequencerConnectionSuccessor_SequencerConnection$Type extends MessageType {
     constructor() {
         super(
-            'com.digitalasset.canton.protocol.v30.SequencerConnectionSuccessor.SequencerConnection',
-            [
-                {
-                    no: 1,
-                    name: 'grpc',
-                    kind: 'message',
-                    oneof: 'connectionType',
-                    T: () =>
-                        SequencerConnectionSuccessor_SequencerConnection_Grpc,
-                },
-            ]
-        )
-    }
-    create(value) {
-        const message = globalThis.Object.create(this.messagePrototype)
-        message.connectionType = { oneofKind: undefined }
-        if (value !== undefined) reflectionMergePartial(this, message, value)
-        return message
-    }
-    internalBinaryRead(reader, length, options, target) {
-        let message = target ?? this.create(),
-            end = reader.pos + length
-        while (reader.pos < end) {
-            let [fieldNo, wireType] = reader.tag()
-            switch (fieldNo) {
-                case /* com.digitalasset.canton.protocol.v30.SequencerConnectionSuccessor.SequencerConnection.Grpc grpc */ 1:
-                    message.connectionType = {
-                        oneofKind: 'grpc',
-                        grpc: SequencerConnectionSuccessor_SequencerConnection_Grpc.internalBinaryRead(
-                            reader,
-                            reader.uint32(),
-                            options,
-                            message.connectionType.grpc
-                        ),
-                    }
-                    break
-                default:
-                    let u = options.readUnknownField
-                    if (u === 'throw')
-                        throw new globalThis.Error(
-                            `Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`
-                        )
-                    let d = reader.skip(wireType)
-                    if (u !== false)
-                        (u === true ? UnknownFieldHandler.onRead : u)(
-                            this.typeName,
-                            message,
-                            fieldNo,
-                            wireType,
-                            d
-                        )
-            }
-        }
-        return message
-    }
-    internalBinaryWrite(message, writer, options) {
-        /* com.digitalasset.canton.protocol.v30.SequencerConnectionSuccessor.SequencerConnection.Grpc grpc = 1; */
-        if (message.connectionType.oneofKind === 'grpc')
-            SequencerConnectionSuccessor_SequencerConnection_Grpc.internalBinaryWrite(
-                message.connectionType.grpc,
-                writer.tag(1, WireType.LengthDelimited).fork(),
-                options
-            ).join()
-        let u = options.writeUnknownFields
-        if (u !== false)
-            (u == true ? UnknownFieldHandler.onWrite : u)(
-                this.typeName,
-                message,
-                writer
-            )
-        return writer
-    }
-}
-/**
- * @generated MessageType for protobuf message com.digitalasset.canton.protocol.v30.SequencerConnectionSuccessor.SequencerConnection
- */
-export const SequencerConnectionSuccessor_SequencerConnection =
-    new SequencerConnectionSuccessor_SequencerConnection$Type()
-// @generated message type with reflection information, may provide speed optimized methods
-class SequencerConnectionSuccessor_SequencerConnection_Grpc$Type extends MessageType {
-    constructor() {
-        super(
-            'com.digitalasset.canton.protocol.v30.SequencerConnectionSuccessor.SequencerConnection.Grpc',
+            'com.digitalasset.canton.protocol.v30.LsuSequencerConnectionSuccessor.SequencerConnection',
             [
                 {
                     no: 1,
@@ -2556,10 +2443,10 @@ class SequencerConnectionSuccessor_SequencerConnection_Grpc$Type extends Message
     }
 }
 /**
- * @generated MessageType for protobuf message com.digitalasset.canton.protocol.v30.SequencerConnectionSuccessor.SequencerConnection.Grpc
+ * @generated MessageType for protobuf message com.digitalasset.canton.protocol.v30.LsuSequencerConnectionSuccessor.SequencerConnection
  */
-export const SequencerConnectionSuccessor_SequencerConnection_Grpc =
-    new SequencerConnectionSuccessor_SequencerConnection_Grpc$Type()
+export const LsuSequencerConnectionSuccessor_SequencerConnection =
+    new LsuSequencerConnectionSuccessor_SequencerConnection$Type()
 // @generated message type with reflection information, may provide speed optimized methods
 class TopologyMapping$Type extends MessageType {
     constructor() {
@@ -2642,13 +2529,6 @@ class TopologyMapping$Type extends MessageType {
                 T: () => SequencerSynchronizerState,
             },
             {
-                no: 14,
-                name: 'purge_topology_txs',
-                kind: 'message',
-                oneof: 'mapping',
-                T: () => PurgeTopologyTransaction,
-            },
-            {
                 no: 15,
                 name: 'sequencing_dynamic_parameters_state',
                 kind: 'message',
@@ -2667,14 +2547,14 @@ class TopologyMapping$Type extends MessageType {
                 name: 'synchronizer_upgrade_announcement',
                 kind: 'message',
                 oneof: 'mapping',
-                T: () => SynchronizerUpgradeAnnouncement,
+                T: () => LsuAnnouncement,
             },
             {
                 no: 18,
                 name: 'sequencer_connection_successor',
                 kind: 'message',
                 oneof: 'mapping',
-                T: () => SequencerConnectionSuccessor,
+                T: () => LsuSequencerConnectionSuccessor,
             },
         ])
     }
@@ -2820,18 +2700,6 @@ class TopologyMapping$Type extends MessageType {
                             ),
                     }
                     break
-                case /* com.digitalasset.canton.protocol.v30.PurgeTopologyTransaction purge_topology_txs */ 14:
-                    message.mapping = {
-                        oneofKind: 'purgeTopologyTxs',
-                        purgeTopologyTxs:
-                            PurgeTopologyTransaction.internalBinaryRead(
-                                reader,
-                                reader.uint32(),
-                                options,
-                                message.mapping.purgeTopologyTxs
-                            ),
-                    }
-                    break
                 case /* com.digitalasset.canton.protocol.v30.DynamicSequencingParametersState sequencing_dynamic_parameters_state */ 15:
                     message.mapping = {
                         oneofKind: 'sequencingDynamicParametersState',
@@ -2844,7 +2712,7 @@ class TopologyMapping$Type extends MessageType {
                             ),
                     }
                     break
-                case /* com.digitalasset.canton.protocol.v30.PartyToKeyMapping party_to_key_mapping */ 16:
+                case /* com.digitalasset.canton.protocol.v30.PartyToKeyMapping party_to_key_mapping = 16 [deprecated = true] */ 16:
                     message.mapping = {
                         oneofKind: 'partyToKeyMapping',
                         partyToKeyMapping: PartyToKeyMapping.internalBinaryRead(
@@ -2855,11 +2723,11 @@ class TopologyMapping$Type extends MessageType {
                         ),
                     }
                     break
-                case /* com.digitalasset.canton.protocol.v30.SynchronizerUpgradeAnnouncement synchronizer_upgrade_announcement */ 17:
+                case /* com.digitalasset.canton.protocol.v30.LsuAnnouncement synchronizer_upgrade_announcement */ 17:
                     message.mapping = {
                         oneofKind: 'synchronizerUpgradeAnnouncement',
                         synchronizerUpgradeAnnouncement:
-                            SynchronizerUpgradeAnnouncement.internalBinaryRead(
+                            LsuAnnouncement.internalBinaryRead(
                                 reader,
                                 reader.uint32(),
                                 options,
@@ -2867,11 +2735,11 @@ class TopologyMapping$Type extends MessageType {
                             ),
                     }
                     break
-                case /* com.digitalasset.canton.protocol.v30.SequencerConnectionSuccessor sequencer_connection_successor */ 18:
+                case /* com.digitalasset.canton.protocol.v30.LsuSequencerConnectionSuccessor sequencer_connection_successor */ 18:
                     message.mapping = {
                         oneofKind: 'sequencerConnectionSuccessor',
                         sequencerConnectionSuccessor:
-                            SequencerConnectionSuccessor.internalBinaryRead(
+                            LsuSequencerConnectionSuccessor.internalBinaryRead(
                                 reader,
                                 reader.uint32(),
                                 options,
@@ -2976,13 +2844,6 @@ class TopologyMapping$Type extends MessageType {
                 writer.tag(13, WireType.LengthDelimited).fork(),
                 options
             ).join()
-        /* com.digitalasset.canton.protocol.v30.PurgeTopologyTransaction purge_topology_txs = 14; */
-        if (message.mapping.oneofKind === 'purgeTopologyTxs')
-            PurgeTopologyTransaction.internalBinaryWrite(
-                message.mapping.purgeTopologyTxs,
-                writer.tag(14, WireType.LengthDelimited).fork(),
-                options
-            ).join()
         /* com.digitalasset.canton.protocol.v30.DynamicSequencingParametersState sequencing_dynamic_parameters_state = 15; */
         if (message.mapping.oneofKind === 'sequencingDynamicParametersState')
             DynamicSequencingParametersState.internalBinaryWrite(
@@ -2990,23 +2851,23 @@ class TopologyMapping$Type extends MessageType {
                 writer.tag(15, WireType.LengthDelimited).fork(),
                 options
             ).join()
-        /* com.digitalasset.canton.protocol.v30.PartyToKeyMapping party_to_key_mapping = 16; */
+        /* com.digitalasset.canton.protocol.v30.PartyToKeyMapping party_to_key_mapping = 16 [deprecated = true]; */
         if (message.mapping.oneofKind === 'partyToKeyMapping')
             PartyToKeyMapping.internalBinaryWrite(
                 message.mapping.partyToKeyMapping,
                 writer.tag(16, WireType.LengthDelimited).fork(),
                 options
             ).join()
-        /* com.digitalasset.canton.protocol.v30.SynchronizerUpgradeAnnouncement synchronizer_upgrade_announcement = 17; */
+        /* com.digitalasset.canton.protocol.v30.LsuAnnouncement synchronizer_upgrade_announcement = 17; */
         if (message.mapping.oneofKind === 'synchronizerUpgradeAnnouncement')
-            SynchronizerUpgradeAnnouncement.internalBinaryWrite(
+            LsuAnnouncement.internalBinaryWrite(
                 message.mapping.synchronizerUpgradeAnnouncement,
                 writer.tag(17, WireType.LengthDelimited).fork(),
                 options
             ).join()
-        /* com.digitalasset.canton.protocol.v30.SequencerConnectionSuccessor sequencer_connection_successor = 18; */
+        /* com.digitalasset.canton.protocol.v30.LsuSequencerConnectionSuccessor sequencer_connection_successor = 18; */
         if (message.mapping.oneofKind === 'sequencerConnectionSuccessor')
-            SequencerConnectionSuccessor.internalBinaryWrite(
+            LsuSequencerConnectionSuccessor.internalBinaryWrite(
                 message.mapping.sequencerConnectionSuccessor,
                 writer.tag(18, WireType.LengthDelimited).fork(),
                 options
@@ -3057,7 +2918,7 @@ class TopologyTransaction$Type extends MessageType {
             {
                 'scalapb.message': {
                     companionExtends: [
-                        'com.digitalasset.canton.version.AlphaProtoVersion',
+                        'com.digitalasset.canton.version.StableProtoVersion',
                     ],
                 },
             }
@@ -3267,7 +3128,7 @@ class SignedTopologyTransaction$Type extends MessageType {
             {
                 'scalapb.message': {
                     companionExtends: [
-                        'com.digitalasset.canton.version.AlphaProtoVersion',
+                        'com.digitalasset.canton.version.StableProtoVersion',
                     ],
                 },
             }
@@ -3383,7 +3244,7 @@ class SignedTopologyTransactions$Type extends MessageType {
             {
                 'scalapb.message': {
                     companionExtends: [
-                        'com.digitalasset.canton.version.AlphaProtoVersion',
+                        'com.digitalasset.canton.version.StableProtoVersion',
                     ],
                 },
             }
@@ -3465,7 +3326,7 @@ class TopologyTransactionsBroadcast$Type extends MessageType {
             {
                 'scalapb.message': {
                     companionExtends: [
-                        'com.digitalasset.canton.version.AlphaProtoVersion',
+                        'com.digitalasset.canton.version.StableProtoVersion',
                     ],
                 },
             }

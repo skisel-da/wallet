@@ -269,10 +269,6 @@ export interface SigningPrivateKey {
  */
 export interface SigningKeyPair {
     /**
-     * @generated from protobuf field: com.digitalasset.canton.crypto.v30.SigningPublicKey public_key = 1
-     */
-    publicKey?: SigningPublicKey
-    /**
      * @generated from protobuf field: com.digitalasset.canton.crypto.v30.SigningPrivateKey private_key = 2
      */
     privateKey?: SigningPrivateKey
@@ -356,10 +352,6 @@ export interface EncryptionPrivateKey {
  * @generated from protobuf message com.digitalasset.canton.crypto.v30.EncryptionKeyPair
  */
 export interface EncryptionKeyPair {
-    /**
-     * @generated from protobuf field: com.digitalasset.canton.crypto.v30.EncryptionPublicKey public_key = 1
-     */
-    publicKey?: EncryptionPublicKey
     /**
      * @generated from protobuf field: com.digitalasset.canton.crypto.v30.EncryptionPrivateKey private_key = 2
      */
@@ -474,6 +466,23 @@ export interface AsymmetricEncrypted {
      * @generated from protobuf field: string fingerprint = 3
      */
     fingerprint: string
+}
+/**
+ * @generated from protobuf message com.digitalasset.canton.crypto.v30.SigningKeysWithThreshold
+ */
+export interface SigningKeysWithThreshold {
+    /**
+     * the designated signing keys
+     *
+     * @generated from protobuf field: repeated com.digitalasset.canton.crypto.v30.SigningPublicKey keys = 1
+     */
+    keys: SigningPublicKey[]
+    /**
+     * the authorization threshold
+     *
+     * @generated from protobuf field: uint32 threshold = 2
+     */
+    threshold: number
 }
 /**
  * @generated from protobuf enum com.digitalasset.canton.crypto.v30.HashAlgorithm
@@ -722,26 +731,19 @@ export declare enum EncryptionAlgorithmSpec {
      */
     UNSPECIFIED = 0,
     /**
-     * ECIES with ECDH, AES128 GCM, and HKDF and authentication (MAC) with HMAC-SHA256. This requires a P-256 key
+     * ECIES with ECDH, AES128 CBC, and HKDF and authentication (MAC) with HMAC-SHA256. This requires a P-256 key
      * because we use SHA256 and we need to align the lengths of the curve and the hash function.
      *
-     * @generated from protobuf enum value: ENCRYPTION_ALGORITHM_SPEC_ECIES_HKDF_HMAC_SHA256_AES128GCM = 1;
+     * @generated from protobuf enum value: ENCRYPTION_ALGORITHM_SPEC_ECIES_HKDF_HMAC_SHA256_AES128CBC = 1;
      */
-    ECIES_HKDF_HMAC_SHA256_AES128GCM = 1,
-    /**
-     * ECIES with ECDH, AES128 CBC, and HKDF and authentication (MAC) with HMAC-SHA256. This requires a P-256 key
-     * because we use SHA256 and we need to align the lengths of the curve the and hash function.
-     *
-     * @generated from protobuf enum value: ENCRYPTION_ALGORITHM_SPEC_ECIES_HKDF_HMAC_SHA256_AES128CBC = 2;
-     */
-    ECIES_HKDF_HMAC_SHA256_AES128CBC = 2,
+    ECIES_HKDF_HMAC_SHA256_AES128CBC = 1,
     /**
      * RSA with OAEP Padding,
      * using SHA-256 for both the hash and in the MGF1 mask generation function along with an empty label.
      *
-     * @generated from protobuf enum value: ENCRYPTION_ALGORITHM_SPEC_RSA_OAEP_SHA256 = 3;
+     * @generated from protobuf enum value: ENCRYPTION_ALGORITHM_SPEC_RSA_OAEP_SHA256 = 2;
      */
-    RSA_OAEP_SHA256 = 3,
+    RSA_OAEP_SHA256 = 2,
 }
 /**
  * @deprecated
@@ -1210,5 +1212,26 @@ declare class AsymmetricEncrypted$Type extends MessageType<AsymmetricEncrypted> 
  * @generated MessageType for protobuf message com.digitalasset.canton.crypto.v30.AsymmetricEncrypted
  */
 export declare const AsymmetricEncrypted: AsymmetricEncrypted$Type
+declare class SigningKeysWithThreshold$Type extends MessageType<SigningKeysWithThreshold> {
+    constructor()
+    create(
+        value?: PartialMessage<SigningKeysWithThreshold>
+    ): SigningKeysWithThreshold
+    internalBinaryRead(
+        reader: IBinaryReader,
+        length: number,
+        options: BinaryReadOptions,
+        target?: SigningKeysWithThreshold
+    ): SigningKeysWithThreshold
+    internalBinaryWrite(
+        message: SigningKeysWithThreshold,
+        writer: IBinaryWriter,
+        options: BinaryWriteOptions
+    ): IBinaryWriter
+}
+/**
+ * @generated MessageType for protobuf message com.digitalasset.canton.crypto.v30.SigningKeysWithThreshold
+ */
+export declare const SigningKeysWithThreshold: SigningKeysWithThreshold$Type
 export {}
 //# sourceMappingURL=crypto.d.ts.map

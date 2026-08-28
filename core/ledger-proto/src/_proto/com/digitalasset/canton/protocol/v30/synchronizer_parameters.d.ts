@@ -49,10 +49,6 @@ export interface DynamicSynchronizerParameters {
      */
     assignmentExclusivityTimeout?: Duration
     /**
-     * @generated from protobuf field: google.protobuf.Duration topology_change_delay = 4
-     */
-    topologyChangeDelay?: Duration
-    /**
      * @generated from protobuf field: google.protobuf.Duration ledger_time_record_time_tolerance = 5
      */
     ledgerTimeRecordTimeTolerance?: Duration
@@ -65,6 +61,8 @@ export interface DynamicSynchronizerParameters {
      */
     mediatorDeduplicationTimeout?: Duration
     /**
+     * when updated, the new value is effective only after a restart
+     *
      * @generated from protobuf field: uint32 max_request_size = 8
      */
     maxRequestSize: number

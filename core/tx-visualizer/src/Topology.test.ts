@@ -11,6 +11,7 @@ import {
 import { fromBase64, toBase64 } from './utils.js'
 import liveGoldenVector from './fixtures/topology-live-golden-vector.json'
 import syntheticBundle from './fixtures/topology-synthetic-decentralized-bundle.json'
+import syntheticBundleEmbeddedKeys from './fixtures/topology-synthetic-decentralized-bundle-embedded-keys.json'
 
 // These two fixtures cross-check computeTopologyMultiHash/decode/summarize
 // against the exact algorithm implemented independently in
@@ -39,10 +40,21 @@ import syntheticBundle from './fixtures/topology-synthetic-decentralized-bundle.
 //   hashes to sort and combine) the multi-hash sort/combine logic that the
 //   live single-tx fixture can't.
 //
-// Regenerate both by running (from /Users/sergeykisel/Work/wallet):
+// - `topology-synthetic-decentralized-bundle-embedded-keys.json` is the same
+//   kind of synthetic 2-owner bundle, but with only 4 transactions (2x
+//   namespaceDelegation, 1x decentralizedNamespaceDefinition, 1x
+//   partyToParticipant) instead of 5 -- the party's protocol signing keys are
+//   embedded directly on `PartyToParticipant.party_signing_keys` (field 6)
+//   rather than in a separate `PartyToKeyMapping` transaction. This is the
+//   shape a future decentralizer-poc change would produce once
+//   `PartyToKeyMapping` (Canton-deprecated in favor of this field) is dropped
+//   from the bundle. Exercises the same multiHash sort/combine logic with one
+//   fewer transaction, and the new `partySigningKeys` summary field.
+//
+// Regenerate all three by running (from /Users/sergeykisel/Work/wallet):
 //   node <script using @canton-network/core-ledger-proto, see scratchpad
-//   fetch-golden-vector.mjs / build-synthetic-bundle.mjs from the session
-//   that added this test>
+//   fetch-golden-vector.mjs / build-synthetic-bundle.mjs / build-synthetic-
+//   bundle-embedded-keys.mjs from the session that added this test>
 
 describe('computeTopologyMultiHash matches Canton / decentralizer-poc', () => {
     test('matches a live-captured Canton-computed multiHash (single tx)', async () => {
@@ -57,6 +69,13 @@ describe('computeTopologyMultiHash matches Canton / decentralizer-poc', () => {
             syntheticBundle.transactionsBase64
         )
         expect(computed).toEqual(syntheticBundle.multiHashBase64)
+    })
+
+    test('matches an independently-computed multiHash for a 4-tx bundle with signing keys embedded on PartyToParticipant', async () => {
+        const computed = await computeTopologyMultiHash(
+            syntheticBundleEmbeddedKeys.transactionsBase64
+        )
+        expect(computed).toEqual(syntheticBundleEmbeddedKeys.multiHashBase64)
     })
 
     test('is order-independent (hashes are sorted before combining)', async () => {
@@ -174,5 +193,50 @@ describe('summarizeTopologyTransaction', () => {
         if (summary.kind !== 'partyToParticipant')
             throw new Error('unreachable')
         expect(summary.party).toEqual(liveGoldenVector.partyId)
+    })
+})
+
+describe('summarizeTopologyTransaction (signing keys embedded on PartyToParticipant)', () => {
+    const decoded = syntheticBundleEmbeddedKeys.transactionsBase64.map(
+        (b64: string) => decodeVersionedTopologyTransaction(b64)
+    )
+    const summaries = decoded.map((tx) => summarizeTopologyTransaction(tx))
+
+    test('the bundle has exactly 4 transactions and no partyToKeyMapping', () => {
+        expect(summaries).toHaveLength(4)
+        expect(
+            summaries.filter((s) => s.kind === 'partyToKeyMapping')
+        ).toHaveLength(0)
+    })
+
+    test('summarizes partySigningKeys from PartyToParticipant.party_signing_keys', () => {
+        const p2p = summaries.find((s) => s.kind === 'partyToParticipant')
+        expect(p2p).toBeDefined()
+        if (p2p?.kind !== 'partyToParticipant') throw new Error('unreachable')
+
+        expect(p2p.party).toEqual(syntheticBundleEmbeddedKeys.partyId)
+        expect(p2p.participants.map((p) => p.participantUid).sort()).toEqual(
+            syntheticBundleEmbeddedKeys.ownerParticipantUids.slice().sort()
+        )
+        expect(p2p.partySigningKeys).toBeDefined()
+        expect(p2p.partySigningKeys?.threshold).toEqual(
+            syntheticBundleEmbeddedKeys.partySigningKeysThreshold
+        )
+        expect(p2p.partySigningKeys?.signingKeyCount).toEqual(
+            syntheticBundleEmbeddedKeys.partySigningKeysCount
+        )
+    })
+
+    test('the older 5-tx fixture has no partySigningKeys on its partyToParticipant summary', () => {
+        const olderDecoded = syntheticBundle.transactionsBase64.map(
+            (b64: string) => decodeVersionedTopologyTransaction(b64)
+        )
+        const olderSummaries = olderDecoded.map((tx) =>
+            summarizeTopologyTransaction(tx)
+        )
+        const p2p = olderSummaries.find((s) => s.kind === 'partyToParticipant')
+        expect(p2p).toBeDefined()
+        if (p2p?.kind !== 'partyToParticipant') throw new Error('unreachable')
+        expect(p2p.partySigningKeys).toBeUndefined()
     })
 })
