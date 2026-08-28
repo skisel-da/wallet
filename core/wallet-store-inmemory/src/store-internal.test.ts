@@ -12,6 +12,7 @@ import {
     Network,
     Transaction,
     MessageRaw,
+    TopologyBundleRaw,
     UserLevelRight,
     PartyLevelRight,
     ApiKey,
@@ -854,6 +855,50 @@ implementations.forEach(([name, StoreImpl]) => {
 
             await store.removeMessageRaw('msg-1')
             expect(await store.listMessageRaws()).toHaveLength(0)
+        })
+
+        test('should manage topology-transactions signing requests', async () => {
+            const bundle: TopologyBundleRaw = {
+                id: 'topo-1',
+                status: 'pending',
+                userId: authContextMock.userId,
+                partyId: 'party1',
+                publicKey: 'pk',
+                transactions: ['dGVzdA=='],
+                summaries: [
+                    {
+                        kind: 'namespaceDelegation',
+                        namespace: 'ns1',
+                        isRootDelegation: true,
+                    },
+                ],
+                origin: 'https://app.example',
+                createdAt: new Date('2026-01-01T00:00:00.000Z'),
+            }
+
+            await store.setTopologyBundleRaw(bundle)
+            await store.setTopologyBundleRawStatus('topo-1', 'signed', {
+                signature: 'sig',
+                multiHash: 'hash',
+                signedAt: new Date('2026-01-01T00:01:00.000Z'),
+            })
+
+            const stored = await store.getTopologyBundleRaw('topo-1')
+            expect(stored?.status).toBe('signed')
+            expect(stored?.signature).toBe('sig')
+            expect(stored?.multiHash).toBe('hash')
+            expect(await store.listTopologyBundleRaws()).toHaveLength(1)
+
+            await expect(
+                store.setTopologyBundleRaw({ ...bundle, userId: 'other-user' })
+            ).rejects.toThrow('userId mismatch')
+
+            await expect(
+                store.setTopologyBundleRawStatus('missing', 'failed')
+            ).rejects.toThrow('TopologyBundleRaw not found')
+
+            await store.removeTopologyBundleRaw('topo-1')
+            expect(await store.listTopologyBundleRaws()).toHaveLength(0)
         })
 
         test('should manage api keys', async () => {

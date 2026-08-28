@@ -16,6 +16,14 @@ import {
     GetMessageToSignResult,
     ListMessagesToSignResult,
     DeleteMessageToSignParams,
+    SignTopologyTransactionsParams,
+    SignTopologyTransactionsResult,
+    GetTopologyBundleToSignParams,
+    GetTopologyBundleToSignResult,
+    ListTopologyBundlesToSignResult,
+    DeleteTopologyBundleToSignParams,
+    TopologyBundleRaw as TopologyBundleRawDto,
+    TopologyTransactionSummary as TopologyTransactionSummaryDto,
     AddSessionParams,
     AddSessionResult,
     ListSessionsResult,
@@ -49,7 +57,13 @@ import {
     ListSigningProviderKeysParams,
     ListSigningProviderKeysResult,
 } from './rpc-gen/typings.js'
-import { Store, Network } from '@canton-network/core-wallet-store'
+import {
+    Store,
+    Network,
+    TopologyBundleRaw as StoreTopologyBundleRaw,
+    TopologyTransactionSummary as StoreTopologyTransactionSummary,
+} from '@canton-network/core-wallet-store'
+import { computeTopologyMultiHash } from '@canton-network/core-tx-visualizer'
 import { Logger } from 'pino'
 import { NotificationService } from '../notification/NotificationService.js'
 import {
@@ -72,6 +86,7 @@ import { TransactionService } from '../ledger/transaction-service.js'
 import { StatusEvent } from '../dapp-api/rpc-gen/typings.js'
 import type {
     MessageSignatureEvent,
+    TopologyTransactionsSignatureEvent,
     TxChangedFailedEvent,
 } from '../dapp-api/rpc-gen/typings.js'
 import { providerErrors, rpcErrors } from '@canton-network/core-rpc-errors'
@@ -163,6 +178,68 @@ export const userController = (
         if (!keys)
             throw new Error(`No keys ofr ${params.signingProviderId} found`)
         return keys
+    }
+
+    function toTopologyTransactionSummaryDto(
+        summary: StoreTopologyTransactionSummary
+    ): TopologyTransactionSummaryDto {
+        switch (summary.kind) {
+            case 'namespaceDelegation':
+                return {
+                    kind: summary.kind,
+                    namespace: summary.namespace,
+                    isRootDelegation: summary.isRootDelegation,
+                }
+            case 'decentralizedNamespaceDefinition':
+                return {
+                    kind: summary.kind,
+                    decentralizedNamespace: summary.decentralizedNamespace,
+                    threshold: summary.threshold,
+                    owners: summary.owners,
+                }
+            case 'partyToParticipant':
+                return {
+                    kind: summary.kind,
+                    party: summary.party,
+                    threshold: summary.threshold,
+                    participants: summary.participants,
+                }
+            case 'partyToKeyMapping':
+                return {
+                    kind: summary.kind,
+                    party: summary.party,
+                    threshold: summary.threshold,
+                    signingKeyCount: summary.signingKeyCount,
+                }
+            case 'unknown':
+                return {
+                    kind: summary.kind,
+                    mappingKind: summary.mappingKind,
+                }
+        }
+    }
+
+    function toTopologyBundleRawDto(
+        bundle: StoreTopologyBundleRaw
+    ): TopologyBundleRawDto {
+        return {
+            id: bundle.id,
+            status: bundle.status,
+            partyId: bundle.partyId,
+            publicKey: bundle.publicKey,
+            transactions: bundle.transactions,
+            summaries: bundle.summaries.map(toTopologyTransactionSummaryDto),
+            ...(bundle.synchronizerId !== undefined && {
+                synchronizerId: bundle.synchronizerId,
+            }),
+            ...(bundle.origin !== null && { origin: bundle.origin }),
+            createdAt: bundle.createdAt.toISOString(),
+            ...(bundle.signedAt && {
+                signedAt: bundle.signedAt.toISOString(),
+            }),
+            ...(bundle.signature && { signature: bundle.signature }),
+            ...(bundle.multiHash && { multiHash: bundle.multiHash }),
+        }
     }
 
     return buildController({
@@ -716,6 +793,179 @@ export const userController = (
                 )
             }
             await store.removeMessageRaw(message.id)
+            return null
+        },
+        signTopologyTransactions: async (
+            params: SignTopologyTransactionsParams
+        ): Promise<SignTopologyTransactionsResult> => {
+            const pending = await store.getTopologyBundleRaw(params.requestId)
+            if (!pending) {
+                throw new Error(
+                    `Topology-transactions signing request not found with id: ${params.requestId}`
+                )
+            }
+            if (pending.status !== 'pending') {
+                throw new Error(
+                    `Cannot sign topology bundle with status '${pending.status}'. Only pending bundles can be signed.`
+                )
+            }
+
+            const userId = assertConnected(authContext).userId
+            if (pending.userId !== userId) {
+                throw new Error(
+                    `Topology-transactions signing request ${pending.id} is not owned by user ${userId}`
+                )
+            }
+
+            const session = await store.getSession(
+                assertConnected(authContext).accessToken
+            )
+            if (!session) {
+                throw new Error('No active session found')
+            }
+            const notifier = notificationService.getNotifier(session.id)
+
+            const emitFailedAndPersist = async (
+                details: string
+            ): Promise<never> => {
+                // Best-effort: make sure listeners see a terminal state.
+                try {
+                    await store.setTopologyBundleRawStatus(pending.id, 'failed')
+                } catch {
+                    // ignore (e.g. record removed concurrently)
+                }
+                notifier.emit('topologyTransactionsSignature', {
+                    status: 'failed',
+                    requestId: pending.id,
+                } satisfies TopologyTransactionsSignatureEvent)
+                // Preserve the original error message for the caller/UI.
+                throw new Error(details)
+            }
+
+            const wallet = (await store.getWallets()).find(
+                (w) => w.partyId === pending.partyId
+            )
+            if (!wallet) {
+                return await emitFailedAndPersist(
+                    `No wallet found for partyId ${pending.partyId} (from topology-transactions request ${pending.id})`
+                )
+            }
+            if (wallet.publicKey !== pending.publicKey) {
+                return await emitFailedAndPersist(
+                    `Wallet public key changed for partyId ${pending.partyId}; refusing to sign topology-transactions request ${pending.id}`
+                )
+            }
+
+            // Only WALLET_KERNEL wallets are supported: this reuses the
+            // existing, unmodified `signTransaction` method on the signing
+            // driver (which signs a raw hash via signTransactionHash) rather
+            // than adding a new method to the driver interface -- `Methods`
+            // is exhaustive there, and a new method would force stub
+            // implementations into all 6 other driver packages.
+            if (wallet.signingProviderId !== SigningProvider.WALLET_KERNEL) {
+                return await emitFailedAndPersist(
+                    `signTopologyTransactions is only supported for ${SigningProvider.WALLET_KERNEL} wallets, got ${wallet.signingProviderId}`
+                )
+            }
+
+            const driver =
+                drivers[SigningProvider.WALLET_KERNEL]?.controller(userId)
+            if (!driver) {
+                return await emitFailedAndPersist(
+                    'Wallet Kernel signing driver not available'
+                )
+            }
+
+            // Core security property: the multiHash is recomputed fresh
+            // from the raw transaction bytes stored at receipt time --
+            // never from a cached or dApp-supplied value.
+            const multiHash = await computeTopologyMultiHash(
+                pending.transactions
+            )
+
+            const result = await driver.signTransaction({
+                // Unused by the WALLET_KERNEL driver's signTransaction
+                // (it only inspects txHash and keyIdentifier), but required
+                // by SignTransactionParams.
+                tx: '',
+                txHash: multiHash,
+                keyIdentifier: { publicKey: wallet.publicKey },
+            })
+
+            if (isRpcError(result)) {
+                await store.setTopologyBundleRawStatus(pending.id, 'failed')
+                notifier.emit('topologyTransactionsSignature', {
+                    status: 'failed',
+                    requestId: pending.id,
+                } satisfies TopologyTransactionsSignatureEvent)
+                throw new Error(result.error_description)
+            }
+
+            if (!result?.signature) {
+                await store.setTopologyBundleRawStatus(pending.id, 'failed')
+                notifier.emit('topologyTransactionsSignature', {
+                    status: 'failed',
+                    requestId: pending.id,
+                } satisfies TopologyTransactionsSignatureEvent)
+                throw new Error(`signTopologyTransactions failed`)
+            }
+
+            await store.setTopologyBundleRawStatus(pending.id, 'signed', {
+                signedAt: new Date(),
+                signature: result.signature,
+                multiHash,
+            })
+
+            notifier.emit('topologyTransactionsSignature', {
+                status: 'signed',
+                requestId: pending.id,
+                signature: result.signature,
+                multiHash,
+            } satisfies TopologyTransactionsSignatureEvent)
+
+            return {
+                signature: result.signature,
+                publicKey: wallet.publicKey,
+                multiHash,
+            }
+        },
+        getTopologyBundleToSign: async (
+            params: GetTopologyBundleToSignParams
+        ): Promise<GetTopologyBundleToSignResult> => {
+            const bundle = await store.getTopologyBundleRaw(params.requestId)
+            if (!bundle) {
+                throw new Error(
+                    `Topology-transactions signing request not found with id: ${params.requestId}`
+                )
+            }
+            return { bundle: toTopologyBundleRawDto(bundle) }
+        },
+        listTopologyBundlesToSign:
+            async (): Promise<ListTopologyBundlesToSignResult> => {
+                const bundles = await store.listTopologyBundleRaws()
+                return { bundles: bundles.map(toTopologyBundleRawDto) }
+            },
+        deleteTopologyBundleToSign: async (
+            params: DeleteTopologyBundleToSignParams
+        ): Promise<Null> => {
+            const bundle = await store.getTopologyBundleRaw(params.requestId)
+            if (!bundle) {
+                throw new Error(
+                    `Topology-transactions signing request not found with id: ${params.requestId}`
+                )
+            }
+            if (bundle.status !== 'pending') {
+                throw new Error(
+                    `Cannot delete topology bundle with status '${bundle.status}'. Only pending bundles can be deleted.`
+                )
+            }
+            const userId = assertConnected(authContext).userId
+            if (bundle.userId !== userId) {
+                throw new Error(
+                    `Topology-transactions signing request ${bundle.id} is not owned by user ${userId}`
+                )
+            }
+            await store.removeTopologyBundleRaw(bundle.id)
             return null
         },
         execute: async (executeParams: ExecuteParams) => {

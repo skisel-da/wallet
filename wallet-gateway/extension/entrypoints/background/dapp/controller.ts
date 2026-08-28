@@ -19,7 +19,10 @@ import type {
     Provider,
     SignMessageParams,
     SignMessageResult,
+    SignTopologyTransactionsParams,
+    SignTopologyTransactionsResult,
     StatusEvent,
+    TopologyTransactionsSignatureEvent,
     Wallet,
 } from './rpc-gen/typings.js'
 
@@ -243,10 +246,21 @@ export const dappController = (
         ): Promise<SignMessageResult> {
             throw new Error('Function signMessage not implemented.')
         },
+        signTopologyTransactions: function (
+            params: SignTopologyTransactionsParams
+        ): Promise<SignTopologyTransactionsResult> {
+            throw new Error(
+                'Function signTopologyTransactions not implemented.'
+            )
+        },
         getPrimaryAccount: async function (): Promise<Wallet> {
             throw new Error('Function getPrimaryAccount not implemented.')
         },
         messageSignature: async () => {
             throw new Error('Only for events.')
         },
+        topologyTransactionsSignature:
+            async (): Promise<TopologyTransactionsSignatureEvent> => {
+                throw new Error('Only for events.')
+            },
     })

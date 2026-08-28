@@ -747,6 +747,134 @@
             "description": "Rejects a pending message signing request."
         },
         {
+            "name": "signTopologyTransactions",
+            "params": [
+                {
+                    "name": "params",
+                    "schema": {
+                        "title": "SignTopologyTransactionsParams",
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "requestId": {
+                                "$ref": "#/components/schemas/TopologyRequestId"
+                            }
+                        },
+                        "required": ["requestId"]
+                    }
+                }
+            ],
+            "result": {
+                "name": "result",
+                "schema": {
+                    "title": "SignTopologyTransactionsResult",
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "signature": {
+                            "title": "signature",
+                            "type": "string",
+                            "description": "Base64-encoded Ed25519 signature over the bundle's multiHash."
+                        },
+                        "publicKey": {
+                            "title": "publicKey",
+                            "type": "string",
+                            "description": "Base64-encoded Ed25519 public key of the wallet that produced the signature."
+                        },
+                        "multiHash": {
+                            "title": "multiHash",
+                            "type": "string",
+                            "description": "The multiHash actually signed, recomputed fresh from the stored raw transaction bytes at sign time -- never a cached or dApp-supplied value."
+                        }
+                    },
+                    "required": ["signature", "publicKey", "multiHash"]
+                }
+            },
+            "description": "Recomputes the multiHash from the stored raw topology-transaction bytes and signs it with the wallet's private key (Ed25519). Only supported for WALLET_KERNEL wallets."
+        },
+        {
+            "name": "getTopologyBundleToSign",
+            "params": [
+                {
+                    "name": "params",
+                    "schema": {
+                        "title": "GetTopologyBundleToSignParams",
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "requestId": {
+                                "$ref": "#/components/schemas/TopologyRequestId"
+                            }
+                        },
+                        "required": ["requestId"]
+                    }
+                }
+            ],
+            "result": {
+                "name": "result",
+                "schema": {
+                    "title": "GetTopologyBundleToSignResult",
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "bundle": {
+                            "$ref": "#/components/schemas/TopologyBundleRaw"
+                        }
+                    },
+                    "required": ["bundle"]
+                }
+            },
+            "description": "Gets a pending topology-transactions signing request, including the wallet's decoded, display-only summary of each transaction."
+        },
+        {
+            "name": "listTopologyBundlesToSign",
+            "params": [],
+            "result": {
+                "name": "result",
+                "schema": {
+                    "title": "ListTopologyBundlesToSignResult",
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "bundles": {
+                            "title": "bundles",
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/components/schemas/TopologyBundleRaw"
+                            }
+                        }
+                    },
+                    "required": ["bundles"]
+                }
+            }
+        },
+        {
+            "name": "deleteTopologyBundleToSign",
+            "params": [
+                {
+                    "name": "params",
+                    "schema": {
+                        "title": "DeleteTopologyBundleToSignParams",
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "requestId": {
+                                "$ref": "#/components/schemas/TopologyRequestId"
+                            }
+                        },
+                        "required": ["requestId"]
+                    }
+                }
+            ],
+            "result": {
+                "name": "result",
+                "schema": {
+                    "$ref": "#/components/schemas/Null"
+                }
+            },
+            "description": "Rejects a pending topology-transactions signing request."
+        },
+        {
             "name": "execute",
             "params": [
                 {
@@ -1739,6 +1867,182 @@
                 "type": "string",
                 "format": "uuid",
                 "description": "The internal identifier of the pending message-signing request."
+            },
+            "TopologyRequestId": {
+                "title": "TopologyRequestId",
+                "type": "string",
+                "format": "uuid",
+                "description": "The internal identifier of the pending topology-transactions signing request."
+            },
+            "TopologyHostingParticipant": {
+                "title": "TopologyHostingParticipant",
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "participantUid": {
+                        "title": "participantUid",
+                        "type": "string"
+                    },
+                    "permission": {
+                        "title": "permission",
+                        "type": "number"
+                    }
+                },
+                "required": ["participantUid", "permission"]
+            },
+            "TopologyTransactionSummary": {
+                "title": "TopologyTransactionSummary",
+                "type": "object",
+                "description": "Decoded, display-only summary of one topology transaction within a signing bundle. Never used for hashing/signing -- only the raw stored bytes are.",
+                "additionalProperties": false,
+                "properties": {
+                    "kind": {
+                        "title": "kind",
+                        "type": "string",
+                        "enum": [
+                            "namespaceDelegation",
+                            "decentralizedNamespaceDefinition",
+                            "partyToParticipant",
+                            "partyToKeyMapping",
+                            "unknown"
+                        ]
+                    },
+                    "namespace": {
+                        "title": "namespace",
+                        "type": "string",
+                        "description": "Set when kind is namespaceDelegation."
+                    },
+                    "isRootDelegation": {
+                        "title": "isRootDelegation",
+                        "type": "boolean",
+                        "description": "Set when kind is namespaceDelegation."
+                    },
+                    "decentralizedNamespace": {
+                        "title": "decentralizedNamespace",
+                        "type": "string",
+                        "description": "Set when kind is decentralizedNamespaceDefinition."
+                    },
+                    "threshold": {
+                        "title": "threshold",
+                        "type": "number",
+                        "description": "Set when kind is decentralizedNamespaceDefinition, partyToParticipant, or partyToKeyMapping."
+                    },
+                    "owners": {
+                        "title": "owners",
+                        "type": "array",
+                        "description": "Set when kind is decentralizedNamespaceDefinition.",
+                        "items": {
+                            "title": "ownerFingerprint",
+                            "type": "string"
+                        }
+                    },
+                    "party": {
+                        "title": "party",
+                        "type": "string",
+                        "description": "Set when kind is partyToParticipant or partyToKeyMapping."
+                    },
+                    "participants": {
+                        "title": "participants",
+                        "type": "array",
+                        "description": "Set when kind is partyToParticipant.",
+                        "items": {
+                            "$ref": "#/components/schemas/TopologyHostingParticipant"
+                        }
+                    },
+                    "signingKeyCount": {
+                        "title": "signingKeyCount",
+                        "type": "number",
+                        "description": "Set when kind is partyToKeyMapping."
+                    },
+                    "mappingKind": {
+                        "title": "mappingKind",
+                        "type": "string",
+                        "description": "Set when kind is unknown: the raw TopologyMapping oneofKind that isn't recognized."
+                    }
+                },
+                "required": ["kind"]
+            },
+            "TopologyBundleRaw": {
+                "title": "TopologyBundleRaw",
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "id": {
+                        "$ref": "#/components/schemas/TopologyRequestId"
+                    },
+                    "status": {
+                        "title": "status",
+                        "type": "string",
+                        "enum": ["pending", "signed", "failed"]
+                    },
+                    "partyId": {
+                        "title": "partyId",
+                        "type": "string",
+                        "description": "The party id of the wallet asked to co-sign this bundle."
+                    },
+                    "publicKey": {
+                        "title": "publicKey",
+                        "type": "string",
+                        "description": "The public key of the party."
+                    },
+                    "transactions": {
+                        "title": "topologyBundleTransactions",
+                        "type": "array",
+                        "description": "Base64-encoded, UntypedVersionedMessage-wrapped raw transaction bytes -- the source of truth the signature is computed from. Never trust the summaries below for signing.",
+                        "items": {
+                            "title": "topologyTransactionBase64",
+                            "type": "string"
+                        }
+                    },
+                    "summaries": {
+                        "title": "summaries",
+                        "type": "array",
+                        "description": "Decoded, display-only summary of each transaction, computed once at receipt time.",
+                        "items": {
+                            "$ref": "#/components/schemas/TopologyTransactionSummary"
+                        }
+                    },
+                    "synchronizerId": {
+                        "title": "synchronizerId",
+                        "type": "string"
+                    },
+                    "origin": {
+                        "title": "origin",
+                        "type": "string",
+                        "description": "The origin of the request."
+                    },
+                    "createdAt": {
+                        "title": "createdAt",
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "The timestamp when the request was created."
+                    },
+                    "signedAt": {
+                        "title": "signedAt",
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "The timestamp when the bundle was signed."
+                    },
+                    "signature": {
+                        "title": "signature",
+                        "type": "string",
+                        "description": "The signature over the bundle's multiHash."
+                    },
+                    "multiHash": {
+                        "title": "multiHash",
+                        "type": "string",
+                        "description": "The multiHash actually signed, recomputed fresh at sign time."
+                    }
+                },
+                "required": [
+                    "id",
+                    "status",
+                    "partyId",
+                    "publicKey",
+                    "transactions",
+                    "summaries",
+                    "createdAt"
+                ]
             },
             "GeneratedApiKey": {
                 "title": "GeneratedApiKey",

@@ -120,6 +120,37 @@
             "description": "Requests a message signature. The wallet will prompt the user for confirmation."
         },
         {
+            "name": "signTopologyTransactions",
+            "params": [
+                {
+                    "name": "params",
+                    "required": true,
+                    "schema": {
+                        "title": "signTopologyTransactionsParams",
+                        "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/SignTopologyTransactionsRequest"
+                    }
+                }
+            ],
+            "result": {
+                "name": "result",
+                "schema": {
+                    "title": "signTopologyTransactionsResult",
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "requestId": {
+                            "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/TopologyRequestId"
+                        },
+                        "userUrl": {
+                            "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/UserUrl"
+                        }
+                    },
+                    "required": ["requestId", "userUrl"]
+                }
+            },
+            "description": "Requests a topology-transactions bundle signature. The wallet will prompt the user for confirmation."
+        },
+        {
             "name": "ledgerApi",
             "params": [
                 {
@@ -207,6 +238,16 @@
                 "name": "result",
                 "schema": {
                     "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/MessageSignatureEvent"
+                }
+            }
+        },
+        {
+            "name": "topologyTransactionsSignature",
+            "params": [],
+            "result": {
+                "name": "result",
+                "schema": {
+                    "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/TopologyTransactionsSignatureEvent"
                 }
             }
         }

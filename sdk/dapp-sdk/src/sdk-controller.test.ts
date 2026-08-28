@@ -16,6 +16,7 @@ import type {
     LedgerApiParams,
     PrepareExecuteParams,
     SignMessageParams,
+    SignTopologyTransactionsParams,
 } from './dapp-api/rpc-gen/typings'
 import { ErrorCode } from './error'
 import { dappSDKController } from './sdk-controller'
@@ -76,6 +77,9 @@ const asProvider = (mock: MockDappAsyncProvider): DappAsyncProvider =>
 
 const prepareExecuteParams: PrepareExecuteParams = { commands: [] }
 const signMessageParams: SignMessageParams = { message: 'hello' }
+const signTopologyTransactionsParams: SignTopologyTransactionsParams = {
+    transactions: ['dGVzdA=='],
+}
 const ledgerApiParams: LedgerApiParams = {
     requestMethod: 'get',
     resource: '/v2/state/active-contracts',
@@ -276,6 +280,82 @@ describe('dappSDKController', () => {
         })
     })
 
+    it('resolves signTopologyTransactions after a matching signature event', async () => {
+        const mock = makeProvider()
+        mock.request.mockResolvedValue({
+            requestId: 'request-1',
+            userUrl:
+                'https://wallet.example.com/sign-topology?requestId=request-1',
+        })
+
+        const controller = dappSDKController(asProvider(mock))
+        const signPromise = controller.signTopologyTransactions(
+            signTopologyTransactionsParams
+        )
+
+        await vi.waitFor(() => {
+            expect(mock.on).toHaveBeenCalledWith(
+                'topologyTransactionsSignature',
+                expect.any(Function)
+            )
+        })
+
+        mock.emit('topologyTransactionsSignature', {
+            requestId: 'other-request',
+            status: 'signed',
+            signature: 'ignored',
+            multiHash: 'ignored',
+        })
+        mock.emit('topologyTransactionsSignature', {
+            requestId: 'request-1',
+            status: 'pending',
+        })
+        mock.emit('topologyTransactionsSignature', {
+            requestId: 'request-1',
+            status: 'signed',
+            signature: 'signed-bundle',
+            multiHash: 'computed-multi-hash',
+        })
+
+        await expect(signPromise).resolves.toEqual({
+            signature: 'signed-bundle',
+            multiHash: 'computed-multi-hash',
+        })
+    })
+
+    it('rejects signTopologyTransactions when signing fails', async () => {
+        const mock = makeProvider()
+        mock.request.mockResolvedValue({
+            requestId: 'request-1',
+            userUrl:
+                'https://wallet.example.com/sign-topology?requestId=request-1',
+        })
+
+        const controller = dappSDKController(asProvider(mock))
+        const signPromise = controller.signTopologyTransactions(
+            signTopologyTransactionsParams
+        )
+
+        await vi.waitFor(() => {
+            expect(mock.on).toHaveBeenCalledWith(
+                'topologyTransactionsSignature',
+                expect.any(Function)
+            )
+        })
+
+        mock.emit('topologyTransactionsSignature', {
+            requestId: 'request-1',
+            status: 'failed',
+        })
+
+        await expect(signPromise).rejects.toEqual({
+            status: 'error',
+            error: ErrorCode.TransactionFailed,
+            details:
+                'Topology-transactions signing failed for requestId request-1.',
+        })
+    })
+
     it('throws for event-only controller methods', async () => {
         const mock = makeProvider()
         const controller = dappSDKController(asProvider(mock))
@@ -285,5 +365,8 @@ describe('dappSDKController', () => {
         )
         await expect(controller.txChanged()).rejects.toThrow('Only for events.')
         expect(() => controller.messageSignature()).toThrow('Only for events.')
+        expect(() => controller.topologyTransactionsSignature()).toThrow(
+            'Only for events.'
+        )
     })
 })

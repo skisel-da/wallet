@@ -14,6 +14,7 @@ import {
     Network,
     PartyLevelRight,
     Session,
+    TopologyBundleRaw,
     Transaction,
     UserLevelRight,
     Wallet,
@@ -983,6 +984,80 @@ implementations.forEach(([name, StoreImpl]) => {
             ).rejects.toThrow('MessageRaw userId mismatch')
         })
 
+        test('should manage topology-transactions signing requests', async () => {
+            const store = new StoreImpl(db, pino(sink()), authContextMock)
+            await store.addIdp(idp)
+            await store.addNetwork(network)
+            await store.setSession({
+                id: 'session-topology',
+                origin: 'dapp-1',
+                network: 'network1',
+                accessToken: 'test-access-token',
+            })
+
+            const bundle: TopologyBundleRaw = {
+                id: 'topo-1',
+                status: 'pending',
+                userId: authContextMock.userId,
+                partyId: 'party-topo',
+                publicKey: 'publicKey',
+                transactions: ['dGVzdA=='],
+                summaries: [
+                    {
+                        kind: 'namespaceDelegation',
+                        namespace: 'ns1',
+                        isRootDelegation: true,
+                    },
+                ],
+                synchronizerId: 'synchronizer::1',
+                origin: 'https://dapp.example',
+                createdAt: new Date('2026-03-01T10:00:00.000Z'),
+            }
+
+            await store.setTopologyBundleRaw(bundle)
+            await store.setTopologyBundleRawStatus('topo-1', 'signed', {
+                signedAt: new Date('2026-03-01T10:01:00.000Z'),
+                signature: 'signature-bytes',
+                multiHash: 'multi-hash-bytes',
+            })
+
+            const fetched = await store.getTopologyBundleRaw('topo-1')
+            expect(fetched?.status).toBe('signed')
+            expect(fetched?.signature).toBe('signature-bytes')
+            expect(fetched?.multiHash).toBe('multi-hash-bytes')
+            expect(fetched?.summaries).toEqual(bundle.summaries)
+            expect(await store.listTopologyBundleRaws()).toHaveLength(1)
+
+            await store.removeTopologyBundleRaw('topo-1')
+            expect(await store.getTopologyBundleRaw('topo-1')).toBeUndefined()
+        })
+
+        test('should reject topology bundle raw with mismatched userId', async () => {
+            const store = new StoreImpl(db, pino(sink()), authContextMock)
+            await store.addIdp(idp)
+            await store.addNetwork(network)
+            await store.setSession({
+                id: 'session-topo-mismatch',
+                origin: 'dapp-1',
+                network: 'network1',
+                accessToken: 'test-access-token',
+            })
+
+            await expect(
+                store.setTopologyBundleRaw({
+                    id: 'topo-bad',
+                    status: 'pending',
+                    userId: 'other-user',
+                    partyId: 'party-topo',
+                    publicKey: 'publicKey',
+                    transactions: ['dGVzdA=='],
+                    summaries: [{ kind: 'unknown', mappingKind: 'unknown' }],
+                    origin: null,
+                    createdAt: new Date(),
+                })
+            ).rejects.toThrow('TopologyBundleRaw userId mismatch')
+        })
+
         test('should support latest transaction lookup and removal', async () => {
             const store = new StoreImpl(db, pino(sink()), authContextMock)
             await store.addIdp(idp)
@@ -1048,6 +1123,10 @@ implementations.forEach(([name, StoreImpl]) => {
             await expect(
                 store.setMessageRawStatus('missing-msg', 'failed')
             ).rejects.toThrow('MessageRaw not found')
+
+            await expect(
+                store.setTopologyBundleRawStatus('missing-topo', 'failed')
+            ).rejects.toThrow('TopologyBundleRaw not found')
         })
     })
 })

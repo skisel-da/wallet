@@ -22,6 +22,8 @@ import {
     UserLevelRight,
     MessageRaw,
     MessageRawStatusUpdate,
+    TopologyBundleRaw,
+    TopologyBundleRawStatusUpdate,
     ApiKey,
     ListTransactionsOptions,
     WalletUniqueConstraint,
@@ -33,6 +35,7 @@ interface UserStorage {
     wallets: Array<Wallet>
     transactions: Map<string, Transaction>
     messageRaws: Map<string, MessageRaw>
+    topologyBundleRaws: Map<string, TopologyBundleRaw>
     sessions: Map<AccessToken, Session>
     apiKeys: Map<string, ApiKey>
     userRightsByNetwork: Map<string, Set<UserLevelRight>>
@@ -81,6 +84,7 @@ export class StoreInternal implements Store, AuthAware<StoreInternal> {
             wallets: [],
             transactions: new Map<string, Transaction>(),
             messageRaws: new Map<string, MessageRaw>(),
+            topologyBundleRaws: new Map<string, TopologyBundleRaw>(),
             sessions: new Map<AccessToken, Session>(),
             apiKeys: new Map<string, ApiKey>(),
             userRightsByNetwork: new Map<string, Set<UserLevelRight>>(),
@@ -622,6 +626,78 @@ export class StoreInternal implements Store, AuthAware<StoreInternal> {
         this.assertConnected()
         const storage = this.getStorage()
         storage.messageRaws.delete(messageId)
+        this.updateStorage(storage)
+    }
+
+    private mergeTopologyBundleRawStatusUpdate(
+        existing: TopologyBundleRaw,
+        status: TopologyBundleRaw['status'],
+        updates: TopologyBundleRawStatusUpdate = {}
+    ): TopologyBundleRaw {
+        const signedAt = updates.signedAt ?? existing.signedAt
+        const signature = updates.signature ?? existing.signature
+        const multiHash = updates.multiHash ?? existing.multiHash
+
+        return {
+            ...existing,
+            status,
+            ...(signedAt !== undefined && { signedAt }),
+            ...(signature !== undefined && { signature }),
+            ...(multiHash !== undefined && { multiHash }),
+        }
+    }
+
+    // Topology-transactions signing request methods
+    async setTopologyBundleRaw(bundle: TopologyBundleRaw): Promise<void> {
+        const userId = this.assertConnected()
+        if (bundle.userId !== userId) {
+            throw new Error(
+                `TopologyBundleRaw userId mismatch: expected ${userId}, got ${bundle.userId}`
+            )
+        }
+        const storage = this.getStorage()
+        storage.topologyBundleRaws.set(bundle.id, bundle)
+        this.updateStorage(storage)
+    }
+
+    async setTopologyBundleRawStatus(
+        requestId: string,
+        status: TopologyBundleRaw['status'],
+        updates: TopologyBundleRawStatusUpdate = {}
+    ): Promise<void> {
+        this.assertConnected()
+        const storage = this.getStorage()
+        const existing = storage.topologyBundleRaws.get(requestId)
+        if (!existing) {
+            throw new Error(`TopologyBundleRaw not found with id: ${requestId}`)
+        }
+        const updated = this.mergeTopologyBundleRawStatusUpdate(
+            existing,
+            status,
+            updates
+        )
+        storage.topologyBundleRaws.set(requestId, updated)
+        this.updateStorage(storage)
+    }
+
+    async getTopologyBundleRaw(
+        requestId: string
+    ): Promise<TopologyBundleRaw | undefined> {
+        this.assertConnected()
+        const storage = this.getStorage()
+        return storage.topologyBundleRaws.get(requestId)
+    }
+
+    async listTopologyBundleRaws(): Promise<Array<TopologyBundleRaw>> {
+        this.assertConnected()
+        const storage = this.getStorage()
+        return Array.from(storage.topologyBundleRaws.values())
+    }
+
+    async removeTopologyBundleRaw(requestId: string): Promise<void> {
+        this.assertConnected()
+        const storage = this.getStorage()
+        storage.topologyBundleRaws.delete(requestId)
         this.updateStorage(storage)
     }
 

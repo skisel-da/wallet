@@ -18,6 +18,8 @@ import {
     Transaction,
     MessageRaw,
     MessageRawStatusUpdate,
+    TopologyBundleRaw,
+    TopologyBundleRawStatusUpdate,
     Network,
     StoreConfig,
     UpdateWallet,
@@ -37,6 +39,7 @@ import {
     fromNetwork,
     fromTransaction,
     fromMessageRaw,
+    fromTopologyBundleRaw,
     fromWallet,
     fromPartyRight,
     fromUserRight,
@@ -45,6 +48,7 @@ import {
     toNetwork,
     toTransaction,
     toMessageRaw,
+    toTopologyBundleRaw,
     toWallet,
     fromApiKey,
     toApiKey,
@@ -1014,6 +1018,122 @@ export class StoreSql implements BaseStore, AuthAware<StoreSql> {
             .where((eb) =>
                 eb.and([
                     eb('id', '=', messageId),
+                    eb('userId', '=', userId),
+                    eb('networkId', '=', network.id),
+                ])
+            )
+            .execute()
+    }
+
+    private mergeTopologyBundleRawStatusUpdate(
+        existing: TopologyBundleRaw,
+        status: TopologyBundleRaw['status'],
+        updates: TopologyBundleRawStatusUpdate = {}
+    ): TopologyBundleRaw {
+        const signedAt = updates.signedAt ?? existing.signedAt
+        const signature = updates.signature ?? existing.signature
+        const multiHash = updates.multiHash ?? existing.multiHash
+
+        return {
+            ...existing,
+            status,
+            ...(signedAt !== undefined && { signedAt }),
+            ...(signature !== undefined && { signature }),
+            ...(multiHash !== undefined && { multiHash }),
+        }
+    }
+
+    // Topology-transactions signing request methods
+    async setTopologyBundleRaw(bundle: TopologyBundleRaw): Promise<void> {
+        const userId = this.assertConnected()
+        if (bundle.userId !== userId) {
+            throw new Error(
+                `TopologyBundleRaw userId mismatch: expected ${userId}, got ${bundle.userId}`
+            )
+        }
+        const network = await this.getCurrentNetwork()
+        await this.db
+            .insertInto('topologyBundlesRaw')
+            .values(fromTopologyBundleRaw(bundle, userId, network.id))
+            .execute()
+    }
+
+    async setTopologyBundleRawStatus(
+        requestId: string,
+        status: TopologyBundleRaw['status'],
+        updates: TopologyBundleRawStatusUpdate = {}
+    ): Promise<void> {
+        const userId = this.assertConnected()
+        const network = await this.getCurrentNetwork()
+        const existing = await this.getTopologyBundleRaw(requestId)
+        if (!existing) {
+            throw new Error(`TopologyBundleRaw not found with id: ${requestId}`)
+        }
+
+        const updated = this.mergeTopologyBundleRawStatusUpdate(
+            existing,
+            status,
+            updates
+        )
+
+        await this.db
+            .updateTable('topologyBundlesRaw')
+            .set(fromTopologyBundleRaw(updated, userId, network.id))
+            .where((eb) =>
+                eb.and([
+                    eb('id', '=', requestId),
+                    eb('userId', '=', userId),
+                    eb('networkId', '=', network.id),
+                ])
+            )
+            .execute()
+    }
+
+    async getTopologyBundleRaw(
+        requestId: string
+    ): Promise<TopologyBundleRaw | undefined> {
+        const userId = this.assertConnected()
+        const network = await this.getCurrentNetwork()
+        const bundle = await this.db
+            .selectFrom('topologyBundlesRaw')
+            .selectAll()
+            .where((eb) =>
+                eb.and([
+                    eb('id', '=', requestId),
+                    eb('userId', '=', userId),
+                    eb('networkId', '=', network.id),
+                ])
+            )
+            .executeTakeFirst()
+        return bundle ? toTopologyBundleRaw(bundle) : undefined
+    }
+
+    async listTopologyBundleRaws(): Promise<Array<TopologyBundleRaw>> {
+        const userId = this.assertConnected()
+        const network = await this.getCurrentNetwork()
+        const bundles = await this.db
+            .selectFrom('topologyBundlesRaw')
+            .selectAll()
+            .where((eb) =>
+                eb.and([
+                    eb('userId', '=', userId),
+                    eb('networkId', '=', network.id),
+                ])
+            )
+            .orderBy('createdAt', 'desc')
+            .orderBy('id', 'desc')
+            .execute()
+        return bundles.map((b) => toTopologyBundleRaw(b))
+    }
+
+    async removeTopologyBundleRaw(requestId: string): Promise<void> {
+        const userId = this.assertConnected()
+        const network = await this.getCurrentNetwork()
+        await this.db
+            .deleteFrom('topologyBundlesRaw')
+            .where((eb) =>
+                eb.and([
+                    eb('id', '=', requestId),
                     eb('userId', '=', userId),
                     eb('networkId', '=', network.id),
                 ])

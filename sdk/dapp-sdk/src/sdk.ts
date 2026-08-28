@@ -40,6 +40,9 @@ import type {
     MessageSignatureEvent,
     SignMessageParams,
     SignMessageResult,
+    TopologyTransactionsSignatureEvent,
+    SignTopologyTransactionsParams,
+    SignTopologyTransactionsResult,
 } from '@canton-network/core-wallet-dapp-rpc-client'
 import { DappClient } from './client'
 import { ExtensionAdapter } from './adapter/extension-adapter'
@@ -528,6 +531,12 @@ export class DappSDK {
         return this.requireClient().signMessage(params)
     }
 
+    async signTopologyTransactions(
+        params: SignTopologyTransactionsParams
+    ): Promise<SignTopologyTransactionsResult> {
+        return this.requireClient().signTopologyTransactions(params)
+    }
+
     async ledgerApi(params: LedgerApiParams): Promise<LedgerApiResult> {
         return this.requireClient().ledgerApi(params)
     }
@@ -558,6 +567,12 @@ export class DappSDK {
         listener: EventListener<MessageSignatureEvent>
     ): Promise<void> {
         this.requireClient().onMessageSignature(listener)
+    }
+
+    async onTopologyTransactionsSignature(
+        listener: EventListener<TopologyTransactionsSignatureEvent>
+    ): Promise<void> {
+        this.requireClient().onTopologyTransactionsSignature(listener)
     }
 
     async removeOnStatusChanged(
@@ -593,6 +608,13 @@ export class DappSDK {
     ): Promise<void> {
         if (!this.client) return
         this.client.removeOnMessageSignature(listener)
+    }
+
+    async removeOnTopologyTransactionsSignature(
+        listener: EventListener<TopologyTransactionsSignatureEvent>
+    ): Promise<void> {
+        if (!this.client) return
+        this.client.removeOnTopologyTransactionsSignature(listener)
     }
 }
 
@@ -663,6 +685,10 @@ export const onTxChanged = (
 export const onMessageSignature = (
     listener: EventListener<MessageSignatureEvent>
 ): Promise<void> => sdk.onMessageSignature(listener)
+
+export const onTopologyTransactionsSignature = (
+    listener: EventListener<TopologyTransactionsSignatureEvent>
+): Promise<void> => sdk.onTopologyTransactionsSignature(listener)
 export const removeOnStatusChanged = (
     listener: EventListener<StatusEvent>
 ): Promise<void> => sdk.removeOnStatusChanged(listener)
@@ -682,6 +708,10 @@ export const removeOnTxChanged = (
 export const removeOnMessageSignature = (
     listener: EventListener<MessageSignatureEvent>
 ): Promise<void> => sdk.removeOnMessageSignature(listener)
+
+export const removeOnTopologyTransactionsSignature = (
+    listener: EventListener<TopologyTransactionsSignatureEvent>
+): Promise<void> => sdk.removeOnTopologyTransactionsSignature(listener)
 
 function createDefaultAdapters(
     defaultGatewayConfigs: RemoteAdapterConfig[]

@@ -143,6 +143,13 @@ export type PackageIdSelectionPreference = PackageId[]
  *
  */
 export type Message = string
+export type TopologyTransactionBase64 = string
+/**
+ *
+ * Base64-encoded, UntypedVersionedMessage-wrapped topology transactions to sign as one bundle.
+ *
+ */
+export type Transactions = TopologyTransactionBase64[]
 export type RequestMethod = 'get' | 'post' | 'patch' | 'put' | 'delete'
 export type Resource = string
 export interface Body {
@@ -314,10 +321,16 @@ export interface TxChangedExecutedEvent {
 }
 /**
  *
- * The signature of the message.
+ * The signature over the bundle's multiHash.
  *
  */
 export type Signature = string
+/**
+ *
+ * The wallet-computed multiHash the signature is over, recomputed fresh from the stored raw transaction bytes at sign time -- never a cached or dApp-supplied value. Included so the dApp can cross-check it against its own computation.
+ *
+ */
+export type MultiHash = string
 /**
  *
  * Set as primary wallet for dApp usage.
@@ -399,7 +412,7 @@ export interface Wallet {
 }
 /**
  *
- * The status of the message signature.
+ * The status of the topology-transactions signature.
  *
  */
 export type StatusPending = 'pending'
@@ -414,7 +427,7 @@ export interface TxChangedPendingEvent {
 }
 /**
  *
- * The status of the message signature.
+ * The status of the topology-transactions signature.
  *
  */
 export type StatusSigned = 'signed'
@@ -446,7 +459,7 @@ export interface TxChangedSignedEvent {
 }
 /**
  *
- * The status of the message signature.
+ * The status of the topology-transactions signature.
  *
  */
 export type StatusFailed = 'failed'
@@ -495,6 +508,41 @@ export interface MessageSignatureFailedEvent {
 }
 /**
  *
+ * The unique identifier of the signTopologyTransactions request associated with the bundle to be signed.
+ *
+ */
+export type TopologyRequestId = string
+/**
+ *
+ * Event emitted when a topology-transactions bundle signature is requested.
+ *
+ */
+export interface TopologyTransactionsSignaturePendingEvent {
+    status: StatusPending
+    requestId: TopologyRequestId
+}
+/**
+ *
+ * Event emitted when a topology-transactions bundle signature is completed.
+ *
+ */
+export interface TopologyTransactionsSignatureSignedEvent {
+    status: StatusSigned
+    requestId: TopologyRequestId
+    signature: Signature
+    multiHash: MultiHash
+}
+/**
+ *
+ * Event emitted when a topology-transactions bundle signature has failed.
+ *
+ */
+export interface TopologyTransactionsSignatureFailedEvent {
+    status: StatusFailed
+    requestId: TopologyRequestId
+}
+/**
+ *
  * Structure representing the request for prepare and execute calls
  *
  */
@@ -514,6 +562,15 @@ export interface PrepareExecuteParams {
  */
 export interface SignMessageParams {
     message: Message
+}
+/**
+ *
+ * Request to sign a bundle of topology transactions with a single combined signature.
+ *
+ */
+export interface SignTopologyTransactionsParams {
+    transactions: Transactions
+    synchronizerId?: SynchronizerId
 }
 /**
  *
@@ -549,6 +606,15 @@ export interface PrepareExecuteAndWaitResult {
  */
 export interface SignMessageResult {
     signature: Signature
+}
+/**
+ *
+ * Result of signing a bundle of topology transactions.
+ *
+ */
+export interface SignTopologyTransactionsResult {
+    signature: Signature
+    multiHash: MultiHash
 }
 /**
  *
@@ -591,6 +657,15 @@ export type MessageSignatureEvent =
     | MessageSignatureFailedEvent
 /**
  *
+ * Event emitted when a topology-transactions bundle signature is requested or completed.
+ *
+ */
+export type TopologyTransactionsSignatureEvent =
+    | TopologyTransactionsSignaturePendingEvent
+    | TopologyTransactionsSignatureSignedEvent
+    | TopologyTransactionsSignatureFailedEvent
+/**
+ *
  * Generated! Represents an alias to any of the provided schemas
  *
  */
@@ -607,9 +682,14 @@ export type PrepareExecuteAndWait = (
 export type SignMessage = (
     params: SignMessageParams
 ) => Promise<SignMessageResult>
+export type SignTopologyTransactions = (
+    params: SignTopologyTransactionsParams
+) => Promise<SignTopologyTransactionsResult>
 export type LedgerApi = (params: LedgerApiParams) => Promise<LedgerApiResult>
 export type AccountsChanged = () => Promise<AccountsChangedEvent>
 export type GetPrimaryAccount = () => Promise<Wallet>
 export type ListAccounts = () => Promise<ListAccountsResult>
 export type TxChanged = () => Promise<TxChangedEvent>
 export type MessageSignature = () => Promise<MessageSignatureEvent>
+export type TopologyTransactionsSignature =
+    () => Promise<TopologyTransactionsSignatureEvent>

@@ -139,6 +139,80 @@ export interface MessageRawStatusUpdate {
     signature?: string
 }
 
+/**
+ * A single hosting participant entry within a `partyToParticipant` mapping,
+ * for display. Structurally identical to
+ * `@canton-network/core-tx-visualizer`'s `TopologyHostingParticipant`,
+ * duplicated here (rather than depending on tx-visualizer's protobuf-heavy
+ * dependency chain from this foundational package) the same way `MessageRaw`
+ * doesn't depend on `core-ledger-proto` either.
+ */
+export interface TopologyHostingParticipant {
+    participantUid: string
+    permission: number
+}
+
+/**
+ * Decoded, display-only summary of one topology transaction within a
+ * `signTopologyTransactions` bundle. Never used for hashing/signing -- only
+ * `TopologyBundleRaw.transactions` (the raw stored bytes) is. Computed once
+ * at receipt time by `@canton-network/core-tx-visualizer`'s
+ * `summarizeTopologyTransaction` and stored here for display.
+ */
+export type TopologyTransactionSummary =
+    | {
+          kind: 'namespaceDelegation'
+          namespace: string
+          isRootDelegation: boolean
+      }
+    | {
+          kind: 'decentralizedNamespaceDefinition'
+          decentralizedNamespace: string
+          threshold: number
+          owners: string[]
+      }
+    | {
+          kind: 'partyToParticipant'
+          party: string
+          threshold: number
+          participants: TopologyHostingParticipant[]
+      }
+    | {
+          kind: 'partyToKeyMapping'
+          party: string
+          threshold: number
+          signingKeyCount: number
+      }
+    | {
+          kind: 'unknown'
+          mappingKind: string
+      }
+
+export interface TopologyBundleRaw {
+    id: string
+    status: 'pending' | 'signed' | 'failed'
+    userId: string
+    partyId: PartyId
+    publicKey: string
+    /** Base64-encoded, UntypedVersionedMessage-wrapped raw transaction bytes -- the source of truth the signature is computed from. */
+    transactions: string[]
+    /** Decoded, display-only summary of each transaction (same order as `transactions`), computed once at receipt time. Never used for signing. */
+    summaries: TopologyTransactionSummary[]
+    synchronizerId?: string
+    origin: string | null
+    createdAt: Date
+    signedAt?: Date
+    signature?: string
+    /** The multiHash actually signed, recomputed fresh at sign time from `transactions` -- recorded here after the fact for display/audit only. */
+    multiHash?: string
+}
+
+export interface TopologyBundleRawStatusUpdate {
+    signedAt?: Date
+    signature?: string
+    multiHash?: string
+}
+
 // API keys
 export interface ApiKey {
     id: string
@@ -240,6 +314,19 @@ export interface Store {
     getMessageRaw(messageId: string): Promise<MessageRaw | undefined>
     listMessageRaws(): Promise<Array<MessageRaw>>
     removeMessageRaw(messageId: string): Promise<void>
+
+    // Topology-transactions signing request methods
+    setTopologyBundleRaw(bundle: TopologyBundleRaw): Promise<void>
+    setTopologyBundleRawStatus(
+        requestId: string,
+        status: TopologyBundleRaw['status'],
+        updates?: TopologyBundleRawStatusUpdate
+    ): Promise<void>
+    getTopologyBundleRaw(
+        requestId: string
+    ): Promise<TopologyBundleRaw | undefined>
+    listTopologyBundleRaws(): Promise<Array<TopologyBundleRaw>>
+    removeTopologyBundleRaw(requestId: string): Promise<void>
 
     // API Key methods
     addApiKey(apiKey: ApiKey): Promise<void>

@@ -19,6 +19,7 @@ export const ALLOWED_ROUTES = [
     '/activities',
     '/approve',
     '/sign-message',
+    '/sign-topology',
     '/',
     '/404',
     '/callback',

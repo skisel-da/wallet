@@ -7,10 +7,15 @@ import { RpcTransport } from '@canton-network/core-rpc-transport'
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /**
  *
- * The network ID the wallet corresponds to.
+ * Network ID
  *
  */
 export type NetworkId = string
+/**
+ *
+ * The name of the API key.
+ *
+ */
 export type Name = string
 /**
  *
@@ -82,6 +87,11 @@ export interface Network {
  *
  */
 export type NetworkName = string
+/**
+ *
+ * The unique identifier of the API key.
+ *
+ */
 export type Id = string
 /**
  *
@@ -124,15 +134,10 @@ export type PartyHint = string
  *
  */
 export type SigningProviderId = string
+export type VaultName = string
 /**
  *
- * Name of signing provider's key to use for getting keys.
- *
- */
-export type KeyName = string
-/**
- *
- * The party ID corresponding to the wallet.
+ * The party id of the wallet asked to co-sign this bundle.
  *
  */
 export type PartyId = string
@@ -171,7 +176,13 @@ export type TransactionId = string
 export type MessageId = string
 /**
  *
- * The signature of the message.
+ * The internal identifier of the pending topology-transactions signing request.
+ *
+ */
+export type TopologyRequestId = string
+/**
+ *
+ * The signature over the bundle's multiHash.
  *
  */
 export type Signature = string
@@ -200,12 +211,6 @@ export type CursorAsString = string
  *
  */
 export type Cursor = CursorAsString
-/**
- *
- * The public key of the party.
- *
- */
-export type PublicKey = string
 /**
  *
  * Authentication method configured for this network
@@ -251,13 +256,19 @@ export type WalletStatus = 'initialized' | 'allocated' | 'removed'
 export type Hint = string
 /**
  *
- * The namespace of the party.
+ * The public key of the party.
+ *
+ */
+export type PublicKey = string
+/**
+ *
+ * Set when kind is namespaceDelegation.
  *
  */
 export type Namespace = string
 /**
  *
- * Unique identifier of the signed transaction given by the Signing Provider. This may not be the same as the internal txId given by the Wallet Gateway.
+ * External transaction ID from signing provider.
  *
  */
 export type ExternalTxId = string
@@ -275,17 +286,17 @@ export type TopologyTransactions = string
 export type Disabled = boolean
 /**
  *
- * Reason for the wallet state, e.g., 'no signing provider matched'.
+ * The reason for the current status.
  *
  */
 export type Reason = string
 export type PartyLevelRight = any
 /**
  *
- * The rights of the wallet.
+ * The rights of the user for the network.
  *
  */
-export type Rights = PartyLevelRight[]
+export type Rights = UserLevelRight[]
 /**
  *
  * Structure representing a wallet
@@ -393,6 +404,118 @@ export interface MessageRaw {
     signature?: Signature
 }
 export type Messages = MessageRaw[]
+/**
+ *
+ * The multiHash actually signed, recomputed fresh at sign time.
+ *
+ */
+export type MultiHash = string
+export type TopologyTransactionBase64 = string
+/**
+ *
+ * Base64-encoded, UntypedVersionedMessage-wrapped raw transaction bytes -- the source of truth the signature is computed from. Never trust the summaries below for signing.
+ *
+ */
+export type TopologyBundleTransactions = TopologyTransactionBase64[]
+export type Kind =
+    | 'namespaceDelegation'
+    | 'decentralizedNamespaceDefinition'
+    | 'partyToParticipant'
+    | 'partyToKeyMapping'
+    | 'unknown'
+/**
+ *
+ * Set when kind is namespaceDelegation.
+ *
+ */
+export type IsRootDelegation = boolean
+/**
+ *
+ * Set when kind is decentralizedNamespaceDefinition.
+ *
+ */
+export type DecentralizedNamespace = string
+/**
+ *
+ * Set when kind is decentralizedNamespaceDefinition, partyToParticipant, or partyToKeyMapping.
+ *
+ */
+export type Threshold = number
+export type OwnerFingerprint = string
+/**
+ *
+ * Set when kind is decentralizedNamespaceDefinition.
+ *
+ */
+export type Owners = OwnerFingerprint[]
+/**
+ *
+ * Set when kind is partyToParticipant or partyToKeyMapping.
+ *
+ */
+export type Party = string
+export type ParticipantUid = string
+export type Permission = number
+export interface TopologyHostingParticipant {
+    participantUid: ParticipantUid
+    permission: Permission
+}
+/**
+ *
+ * Set when kind is partyToParticipant.
+ *
+ */
+export type Participants = TopologyHostingParticipant[]
+/**
+ *
+ * Set when kind is partyToKeyMapping.
+ *
+ */
+export type SigningKeyCount = number
+/**
+ *
+ * Set when kind is unknown: the raw TopologyMapping oneofKind that isn't recognized.
+ *
+ */
+export type MappingKind = string
+/**
+ *
+ * Decoded, display-only summary of one topology transaction within a signing bundle. Never used for hashing/signing -- only the raw stored bytes are.
+ *
+ */
+export interface TopologyTransactionSummary {
+    kind: Kind
+    namespace?: Namespace
+    isRootDelegation?: IsRootDelegation
+    decentralizedNamespace?: DecentralizedNamespace
+    threshold?: Threshold
+    owners?: Owners
+    party?: Party
+    participants?: Participants
+    signingKeyCount?: SigningKeyCount
+    mappingKind?: MappingKind
+}
+/**
+ *
+ * Decoded, display-only summary of each transaction, computed once at receipt time.
+ *
+ */
+export type Summaries = TopologyTransactionSummary[]
+export interface TopologyBundleRaw {
+    id: TopologyRequestId
+    status: Status
+    partyId: PartyId
+    publicKey: PublicKey
+    transactions: TopologyBundleTransactions
+    summaries: Summaries
+    synchronizerId?: SynchronizerId
+    origin?: Origin
+    createdAt: CreatedAt
+    signedAt?: SignedAt
+    signature?: Signature
+    multiHash?: MultiHash
+}
+export type Bundles = TopologyBundleRaw[]
 export type UserLevelRight = any
 /**
  *
@@ -488,23 +611,12 @@ export interface ApiKey {
  *
  */
 export type ApiKeys = ApiKey[]
-export interface Key {
-    id: Id
-    name: Name
-    publicKey: PublicKey
-}
 /**
  *
- * The list of signing provider's available keys.
+ * The list of signing provider's available vault names.
  *
  */
-export type Keys = Key[]
-/**
- *
- * Represents a null value, used in responses where no data is returned.
- *
- */
-export type Null = null
+export type Vaults = VaultName[]
 export interface AddNetworkParams {
     network: Network
 }
@@ -517,7 +629,6 @@ export interface GetNetworkParams {
 export interface SelfSignedAccessTokenParams {
     networkId: NetworkId
     clientId: ClientId
-    clientSecret: ClientSecret
 }
 export interface AddIdpParams {
     idp: Idp
@@ -529,7 +640,7 @@ export interface CreateWalletParams {
     primary?: Primary
     partyHint: PartyHint
     signingProviderId: SigningProviderId
-    keyName?: KeyName
+    vaultName?: VaultName
 }
 export interface AllocatePartyForWalletParams {
     partyId: PartyId
@@ -557,6 +668,15 @@ export interface GetMessageToSignParams {
 export interface DeleteMessageToSignParams {
     messageId: MessageId
 }
+export interface SignTopologyTransactionsParams {
+    requestId: TopologyRequestId
+}
+export interface GetTopologyBundleToSignParams {
+    requestId: TopologyRequestId
+}
+export interface DeleteTopologyBundleToSignParams {
+    requestId: TopologyRequestId
+}
 export interface ExecuteParams {
     signature: Signature
     partyId: PartyId
@@ -583,17 +703,15 @@ export interface GenerateApiKeyParams {
 export interface RemoveApiKeyParams {
     id: Id
 }
-export interface ListSigningProviderKeysParams {
+export interface ListSigningProviderVaultsParams {
     signingProviderId: SigningProviderId
 }
-export interface GetWalletParams {
-    partyId: PartyId
-}
-export interface ChangeSigningProviderParams {
-    signingProviderId: SigningProviderId
-    partyId: PartyId
-    publicKey: PublicKey
-}
+/**
+ *
+ * Represents a null value, used in responses where no data is returned.
+ *
+ */
+export type Null = null
 export interface ListNetworksResult {
     networks: Networks
 }
@@ -646,6 +764,17 @@ export interface GetMessageToSignResult {
 export interface ListMessagesToSignResult {
     messages: Messages
 }
+export interface SignTopologyTransactionsResult {
+    signature: Signature
+    publicKey: PublicKey
+    multiHash: MultiHash
+}
+export interface GetTopologyBundleToSignResult {
+    bundle: TopologyBundleRaw
+}
+export interface ListTopologyBundlesToSignResult {
+    bundles: Bundles
+}
 export interface ExecuteResult {
     [key: string]: any
 }
@@ -695,10 +824,9 @@ export interface GeneratedApiKey {
 export interface ListApiKeysResult {
     apiKeys: ApiKeys
 }
-export interface ListSigningProviderKeysResult {
-    keys: Keys
+export interface ListSigningProviderVaultsResult {
+    vaults: Vaults
 }
-export type GetWalletResult = Wallet | Null
 /**
  *
  * Generated! Represents an alias to any of the provided schemas
@@ -741,6 +869,17 @@ export type ListMessagesToSign = () => Promise<ListMessagesToSignResult>
 export type DeleteMessageToSign = (
     params: DeleteMessageToSignParams
 ) => Promise<Null>
+export type SignTopologyTransactions = (
+    params: SignTopologyTransactionsParams
+) => Promise<SignTopologyTransactionsResult>
+export type GetTopologyBundleToSign = (
+    params: GetTopologyBundleToSignParams
+) => Promise<GetTopologyBundleToSignResult>
+export type ListTopologyBundlesToSign =
+    () => Promise<ListTopologyBundlesToSignResult>
+export type DeleteTopologyBundleToSign = (
+    params: DeleteTopologyBundleToSignParams
+) => Promise<Null>
 export type Execute = (params: ExecuteParams) => Promise<ExecuteResult>
 export type AddSession = (params: AddSessionParams) => Promise<AddSessionResult>
 export type RemoveSession = () => Promise<Null>
@@ -760,13 +899,9 @@ export type GenerateApiKey = (
 ) => Promise<GeneratedApiKey>
 export type ListApiKeys = () => Promise<ListApiKeysResult>
 export type RemoveApiKey = (params: RemoveApiKeyParams) => Promise<Null>
-export type ListSigningProviderKeys = (
-    params: ListSigningProviderKeysParams
-) => Promise<ListSigningProviderKeysResult>
-export type GetWallet = (params: GetWalletParams) => Promise<GetWalletResult>
-export type ChangeSigningProvider = (
-    params: ChangeSigningProviderParams
-) => Promise<Null>
+export type ListSigningProviderVaults = (
+    params: ListSigningProviderVaultsParams
+) => Promise<ListSigningProviderVaultsResult>
 /* eslint-enable @typescript-eslint/no-unused-vars */
 
 type Params<T> = T extends (...args: infer A) => any
@@ -877,6 +1012,26 @@ export type RpcTypes = {
         result: Result<DeleteMessageToSign>
     }
 
+    signTopologyTransactions: {
+        params: Params<SignTopologyTransactions>
+        result: Result<SignTopologyTransactions>
+    }
+
+    getTopologyBundleToSign: {
+        params: Params<GetTopologyBundleToSign>
+        result: Result<GetTopologyBundleToSign>
+    }
+
+    listTopologyBundlesToSign: {
+        params: Params<ListTopologyBundlesToSign>
+        result: Result<ListTopologyBundlesToSign>
+    }
+
+    deleteTopologyBundleToSign: {
+        params: Params<DeleteTopologyBundleToSign>
+        result: Result<DeleteTopologyBundleToSign>
+    }
+
     execute: {
         params: Params<Execute>
         result: Result<Execute>
@@ -932,19 +1087,9 @@ export type RpcTypes = {
         result: Result<RemoveApiKey>
     }
 
-    listSigningProviderKeys: {
-        params: Params<ListSigningProviderKeys>
-        result: Result<ListSigningProviderKeys>
-    }
-
-    getWallet: {
-        params: Params<GetWallet>
-        result: Result<GetWallet>
-    }
-
-    changeSigningProvider: {
-        params: Params<ChangeSigningProvider>
-        result: Result<ChangeSigningProvider>
+    listSigningProviderVaults: {
+        params: Params<ListSigningProviderVaults>
+        result: Result<ListSigningProviderVaults>
     }
 }
 

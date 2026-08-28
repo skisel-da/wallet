@@ -246,6 +246,24 @@ export const userController = (
         deleteMessageToSign: async () => {
             throw new Error('Function deleteMessageToSign not implemented.')
         },
+        signTopologyTransactions: async () => {
+            throw new Error(
+                'Function signTopologyTransactions not implemented.'
+            )
+        },
+        getTopologyBundleToSign: async () => {
+            throw new Error('Function getTopologyBundleToSign not implemented.')
+        },
+        listTopologyBundlesToSign: async () => {
+            throw new Error(
+                'Function listTopologyBundlesToSign not implemented.'
+            )
+        },
+        deleteTopologyBundleToSign: async () => {
+            throw new Error(
+                'Function deleteTopologyBundleToSign not implemented.'
+            )
+        },
         execute: async (executeParams: ExecuteParams) => {
             const connectedContext = assertConnected(
                 await AuthService.loadAuthContext()

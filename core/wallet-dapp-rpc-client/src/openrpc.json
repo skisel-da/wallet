@@ -128,6 +128,26 @@
             "description": "Signs a message."
         },
         {
+            "name": "signTopologyTransactions",
+            "params": [
+                {
+                    "name": "params",
+                    "required": true,
+                    "schema": {
+                        "title": "signTopologyTransactionsParams",
+                        "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/SignTopologyTransactionsRequest"
+                    }
+                }
+            ],
+            "result": {
+                "name": "result",
+                "schema": {
+                    "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/SignTopologyTransactionsResult"
+                }
+            },
+            "description": "Signs a bundle of topology transactions with a single combined signature (a multiHash over all of them). The wallet decodes and displays each transaction before signing; it never signs an opaque precomputed hash."
+        },
+        {
             "name": "ledgerApi",
             "params": [
                 {
@@ -195,6 +215,16 @@
                 "name": "result",
                 "schema": {
                     "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/MessageSignatureEvent"
+                }
+            }
+        },
+        {
+            "name": "topologyTransactionsSignature",
+            "params": [],
+            "result": {
+                "name": "result",
+                "schema": {
+                    "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/TopologyTransactionsSignatureEvent"
                 }
             }
         }
@@ -709,6 +739,90 @@
                     }
                 ]
             },
+            "TopologyRequestId": {
+                "title": "TopologyRequestId",
+                "type": "string",
+                "description": "The unique identifier of the signTopologyTransactions request associated with the bundle to be signed."
+            },
+            "TopologyTransactionsSignaturePendingEvent": {
+                "title": "TopologyTransactionsSignaturePendingEvent",
+                "description": "Event emitted when a topology-transactions bundle signature is requested.",
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "status": {
+                        "title": "statusPending",
+                        "type": "string",
+                        "enum": ["pending"],
+                        "description": "The status of the topology-transactions signature."
+                    },
+                    "requestId": {
+                        "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/TopologyRequestId"
+                    }
+                },
+                "required": ["status", "requestId"]
+            },
+            "TopologyTransactionsSignatureSignedEvent": {
+                "title": "TopologyTransactionsSignatureSignedEvent",
+                "description": "Event emitted when a topology-transactions bundle signature is completed.",
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "status": {
+                        "title": "statusSigned",
+                        "type": "string",
+                        "enum": ["signed"],
+                        "description": "The status of the topology-transactions signature."
+                    },
+                    "requestId": {
+                        "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/TopologyRequestId"
+                    },
+                    "signature": {
+                        "title": "signature",
+                        "type": "string",
+                        "description": "The signature over the bundle's multiHash."
+                    },
+                    "multiHash": {
+                        "title": "multiHash",
+                        "type": "string",
+                        "description": "The wallet-computed multiHash the signature is over, recomputed fresh from the stored raw transaction bytes at sign time -- never a cached or dApp-supplied value. Included so the dApp can cross-check it against its own computation."
+                    }
+                },
+                "required": ["status", "requestId", "signature", "multiHash"]
+            },
+            "TopologyTransactionsSignatureFailedEvent": {
+                "title": "TopologyTransactionsSignatureFailedEvent",
+                "description": "Event emitted when a topology-transactions bundle signature has failed.",
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "status": {
+                        "title": "statusFailed",
+                        "type": "string",
+                        "enum": ["failed"],
+                        "description": "The status of the topology-transactions signature."
+                    },
+                    "requestId": {
+                        "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/TopologyRequestId"
+                    }
+                },
+                "required": ["status", "requestId"]
+            },
+            "TopologyTransactionsSignatureEvent": {
+                "title": "TopologyTransactionsSignatureEvent",
+                "description": "Event emitted when a topology-transactions bundle signature is requested or completed.",
+                "oneOf": [
+                    {
+                        "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/TopologyTransactionsSignaturePendingEvent"
+                    },
+                    {
+                        "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/TopologyTransactionsSignatureSignedEvent"
+                    },
+                    {
+                        "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/TopologyTransactionsSignatureFailedEvent"
+                    }
+                ]
+            },
             "ConnectResult": {
                 "title": "ConnectResult",
                 "type": "object",
@@ -787,6 +901,48 @@
                     }
                 },
                 "required": ["signature"]
+            },
+            "SignTopologyTransactionsRequest": {
+                "title": "SignTopologyTransactionsRequest",
+                "type": "object",
+                "description": "Request to sign a bundle of topology transactions with a single combined signature.",
+                "additionalProperties": false,
+                "properties": {
+                    "transactions": {
+                        "title": "transactions",
+                        "type": "array",
+                        "description": "Base64-encoded, UntypedVersionedMessage-wrapped topology transactions to sign as one bundle.",
+                        "items": {
+                            "title": "topologyTransactionBase64",
+                            "type": "string"
+                        }
+                    },
+                    "synchronizerId": {
+                        "title": "synchronizerId",
+                        "type": "string",
+                        "description": "If not set, a suitable synchronizer that this node is connected to will be chosen."
+                    }
+                },
+                "required": ["transactions"]
+            },
+            "SignTopologyTransactionsResult": {
+                "title": "SignTopologyTransactionsResult",
+                "type": "object",
+                "additionalProperties": false,
+                "description": "Result of signing a bundle of topology transactions.",
+                "properties": {
+                    "signature": {
+                        "title": "signature",
+                        "type": "string",
+                        "description": "The signature over the bundle's multiHash."
+                    },
+                    "multiHash": {
+                        "title": "multiHash",
+                        "type": "string",
+                        "description": "The wallet-computed multiHash the signature is over, so the dApp can cross-check it against its own computation."
+                    }
+                },
+                "required": ["signature", "multiHash"]
             },
             "Network": {
                 "title": "network",

@@ -193,6 +193,10 @@ class RemoteMappedProvider implements Provider<DappRpcTypes> {
                 return controller.signMessage(args.params) as Promise<
                     DappRpcTypes[M]['result']
                 >
+            case 'signTopologyTransactions':
+                return controller.signTopologyTransactions(
+                    args.params
+                ) as Promise<DappRpcTypes[M]['result']>
             default:
                 throw new Error('Unsupported method')
         }

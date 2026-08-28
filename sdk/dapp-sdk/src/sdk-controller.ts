@@ -12,6 +12,9 @@ import {
     PrepareExecuteParams,
     SignMessageParams,
     SignMessageResult,
+    SignTopologyTransactionsParams,
+    SignTopologyTransactionsResult,
+    TopologyTransactionsSignatureEvent,
     Wallet,
 } from './dapp-api/rpc-gen/typings'
 import { ErrorCode } from './error'
@@ -204,6 +207,59 @@ export const dappSDKController = (provider: DappAsyncProvider) =>
                 )
             })
         },
+        signTopologyTransactions: async (
+            params: SignTopologyTransactionsParams
+        ): Promise<SignTopologyTransactionsResult> => {
+            const response = await provider.request({
+                method: 'signTopologyTransactions',
+                params,
+            })
+            const { requestId, userUrl } = response
+            popup.open(userUrl)
+
+            return await new Promise<SignTopologyTransactionsResult>(
+                (resolve, reject) => {
+                    const timeout = withTimeout(
+                        reject,
+                        'Timed out waiting for topology-transactions signing approval'
+                    )
+
+                    const listener = (
+                        event: dappAsyncAPI.TopologyTransactionsSignatureEvent
+                    ) => {
+                        if (event.requestId !== requestId) return
+
+                        // pending is informational; continue waiting
+                        if (event.status === 'pending') return
+
+                        provider.removeListener(
+                            'topologyTransactionsSignature',
+                            listener
+                        )
+                        clearTimeout(timeout)
+
+                        if (event.status === 'failed') {
+                            reject({
+                                status: 'error',
+                                error: ErrorCode.TransactionFailed,
+                                details: `Topology-transactions signing failed for requestId ${event.requestId}.`,
+                            })
+                            return
+                        }
+
+                        resolve({
+                            signature: event.signature,
+                            multiHash: event.multiHash,
+                        })
+                    }
+
+                    provider.on<dappAsyncAPI.TopologyTransactionsSignatureEvent>(
+                        'topologyTransactionsSignature',
+                        listener
+                    )
+                }
+            )
+        },
         getPrimaryAccount: async (): Promise<Wallet> =>
             provider.request({
                 method: 'getPrimaryAccount',
@@ -211,4 +267,8 @@ export const dappSDKController = (provider: DappAsyncProvider) =>
         messageSignature: function (): Promise<MessageSignatureEvent> {
             throw new Error('Only for events.')
         },
+        topologyTransactionsSignature:
+            function (): Promise<TopologyTransactionsSignatureEvent> {
+                throw new Error('Only for events.')
+            },
     })

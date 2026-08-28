@@ -15,7 +15,7 @@ allowBuilds:
     cbor-extract: true
     cpu-features: true
     esbuild: true
-    grpc-tools: true
+    grpc-tools: false
     nx: true
     protobufjs: true
     secp256k1: true

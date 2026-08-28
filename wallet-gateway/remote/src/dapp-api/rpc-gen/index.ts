@@ -8,6 +8,7 @@ import type { IsConnected } from './typings.js'
 import type { GetActiveNetwork } from './typings.js'
 import type { PrepareExecute } from './typings.js'
 import type { SignMessage } from './typings.js'
+import type { SignTopologyTransactions } from './typings.js'
 import type { LedgerApi } from './typings.js'
 import type { Connected } from './typings.js'
 import type { OnStatusChanged } from './typings.js'
@@ -16,6 +17,7 @@ import type { GetPrimaryAccount } from './typings.js'
 import type { ListAccounts } from './typings.js'
 import type { TxChanged } from './typings.js'
 import type { MessageSignature } from './typings.js'
+import type { TopologyTransactionsSignature } from './typings.js'
 
 export type Methods = {
     status: Status
@@ -25,6 +27,7 @@ export type Methods = {
     getActiveNetwork: GetActiveNetwork
     prepareExecute: PrepareExecute
     signMessage: SignMessage
+    signTopologyTransactions: SignTopologyTransactions
     ledgerApi: LedgerApi
     connected: Connected
     onStatusChanged: OnStatusChanged
@@ -33,6 +36,7 @@ export type Methods = {
     listAccounts: ListAccounts
     txChanged: TxChanged
     messageSignature: MessageSignature
+    topologyTransactionsSignature: TopologyTransactionsSignature
 }
 
 function buildController(methods: Methods) {
@@ -44,6 +48,7 @@ function buildController(methods: Methods) {
         getActiveNetwork: methods.getActiveNetwork,
         prepareExecute: methods.prepareExecute,
         signMessage: methods.signMessage,
+        signTopologyTransactions: methods.signTopologyTransactions,
         ledgerApi: methods.ledgerApi,
         connected: methods.connected,
         onStatusChanged: methods.onStatusChanged,
@@ -52,6 +57,7 @@ function buildController(methods: Methods) {
         listAccounts: methods.listAccounts,
         txChanged: methods.txChanged,
         messageSignature: methods.messageSignature,
+        topologyTransactionsSignature: methods.topologyTransactionsSignature,
     }
 }
 

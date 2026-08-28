@@ -16,7 +16,10 @@ import {
     PrepareExecuteParams,
     SignMessageParams,
     SignMessageResult,
+    SignTopologyTransactionsParams,
+    SignTopologyTransactionsResult,
     StatusEvent,
+    TopologyTransactionsSignatureEvent,
     Wallet,
 } from './rpc-gen/typings.js'
 import { Store, Transaction } from '@canton-network/core-wallet-store'
@@ -39,6 +42,10 @@ import { TransactionService } from '../ledger/transaction-service.js'
 import { SigningDrivers } from '../signing/signing-drivers.js'
 import { rpcErrors } from '@canton-network/core-rpc-errors'
 import { HASHING_SCHEME_VERSION } from '../env.js'
+import {
+    decodeVersionedTopologyTransaction,
+    summarizeTopologyTransaction,
+} from '@canton-network/core-tx-visualizer'
 
 export interface DappControllerDeps {
     signingDrivers: SigningDrivers
@@ -514,6 +521,75 @@ export const dappController = (
                 userUrl: `${userUrl}/sign-message/index.html?messageId=${messageId}&closeafteraction`,
             }
         },
+        signTopologyTransactions: async (
+            params: SignTopologyTransactionsParams
+        ): Promise<SignTopologyTransactionsResult> => {
+            if (!params?.transactions || params.transactions.length === 0) {
+                throw new Error('At least one transaction is required')
+            }
+
+            const wallet = await store.getPrimaryWallet()
+
+            if (context === undefined) {
+                throw new Error('Unauthenticated context')
+            }
+
+            if (wallet === undefined) {
+                throw new Error('No primary wallet found')
+            }
+
+            const session = await store.getSession(context.accessToken)
+            const sessionId = session!.id
+            const notifier = notificationService.getNotifier(sessionId)
+            const requestId = v4()
+
+            // Receipt time: decode + summarize each transaction for display.
+            // The decoded summary is never signed -- only the raw bytes
+            // stored below (`transactions`) are, and only after being
+            // recomputed fresh at sign time (see user-api's
+            // `signTopologyTransactions`).
+            const summaries = params.transactions.map((tx) => {
+                try {
+                    return summarizeTopologyTransaction(
+                        decodeVersionedTopologyTransaction(tx)
+                    )
+                } catch (error) {
+                    logger.warn(
+                        { err: error },
+                        'Failed to decode topology transaction for display; showing as unknown'
+                    )
+                    return {
+                        kind: 'unknown' as const,
+                        mappingKind: 'undecodable',
+                    }
+                }
+            })
+
+            await store.setTopologyBundleRaw({
+                id: requestId,
+                status: 'pending',
+                userId: context.userId,
+                partyId: wallet.partyId,
+                publicKey: wallet.publicKey,
+                transactions: params.transactions,
+                summaries,
+                ...(params.synchronizerId !== undefined
+                    ? { synchronizerId: params.synchronizerId }
+                    : {}),
+                origin: origin || null,
+                createdAt: new Date(),
+            })
+
+            notifier.emit('topologyTransactionsSignature', {
+                status: 'pending',
+                requestId,
+            } satisfies TopologyTransactionsSignatureEvent)
+
+            return {
+                requestId,
+                userUrl: `${userUrl}/sign-topology/index.html?requestId=${requestId}&closeafteraction`,
+            }
+        },
         getPrimaryAccount: async function (): Promise<Wallet> {
             const wallet = await store.getPrimaryWallet()
             if (!wallet) {
@@ -536,6 +612,10 @@ export const dappController = (
         messageSignature: function (): Promise<MessageSignatureEvent> {
             throw new Error('Only for events.')
         },
+        topologyTransactionsSignature:
+            function (): Promise<TopologyTransactionsSignatureEvent> {
+                throw new Error('Only for events.')
+            },
     })
 }
 

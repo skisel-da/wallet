@@ -19,7 +19,10 @@ import type {
     ProviderType,
     SignMessageParams,
     SignMessageResult,
+    SignTopologyTransactionsParams,
+    SignTopologyTransactionsResult,
     StatusEvent,
+    TopologyTransactionsSignatureEvent,
     TxChangedEvent,
 } from '@canton-network/core-wallet-dapp-rpc-client'
 import { popup } from '@canton-network/core-wallet-ui-components'
@@ -92,6 +95,15 @@ export class DappClient {
         return this.provider.request({ method: 'signMessage', params })
     }
 
+    async signTopologyTransactions(
+        params: SignTopologyTransactionsParams
+    ): Promise<SignTopologyTransactionsResult> {
+        return this.provider.request({
+            method: 'signTopologyTransactions',
+            params,
+        })
+    }
+
     async ledgerApi(params: LedgerApiParams): Promise<LedgerApiResult> {
         return this.provider.request({ method: 'ledgerApi', params })
     }
@@ -116,6 +128,15 @@ export class DappClient {
 
     onMessageSignature(listener: EventListener<MessageSignatureEvent>): void {
         this.provider.on<MessageSignatureEvent>('messageSignature', listener)
+    }
+
+    onTopologyTransactionsSignature(
+        listener: EventListener<TopologyTransactionsSignatureEvent>
+    ): void {
+        this.provider.on<TopologyTransactionsSignatureEvent>(
+            'topologyTransactionsSignature',
+            listener
+        )
     }
 
     removeOnStatusChanged(listener: EventListener<StatusEvent>): void {
@@ -144,6 +165,15 @@ export class DappClient {
     ): void {
         this.provider.removeListener<MessageSignatureEvent>(
             'messageSignature',
+            listener
+        )
+    }
+
+    removeOnTopologyTransactionsSignature(
+        listener: EventListener<TopologyTransactionsSignatureEvent>
+    ): void {
+        this.provider.removeListener<TopologyTransactionsSignatureEvent>(
+            'topologyTransactionsSignature',
             listener
         )
     }

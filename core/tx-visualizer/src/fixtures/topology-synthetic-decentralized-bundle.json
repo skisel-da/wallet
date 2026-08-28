@@ -1,0 +1,20 @@
+{
+    "partyId": "synthetic-golden-vector::12200cd5472f1db54df67044ff2e38a178fdf70d01138498d83ffb571dc29adb6910",
+    "decentralizedNamespace": "12200cd5472f1db54df67044ff2e38a178fdf70d01138498d83ffb571dc29adb6910",
+    "ownerFingerprints": [
+        "1220b2d36eb8c9b139bbe62b8292d76d3f71ef87a6da8ac41d7c4edb001d64d617c8",
+        "12207257089a7f9f10ac376ba347ff25021d5345c7f5be338ff1ad3237d62a474d61"
+    ],
+    "ownerParticipantUids": [
+        "participant1::aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "participant2::bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    ],
+    "transactionsBase64": [
+        "CnsIARABGnUKcwpEMTIyMGIyZDM2ZWI4YzliMTM5YmJlNjJiODI5MmQ3NmQzZjcxZWY4N2E2ZGE4YWM0MWQ3YzRlZGIwMDFkNjRkNjE3YzgSKRADGiCPeuA3N4BMcuy2eD6wBNvW8gyrSbB90rGOSDq8ibYyxSoBATABGAEQHg==",
+        "CnsIARABGnUKcwpEMTIyMDcyNTcwODlhN2Y5ZjEwYWMzNzZiYTM0N2ZmMjUwMjFkNTM0NWM3ZjViZTMzOGZmMWFkMzIzN2Q2MmE0NzRkNjESKRADGiBi2i6D7ilda7yGv6Az7A/4Oy2DEVsQo5DHZUHEcEeTUSoBATABGAEQHg==",
+        "Ct4BCAEQARrXARrUAQpEMTIyMDBjZDU0NzJmMWRiNTRkZjY3MDQ0ZmYyZTM4YTE3OGZkZjcwZDAxMTM4NDk4ZDgzZmZiNTcxZGMyOWFkYjY5MTAQAhpEMTIyMGIyZDM2ZWI4YzliMTM5YmJlNjJiODI5MmQ3NmQzZjcxZWY4N2E2ZGE4YWM0MWQ3YzRlZGIwMDFkNjRkNjE3YzgaRDEyMjA3MjU3MDg5YTdmOWYxMGFjMzc2YmEzNDdmZjI1MDIxZDUzNDVjN2Y1YmUzMzhmZjFhZDMyMzdkNjJhNDc0ZDYxEB4=",
+        "CpsCCAEQARqUAkqRAgpdc3ludGhldGljLWdvbGRlbi12ZWN0b3I6OjEyMjAwY2Q1NDcyZjFkYjU0ZGY2NzA0NGZmMmUzOGExNzhmZGY3MGQwMTEzODQ5OGQ4M2ZmYjU3MWRjMjlhZGI2OTEwEAEaVgpScGFydGljaXBhbnQxOjphYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYRACGlYKUnBhcnRpY2lwYW50Mjo6YmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmIQAhAe",
+        "CsIBCAEQARq7AYIBtwEKXXN5bnRoZXRpYy1nb2xkZW4tdmVjdG9yOjoxMjIwMGNkNTQ3MmYxZGI1NGRmNjcwNDRmZjJlMzhhMTc4ZmRmNzBkMDExMzg0OThkODNmZmI1NzFkYzI5YWRiNjkxMBgCIikQAxogj3rgNzeATHLstng+sATb1vIMq0mwfdKxjkg6vIm2MsUqAQQwASIpEAMaIGLaLoPuKV1rvIa/oDPsD/g7LYMRWxCjkMdlQcRwR5NRKgEEMAEQHg=="
+    ],
+    "multiHashBase64": "EiD4XtcJYQg1rF1LtCDhqQpNJO2Fc2SrWnjIpmBUJtPaIQ=="
+}

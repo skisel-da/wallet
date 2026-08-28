@@ -56,6 +56,7 @@ const {
         getPrimaryAccount: vi.fn(),
         getActiveNetwork: vi.fn(),
         signMessage: vi.fn(),
+        signTopologyTransactions: vi.fn(),
     }
 
     class DappAsyncProviderMock {
@@ -130,6 +131,10 @@ describe('RemoteAdapter', () => {
             tx: { commandId: 'cmd-1', status: 'executed' },
         })
         mockController.signMessage.mockResolvedValue({ signature: 'sig' })
+        mockController.signTopologyTransactions.mockResolvedValue({
+            signature: 'sig',
+            multiHash: 'hash',
+        })
         mockController.ledgerApi.mockResolvedValue({ ok: true })
     })
 
@@ -214,6 +219,17 @@ describe('RemoteAdapter', () => {
                 params: { message: 'hello' },
             })
         ).resolves.toEqual({ signature: 'sig' })
+
+        mockController.signTopologyTransactions.mockResolvedValueOnce({
+            signature: 'sig',
+            multiHash: 'hash',
+        })
+        await expect(
+            provider.request({
+                method: 'signTopologyTransactions',
+                params: { transactions: ['dGVzdA=='] },
+            })
+        ).resolves.toEqual({ signature: 'sig', multiHash: 'hash' })
 
         mockController.ledgerApi.mockResolvedValueOnce({ ok: true })
         await expect(

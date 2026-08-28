@@ -12,6 +12,8 @@ import {
     PartyLevelRight,
     UserLevelRight,
     MessageRaw,
+    TopologyBundleRaw,
+    TopologyTransactionSummary,
     ApiKey,
 } from '@canton-network/core-wallet-store'
 
@@ -112,6 +114,25 @@ interface MessageRawTable {
     signature: string | null
 }
 
+interface TopologyBundleRawTable {
+    id: string
+    status: string
+    partyId: string
+    publicKey: string
+    // JSON-encoded string[] of base64, UntypedVersionedMessage-wrapped transactions.
+    transactions: string
+    // JSON-encoded TopologyTransactionSummary[], same order as `transactions`.
+    summaries: string
+    synchronizerId: string | null
+    origin: string | null
+    userId: UserId
+    networkId: string
+    createdAt: string
+    signedAt: string | null
+    signature: string | null
+    multiHash: string | null
+}
+
 interface SessionTable {
     id: string
     origin: string
@@ -140,6 +161,7 @@ export interface DB {
     userRights: UserRightTable
     transactions: TransactionTable
     messagesRaw: MessageRawTable
+    topologyBundlesRaw: TopologyBundleRawTable
     sessions: SessionTable
     apiKeys: ApiKeysTable
 }
@@ -427,6 +449,65 @@ export const toMessageRaw = (table: MessageRawTable): MessageRaw => {
     }
     if (table.signature) {
         result.signature = table.signature
+    }
+
+    return result
+}
+
+export const fromTopologyBundleRaw = (
+    bundle: TopologyBundleRaw,
+    userId: UserId,
+    networkId: string
+): TopologyBundleRawTable => {
+    if (bundle.userId !== userId) {
+        throw new Error(
+            `TopologyBundleRaw userId mismatch: expected ${userId}, got ${bundle.userId}`
+        )
+    }
+    return {
+        id: bundle.id,
+        status: bundle.status,
+        userId: bundle.userId,
+        partyId: bundle.partyId,
+        publicKey: bundle.publicKey,
+        transactions: JSON.stringify(bundle.transactions),
+        summaries: JSON.stringify(bundle.summaries),
+        synchronizerId: bundle.synchronizerId ?? null,
+        origin: bundle.origin || null,
+        networkId,
+        createdAt: bundle.createdAt.toISOString(),
+        signedAt: bundle.signedAt?.toISOString() || null,
+        signature: bundle.signature ?? null,
+        multiHash: bundle.multiHash ?? null,
+    }
+}
+
+export const toTopologyBundleRaw = (
+    table: TopologyBundleRawTable
+): TopologyBundleRaw => {
+    const result: TopologyBundleRaw = {
+        id: table.id,
+        status: table.status as TopologyBundleRaw['status'],
+        userId: table.userId,
+        partyId: table.partyId,
+        publicKey: table.publicKey,
+        transactions: JSON.parse(table.transactions) as string[],
+        summaries: JSON.parse(table.summaries) as TopologyTransactionSummary[],
+        origin: table.origin || null,
+        createdAt: new Date(table.createdAt),
+    }
+
+    if (table.synchronizerId) {
+        result.synchronizerId = table.synchronizerId
+    }
+    if (table.signedAt) {
+        result.signedAt = new Date(table.signedAt)
+    }
+    if (table.signature) {
+        result.signature = table.signature
+    }
+    if (table.multiHash) {
+        result.multiHash = table.multiHash
     }
 
     return result

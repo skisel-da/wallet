@@ -21,6 +21,10 @@ import type { SignMessage } from './typings.js'
 import type { GetMessageToSign } from './typings.js'
 import type { ListMessagesToSign } from './typings.js'
 import type { DeleteMessageToSign } from './typings.js'
+import type { SignTopologyTransactions } from './typings.js'
+import type { GetTopologyBundleToSign } from './typings.js'
+import type { ListTopologyBundlesToSign } from './typings.js'
+import type { DeleteTopologyBundleToSign } from './typings.js'
 import type { Execute } from './typings.js'
 import type { AddSession } from './typings.js'
 import type { RemoveSession } from './typings.js'
@@ -57,6 +61,10 @@ export type Methods = {
     getMessageToSign: GetMessageToSign
     listMessagesToSign: ListMessagesToSign
     deleteMessageToSign: DeleteMessageToSign
+    signTopologyTransactions: SignTopologyTransactions
+    getTopologyBundleToSign: GetTopologyBundleToSign
+    listTopologyBundlesToSign: ListTopologyBundlesToSign
+    deleteTopologyBundleToSign: DeleteTopologyBundleToSign
     execute: Execute
     addSession: AddSession
     removeSession: RemoveSession
@@ -95,6 +103,10 @@ function buildController(methods: Methods) {
         getMessageToSign: methods.getMessageToSign,
         listMessagesToSign: methods.listMessagesToSign,
         deleteMessageToSign: methods.deleteMessageToSign,
+        signTopologyTransactions: methods.signTopologyTransactions,
+        getTopologyBundleToSign: methods.getTopologyBundleToSign,
+        listTopologyBundlesToSign: methods.listTopologyBundlesToSign,
+        deleteTopologyBundleToSign: methods.deleteTopologyBundleToSign,
         execute: methods.execute,
         addSession: methods.addSession,
         removeSession: methods.removeSession,

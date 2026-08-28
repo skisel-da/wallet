@@ -9,6 +9,7 @@ import {
     type Network,
     type Transaction,
     type Wallet,
+    type TopologyBundleRaw,
 } from '@canton-network/core-wallet-store'
 import type { Idp } from '@canton-network/core-wallet-auth'
 import {
@@ -17,11 +18,13 @@ import {
     fromNetwork,
     fromPartyRight,
     fromTransaction,
+    fromTopologyBundleRaw,
     fromUserRight,
     fromWallet,
     toIdp,
     toMessageRaw,
     toNetwork,
+    toTopologyBundleRaw,
     toTransaction,
     toWallet,
     toWalletStatus,
@@ -224,6 +227,74 @@ describe('schema mappers', () => {
             expect(() => fromMessageRaw(message, 'user-1', 'net-1')).toThrow(
                 'MessageRaw userId mismatch'
             )
+        })
+    })
+
+    describe('TopologyBundleRaw', () => {
+        test('round-trips bundle with signature', () => {
+            const bundle: TopologyBundleRaw = {
+                id: 'topo-1',
+                status: 'signed',
+                userId: 'user-1',
+                partyId: 'party::ns',
+                publicKey: 'pk',
+                transactions: ['dGVzdA==', 'dGVzdDI='],
+                summaries: [
+                    {
+                        kind: 'namespaceDelegation',
+                        namespace: 'ns1',
+                        isRootDelegation: true,
+                    },
+                    {
+                        kind: 'unknown',
+                        mappingKind: 'somethingElse',
+                    },
+                ],
+                synchronizerId: 'synchronizer::1',
+                origin: 'https://dapp.example',
+                createdAt: new Date('2026-02-01T12:00:00.000Z'),
+                signedAt: new Date('2026-02-01T12:01:00.000Z'),
+                signature: 'sig',
+                multiHash: 'hash',
+            }
+
+            const table = fromTopologyBundleRaw(bundle, 'user-1', 'net-1')
+            expect(toTopologyBundleRaw(table)).toEqual(bundle)
+        })
+
+        test('round-trips pending bundle without optional fields', () => {
+            const bundle: TopologyBundleRaw = {
+                id: 'topo-2',
+                status: 'pending',
+                userId: 'user-1',
+                partyId: 'party::ns',
+                publicKey: 'pk',
+                transactions: ['dGVzdA=='],
+                summaries: [{ kind: 'unknown', mappingKind: 'unknown' }],
+                origin: null,
+                createdAt: new Date('2026-02-01T12:00:00.000Z'),
+            }
+
+            const table = fromTopologyBundleRaw(bundle, 'user-1', 'net-1')
+            expect(toTopologyBundleRaw(table)).toEqual(bundle)
+        })
+
+        test('throws when bundle userId does not match', () => {
+            const bundle: TopologyBundleRaw = {
+                id: 'topo-1',
+                status: 'pending',
+                userId: 'other-user',
+                partyId: 'party::ns',
+                publicKey: 'pk',
+                transactions: ['dGVzdA=='],
+                summaries: [{ kind: 'unknown', mappingKind: 'unknown' }],
+                origin: null,
+                createdAt: new Date(),
+            }
+
+            expect(() =>
+                fromTopologyBundleRaw(bundle, 'user-1', 'net-1')
+            ).toThrow('TopologyBundleRaw userId mismatch')
         })
     })
 })

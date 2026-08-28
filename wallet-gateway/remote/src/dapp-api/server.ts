@@ -91,6 +91,9 @@ export const dapp = (
         const onMessageSignature = (...event: unknown[]) => {
             writeSSE(res, 'messageSignature', event)
         }
+        const onTopologyTransactionsSignature = (...event: unknown[]) => {
+            writeSSE(res, 'topologyTransactionsSignature', event)
+        }
 
         const onLogout = () => {
             logger.info(
@@ -106,6 +109,10 @@ export const dapp = (
         sessionNotifier.on('statusChanged', onStatusChanged)
         sessionNotifier.on('txChanged', onTxChanged)
         sessionNotifier.on('messageSignature', onMessageSignature)
+        sessionNotifier.on(
+            'topologyTransactionsSignature',
+            onTopologyTransactionsSignature
+        )
         sessionNotifier.on('logout', onLogout)
 
         const cleanup = () => {
@@ -117,6 +124,10 @@ export const dapp = (
             sessionNotifier.removeListener(
                 'messageSignature',
                 onMessageSignature
+            )
+            sessionNotifier.removeListener(
+                'topologyTransactionsSignature',
+                onTopologyTransactionsSignature
             )
             sessionNotifier.removeListener('logout', onLogout)
         }
