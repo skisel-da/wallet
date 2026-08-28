@@ -126,14 +126,9 @@ test('transaction signature', async () => {
     ).toBeDefined()
 })
 
-// decentralizer-poc hack (not upstreamable): signMessage() has been
-// repurposed here to raw-hash-sign a base64 Canton topology-transaction
-// multiHash (via signTransactionHash), instead of its original
-// arbitrary-UTF8-string-message-signing purpose. See the comment at the
-// call site in controller.ts and decentralizer-poc's README "Phase 0.5".
-const TEST_MESSAGE = TEST_TRANSACTION_HASH
+const TEST_MESSAGE = 'hello world'
 
-test('signMessage signs a base64 hash (raw bytes, not UTF-8 string) with a stored key', async () => {
+test('signMessage signs a message with a stored key', async () => {
     const { controller, key } = await setupTest()
 
     const result = await controller.signMessage({
@@ -145,7 +140,7 @@ test('signMessage signs a base64 hash (raw bytes, not UTF-8 string) with a store
     expect(result.signature).toBeDefined()
     expect(
         nacl.sign.detached.verify(
-            naclUtil.decodeBase64(TEST_MESSAGE),
+            new TextEncoder().encode(TEST_MESSAGE),
             naclUtil.decodeBase64(result.signature),
             naclUtil.decodeBase64(key.publicKey)
         )
