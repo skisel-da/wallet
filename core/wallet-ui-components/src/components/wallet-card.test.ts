@@ -123,6 +123,39 @@ describe('wg-wallet-card', () => {
         ).toBe('Safe')
     })
 
+    it('does not offer to set an ordinary disabled wallet as primary', async () => {
+        const wallet = makeWallet({ disabled: true, primary: false })
+        const el = await fixture(
+            html`<wg-wallet-card
+                .wallet=${wallet}
+                .verified=${true}
+            ></wg-wallet-card>`
+        )
+
+        expect(el.shadowRoot!.querySelector('.link-action')).toBeNull()
+    })
+
+    it('still offers to set a Safe-like disabled wallet as primary', async () => {
+        const wallet = makeWallet({
+            disabled: true,
+            primary: false,
+            safeAppUrl: 'https://safe.example',
+        })
+        const el = await fixture(
+            html`<wg-wallet-card
+                .wallet=${wallet}
+                .verified=${true}
+            ></wg-wallet-card>`
+        )
+
+        const listener = vi.fn()
+        el.addEventListener('wallet-set-primary', listener)
+
+        el.shadowRoot!.querySelector<HTMLButtonElement>('.link-action')!.click()
+
+        expect(listener).toHaveBeenCalledOnce()
+    })
+
     it('does not render a Safe badge for an ordinary wallet', async () => {
         const wallet = makeWallet()
         const el = await fixture(

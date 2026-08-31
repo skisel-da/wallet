@@ -347,7 +347,20 @@ export class WgWalletCard extends BaseElement {
         const editButton = this.renderEditButton()
 
         if (this.verified) {
-            if (this.wallet.primary || this.wallet.disabled) {
+            // A disabled wallet normally has no usable signing key, so
+            // setting it primary would be a dead end -- except a Safe-like
+            // one (safeAppUrl set, see decentralizer-poc's
+            // docs/safe-execution-plan.md), which is disabled for the same
+            // "no single key matches" reason but is still meant to be used:
+            // a dApp acting through it gets redirected to the companion app
+            // instead of signing locally. It still needs to be selectable as
+            // primary for a dApp to pick it up as the acting party at all.
+            const isUsableDespiteDisabled =
+                this.wallet.disabled && !!this.wallet.safeAppUrl
+            if (
+                this.wallet.primary ||
+                (this.wallet.disabled && !isUsableDespiteDisabled)
+            ) {
                 if (!badge) return null
 
                 return html`
