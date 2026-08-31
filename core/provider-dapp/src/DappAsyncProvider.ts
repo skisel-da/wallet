@@ -99,6 +99,10 @@ export class DappAsyncProvider extends AbstractProvider<DappAsyncRpcTypes> {
                 'topologyTransactionsSignature',
                 dispatchToProviders('topologyTransactionsSignature')
             )
+            eventSource.addEventListener(
+                'preparedTransactionSignature',
+                dispatchToProviders('preparedTransactionSignature')
+            )
 
             eventSource.onerror = () => {
                 if (connection?.url === sseUrlString) {

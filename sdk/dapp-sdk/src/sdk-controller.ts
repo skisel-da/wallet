@@ -14,7 +14,10 @@ import {
     SignMessageResult,
     SignTopologyTransactionsParams,
     SignTopologyTransactionsResult,
+    SignPreparedTransactionParams,
+    SignPreparedTransactionResult,
     TopologyTransactionsSignatureEvent,
+    PreparedTransactionSignatureEvent,
     Wallet,
 } from './dapp-api/rpc-gen/typings'
 import { ErrorCode } from './error'
@@ -260,6 +263,59 @@ export const dappSDKController = (provider: DappAsyncProvider) =>
                 }
             )
         },
+        signPreparedTransaction: async (
+            params: SignPreparedTransactionParams
+        ): Promise<SignPreparedTransactionResult> => {
+            const response = await provider.request({
+                method: 'signPreparedTransaction',
+                params,
+            })
+            const { requestId, userUrl } = response
+            popup.open(userUrl)
+
+            return await new Promise<SignPreparedTransactionResult>(
+                (resolve, reject) => {
+                    const timeout = withTimeout(
+                        reject,
+                        'Timed out waiting for prepared-transaction signing approval'
+                    )
+
+                    const listener = (
+                        event: dappAsyncAPI.PreparedTransactionSignatureEvent
+                    ) => {
+                        if (event.requestId !== requestId) return
+
+                        // pending is informational; continue waiting
+                        if (event.status === 'pending') return
+
+                        provider.removeListener(
+                            'preparedTransactionSignature',
+                            listener
+                        )
+                        clearTimeout(timeout)
+
+                        if (event.status === 'failed') {
+                            reject({
+                                status: 'error',
+                                error: ErrorCode.TransactionFailed,
+                                details: `Prepared-transaction signing failed for requestId ${event.requestId}.`,
+                            })
+                            return
+                        }
+
+                        resolve({
+                            signature: event.signature,
+                            signedBy: event.signedBy,
+                        })
+                    }
+
+                    provider.on<dappAsyncAPI.PreparedTransactionSignatureEvent>(
+                        'preparedTransactionSignature',
+                        listener
+                    )
+                }
+            )
+        },
         getPrimaryAccount: async (): Promise<Wallet> =>
             provider.request({
                 method: 'getPrimaryAccount',
@@ -269,6 +325,10 @@ export const dappSDKController = (provider: DappAsyncProvider) =>
         },
         topologyTransactionsSignature:
             function (): Promise<TopologyTransactionsSignatureEvent> {
+                throw new Error('Only for events.')
+            },
+        preparedTransactionSignature:
+            function (): Promise<PreparedTransactionSignatureEvent> {
                 throw new Error('Only for events.')
             },
     })

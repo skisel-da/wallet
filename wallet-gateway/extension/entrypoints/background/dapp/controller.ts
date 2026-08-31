@@ -21,8 +21,11 @@ import type {
     SignMessageResult,
     SignTopologyTransactionsParams,
     SignTopologyTransactionsResult,
+    SignPreparedTransactionParams,
+    SignPreparedTransactionResult,
     StatusEvent,
     TopologyTransactionsSignatureEvent,
+    PreparedTransactionSignatureEvent,
     Wallet,
 } from './rpc-gen/typings.js'
 
@@ -253,6 +256,11 @@ export const dappController = (
                 'Function signTopologyTransactions not implemented.'
             )
         },
+        signPreparedTransaction: function (
+            params: SignPreparedTransactionParams
+        ): Promise<SignPreparedTransactionResult> {
+            throw new Error('Function signPreparedTransaction not implemented.')
+        },
         getPrimaryAccount: async function (): Promise<Wallet> {
             throw new Error('Function getPrimaryAccount not implemented.')
         },
@@ -261,6 +269,10 @@ export const dappController = (
         },
         topologyTransactionsSignature:
             async (): Promise<TopologyTransactionsSignatureEvent> => {
+                throw new Error('Only for events.')
+            },
+        preparedTransactionSignature:
+            async (): Promise<PreparedTransactionSignatureEvent> => {
                 throw new Error('Only for events.')
             },
     })

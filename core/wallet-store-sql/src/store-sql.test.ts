@@ -13,6 +13,7 @@ import {
     MessageRaw,
     Network,
     PartyLevelRight,
+    PreparedTransactionToSign,
     Session,
     TopologyBundleRaw,
     Transaction,
@@ -1056,6 +1057,98 @@ implementations.forEach(([name, StoreImpl]) => {
                     createdAt: new Date(),
                 })
             ).rejects.toThrow('TopologyBundleRaw userId mismatch')
+        })
+
+        test('should manage signPreparedTransaction requests', async () => {
+            const store = new StoreImpl(db, pino(sink()), authContextMock)
+            await store.addIdp(idp)
+            await store.addNetwork(network)
+            await store.setSession({
+                id: 'session-prepared-tx',
+                origin: 'dapp-1',
+                network: 'network1',
+                accessToken: 'test-access-token',
+            })
+
+            const record: PreparedTransactionToSign = {
+                id: 'prep-1',
+                status: 'pending',
+                userId: authContextMock.userId,
+                partyId: 'party-owner',
+                publicKey: 'publicKey',
+                preparedTransaction: 'cHJlcGFyZWQ=',
+                preparedTransactionHash: 'aGFzaA==',
+                origin: 'https://safe-app.example',
+                createdAt: new Date('2026-03-01T10:00:00.000Z'),
+            }
+
+            await store.setPreparedTransactionToSign(record)
+            await store.setPreparedTransactionToSignStatus('prep-1', 'signed', {
+                signedAt: new Date('2026-03-01T10:01:00.000Z'),
+                signature: 'signature-bytes',
+            })
+
+            const fetched = await store.getPreparedTransactionToSign('prep-1')
+            expect(fetched?.status).toBe('signed')
+            expect(fetched?.signature).toBe('signature-bytes')
+            expect(fetched?.preparedTransaction).toBe(
+                record.preparedTransaction
+            )
+            expect(fetched?.preparedTransactionHash).toBe(
+                record.preparedTransactionHash
+            )
+
+            await store.removePreparedTransactionToSign('prep-1')
+            expect(
+                await store.getPreparedTransactionToSign('prep-1')
+            ).toBeUndefined()
+        })
+
+        test('should reject prepared transaction to sign with mismatched userId', async () => {
+            const store = new StoreImpl(db, pino(sink()), authContextMock)
+            await store.addIdp(idp)
+            await store.addNetwork(network)
+            await store.setSession({
+                id: 'session-prepared-tx-mismatch',
+                origin: 'dapp-1',
+                network: 'network1',
+                accessToken: 'test-access-token',
+            })
+
+            await expect(
+                store.setPreparedTransactionToSign({
+                    id: 'prep-bad',
+                    status: 'pending',
+                    userId: 'other-user',
+                    partyId: 'party-owner',
+                    publicKey: 'publicKey',
+                    preparedTransaction: 'cHJlcGFyZWQ=',
+                    preparedTransactionHash: 'aGFzaA==',
+                    origin: null,
+                    createdAt: new Date(),
+                })
+            ).rejects.toThrow('PreparedTransactionToSign userId mismatch')
+        })
+
+        test('should throw when setting status of a missing prepared transaction to sign', async () => {
+            const store = new StoreImpl(db, pino(sink()), authContextMock)
+            await store.addIdp(idp)
+            await store.addNetwork(network)
+            await store.setSession({
+                id: 'session-prepared-tx-missing',
+                origin: 'dapp-1',
+                network: 'network1',
+                accessToken: 'test-access-token',
+            })
+
+            await expect(
+                store.setPreparedTransactionToSignStatus(
+                    'missing-prep',
+                    'failed'
+                )
+            ).rejects.toThrow(
+                'PreparedTransactionToSign not found with id: missing-prep'
+            )
         })
 
         test('should support latest transaction lookup and removal', async () => {

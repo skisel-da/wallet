@@ -10,6 +10,7 @@ import type { PrepareExecute } from './typings.js'
 import type { PrepareExecuteAndWait } from './typings.js'
 import type { SignMessage } from './typings.js'
 import type { SignTopologyTransactions } from './typings.js'
+import type { SignPreparedTransaction } from './typings.js'
 import type { LedgerApi } from './typings.js'
 import type { AccountsChanged } from './typings.js'
 import type { GetPrimaryAccount } from './typings.js'
@@ -17,6 +18,7 @@ import type { ListAccounts } from './typings.js'
 import type { TxChanged } from './typings.js'
 import type { MessageSignature } from './typings.js'
 import type { TopologyTransactionsSignature } from './typings.js'
+import type { PreparedTransactionSignature } from './typings.js'
 
 export type Methods = {
     status: Status
@@ -28,6 +30,7 @@ export type Methods = {
     prepareExecuteAndWait: PrepareExecuteAndWait
     signMessage: SignMessage
     signTopologyTransactions: SignTopologyTransactions
+    signPreparedTransaction: SignPreparedTransaction
     ledgerApi: LedgerApi
     accountsChanged: AccountsChanged
     getPrimaryAccount: GetPrimaryAccount
@@ -35,6 +38,7 @@ export type Methods = {
     txChanged: TxChanged
     messageSignature: MessageSignature
     topologyTransactionsSignature: TopologyTransactionsSignature
+    preparedTransactionSignature: PreparedTransactionSignature
 }
 
 function buildController(methods: Methods) {
@@ -48,6 +52,7 @@ function buildController(methods: Methods) {
         prepareExecuteAndWait: methods.prepareExecuteAndWait,
         signMessage: methods.signMessage,
         signTopologyTransactions: methods.signTopologyTransactions,
+        signPreparedTransaction: methods.signPreparedTransaction,
         ledgerApi: methods.ledgerApi,
         accountsChanged: methods.accountsChanged,
         getPrimaryAccount: methods.getPrimaryAccount,
@@ -55,6 +60,7 @@ function buildController(methods: Methods) {
         txChanged: methods.txChanged,
         messageSignature: methods.messageSignature,
         topologyTransactionsSignature: methods.topologyTransactionsSignature,
+        preparedTransactionSignature: methods.preparedTransactionSignature,
     }
 }
 

@@ -136,7 +136,7 @@ export type SigningProviderId = string
 export type VaultName = string
 /**
  *
- * The party id of the wallet asked to co-sign this bundle.
+ * The party id of the wallet asked to sign this transaction -- the individual owner signing, not the Safe-like party the transaction acts as.
  *
  */
 export type PartyId = string
@@ -187,10 +187,21 @@ export type MessageId = string
 export type TopologyRequestId = string
 /**
  *
- * The signature over the bundle's multiHash.
+ * The internal identifier of the pending signPreparedTransaction signing request.
+ *
+ */
+export type PreparedTransactionRequestId = string
+/**
+ *
+ * The signature over the transaction's hash.
  *
  */
 export type Signature = string
+/**
+ *
+ * Base64-encoded Ed25519 public key of the wallet that produced the signature.
+ *
+ */
 export type SignedBy = string
 /**
  *
@@ -261,7 +272,7 @@ export type WalletStatus = 'initialized' | 'allocated' | 'removed'
 export type Hint = string
 /**
  *
- * The public key of the party.
+ * The public key of the signing party.
  *
  */
 export type PublicKey = string
@@ -522,6 +533,30 @@ export interface TopologyBundleRaw {
     multiHash?: MultiHash
 }
 export type Bundles = TopologyBundleRaw[]
+/**
+ *
+ * The transaction data corresponding to the command ID.
+ *
+ */
+export type PreparedTransaction = string
+/**
+ *
+ * The hash of the prepared transaction.
+ *
+ */
+export type PreparedTransactionHash = string
+export interface PreparedTransactionToSign {
+    id: PreparedTransactionRequestId
+    status: Status
+    partyId: PartyId
+    publicKey: PublicKey
+    preparedTransaction: PreparedTransaction
+    preparedTransactionHash: PreparedTransactionHash
+    origin?: Origin
+    createdAt: CreatedAt
+    signedAt?: SignedAt
+    signature?: Signature
+}
 export type UserLevelRight = any
 /**
  *
@@ -545,18 +580,6 @@ export type Sessions = Session[]
  *
  */
 export type CommandId = string
-/**
- *
- * The transaction data corresponding to the command ID.
- *
- */
-export type PreparedTransaction = string
-/**
- *
- * The hash of the prepared transaction.
- *
- */
-export type PreparedTransactionHash = string
 /**
  *
  * Optional payload associated with the transaction.
@@ -681,11 +704,20 @@ export interface DeleteMessageToSignParams {
 export interface SignTopologyTransactionsParams {
     requestId: TopologyRequestId
 }
+export interface SignPreparedTransactionParams {
+    requestId: PreparedTransactionRequestId
+}
 export interface GetTopologyBundleToSignParams {
     requestId: TopologyRequestId
 }
 export interface DeleteTopologyBundleToSignParams {
     requestId: TopologyRequestId
+}
+export interface GetPreparedTransactionToSignParams {
+    requestId: PreparedTransactionRequestId
+}
+export interface DeletePreparedTransactionToSignParams {
+    requestId: PreparedTransactionRequestId
 }
 export interface ExecuteParams {
     signature: Signature
@@ -782,11 +814,18 @@ export interface SignTopologyTransactionsResult {
     publicKey: PublicKey
     multiHash: MultiHash
 }
+export interface SignPreparedTransactionResult {
+    signature: Signature
+    signedBy: SignedBy
+}
 export interface GetTopologyBundleToSignResult {
     bundle: TopologyBundleRaw
 }
 export interface ListTopologyBundlesToSignResult {
     bundles: Bundles
+}
+export interface GetPreparedTransactionToSignResult {
+    record: PreparedTransactionToSign
 }
 export interface ExecuteResult {
     [key: string]: any
@@ -888,6 +927,9 @@ export type DeleteMessageToSign = (
 export type SignTopologyTransactions = (
     params: SignTopologyTransactionsParams
 ) => Promise<SignTopologyTransactionsResult>
+export type SignPreparedTransaction = (
+    params: SignPreparedTransactionParams
+) => Promise<SignPreparedTransactionResult>
 export type GetTopologyBundleToSign = (
     params: GetTopologyBundleToSignParams
 ) => Promise<GetTopologyBundleToSignResult>
@@ -895,6 +937,12 @@ export type ListTopologyBundlesToSign =
     () => Promise<ListTopologyBundlesToSignResult>
 export type DeleteTopologyBundleToSign = (
     params: DeleteTopologyBundleToSignParams
+) => Promise<Null>
+export type GetPreparedTransactionToSign = (
+    params: GetPreparedTransactionToSignParams
+) => Promise<GetPreparedTransactionToSignResult>
+export type DeletePreparedTransactionToSign = (
+    params: DeletePreparedTransactionToSignParams
 ) => Promise<Null>
 export type Execute = (params: ExecuteParams) => Promise<ExecuteResult>
 export type AddSession = (params: AddSessionParams) => Promise<AddSessionResult>

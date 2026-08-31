@@ -14,8 +14,11 @@ import {
     MessageSignatureEvent,
     Network,
     PrepareExecuteParams,
+    PreparedTransactionSignatureEvent,
     SignMessageParams,
     SignMessageResult,
+    SignPreparedTransactionParams,
+    SignPreparedTransactionResult,
     SignTopologyTransactionsParams,
     SignTopologyTransactionsResult,
     StatusEvent,
@@ -632,6 +635,63 @@ export const dappController = (
                 userUrl: `${userUrl}/sign-topology/index.html?requestId=${requestId}&closeafteraction`,
             }
         },
+        signPreparedTransaction: async (
+            params: SignPreparedTransactionParams
+        ): Promise<SignPreparedTransactionResult> => {
+            if (
+                !params?.preparedTransaction ||
+                !params?.preparedTransactionHash
+            ) {
+                throw new Error(
+                    'preparedTransaction and preparedTransactionHash are required'
+                )
+            }
+
+            const wallet = await store.getPrimaryWallet()
+
+            if (context === undefined) {
+                throw new Error('Unauthenticated context')
+            }
+
+            if (wallet === undefined) {
+                throw new Error('No primary wallet found')
+            }
+
+            const session = await store.getSession(context.accessToken)
+            const sessionId = session!.id
+            const notifier = notificationService.getNotifier(sessionId)
+            const requestId = v4()
+
+            // Unlike signTopologyTransactions, nothing is decoded/summarized
+            // here -- core-tx-visualizer's parsePreparedTransaction decodes
+            // preparedTransaction directly, on demand, the same way the
+            // existing approve page already does for an ordinary
+            // single-signer ledger transaction. Only the raw bytes are ever
+            // signed; preparedTransactionHash is independently re-verified
+            // against them at sign time (see user-api's
+            // signPreparedTransaction), never trusted outright.
+            await store.setPreparedTransactionToSign({
+                id: requestId,
+                status: 'pending',
+                userId: context.userId,
+                partyId: wallet.partyId,
+                publicKey: wallet.publicKey,
+                preparedTransaction: params.preparedTransaction,
+                preparedTransactionHash: params.preparedTransactionHash,
+                origin: origin || null,
+                createdAt: new Date(),
+            })
+
+            notifier.emit('preparedTransactionSignature', {
+                status: 'pending',
+                requestId,
+            } satisfies PreparedTransactionSignatureEvent)
+
+            return {
+                requestId,
+                userUrl: `${userUrl}/sign-prepared-transaction/index.html?requestId=${requestId}&closeafteraction`,
+            }
+        },
         getPrimaryAccount: async function (): Promise<Wallet> {
             const wallet = await store.getPrimaryWallet()
             if (!wallet) {
@@ -656,6 +716,10 @@ export const dappController = (
         },
         topologyTransactionsSignature:
             function (): Promise<TopologyTransactionsSignatureEvent> {
+                throw new Error('Only for events.')
+            },
+        preparedTransactionSignature:
+            function (): Promise<PreparedTransactionSignatureEvent> {
                 throw new Error('Only for events.')
             },
     })

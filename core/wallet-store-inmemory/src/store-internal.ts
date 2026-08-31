@@ -24,6 +24,8 @@ import {
     MessageRawStatusUpdate,
     TopologyBundleRaw,
     TopologyBundleRawStatusUpdate,
+    PreparedTransactionToSign,
+    PreparedTransactionToSignStatusUpdate,
     ApiKey,
     ListTransactionsOptions,
     WalletUniqueConstraint,
@@ -36,6 +38,7 @@ interface UserStorage {
     transactions: Map<string, Transaction>
     messageRaws: Map<string, MessageRaw>
     topologyBundleRaws: Map<string, TopologyBundleRaw>
+    preparedTransactionsToSign: Map<string, PreparedTransactionToSign>
     sessions: Map<AccessToken, Session>
     apiKeys: Map<string, ApiKey>
     userRightsByNetwork: Map<string, Set<UserLevelRight>>
@@ -85,6 +88,10 @@ export class StoreInternal implements Store, AuthAware<StoreInternal> {
             transactions: new Map<string, Transaction>(),
             messageRaws: new Map<string, MessageRaw>(),
             topologyBundleRaws: new Map<string, TopologyBundleRaw>(),
+            preparedTransactionsToSign: new Map<
+                string,
+                PreparedTransactionToSign
+            >(),
             sessions: new Map<AccessToken, Session>(),
             apiKeys: new Map<string, ApiKey>(),
             userRightsByNetwork: new Map<string, Set<UserLevelRight>>(),
@@ -698,6 +705,74 @@ export class StoreInternal implements Store, AuthAware<StoreInternal> {
         this.assertConnected()
         const storage = this.getStorage()
         storage.topologyBundleRaws.delete(requestId)
+        this.updateStorage(storage)
+    }
+
+    private mergePreparedTransactionToSignStatusUpdate(
+        existing: PreparedTransactionToSign,
+        status: PreparedTransactionToSign['status'],
+        updates: PreparedTransactionToSignStatusUpdate = {}
+    ): PreparedTransactionToSign {
+        const signedAt = updates.signedAt ?? existing.signedAt
+        const signature = updates.signature ?? existing.signature
+
+        return {
+            ...existing,
+            status,
+            ...(signedAt !== undefined && { signedAt }),
+            ...(signature !== undefined && { signature }),
+        }
+    }
+
+    // signPreparedTransaction request methods
+    async setPreparedTransactionToSign(
+        record: PreparedTransactionToSign
+    ): Promise<void> {
+        const userId = this.assertConnected()
+        if (record.userId !== userId) {
+            throw new Error(
+                `PreparedTransactionToSign userId mismatch: expected ${userId}, got ${record.userId}`
+            )
+        }
+        const storage = this.getStorage()
+        storage.preparedTransactionsToSign.set(record.id, record)
+        this.updateStorage(storage)
+    }
+
+    async setPreparedTransactionToSignStatus(
+        requestId: string,
+        status: PreparedTransactionToSign['status'],
+        updates: PreparedTransactionToSignStatusUpdate = {}
+    ): Promise<void> {
+        this.assertConnected()
+        const storage = this.getStorage()
+        const existing = storage.preparedTransactionsToSign.get(requestId)
+        if (!existing) {
+            throw new Error(
+                `PreparedTransactionToSign not found with id: ${requestId}`
+            )
+        }
+        const updated = this.mergePreparedTransactionToSignStatusUpdate(
+            existing,
+            status,
+            updates
+        )
+        storage.preparedTransactionsToSign.set(requestId, updated)
+        this.updateStorage(storage)
+    }
+
+    async getPreparedTransactionToSign(
+        requestId: string
+    ): Promise<PreparedTransactionToSign | undefined> {
+        this.assertConnected()
+        const storage = this.getStorage()
+        return storage.preparedTransactionsToSign.get(requestId)
+    }
+
+    async removePreparedTransactionToSign(requestId: string): Promise<void> {
+        this.assertConnected()
+        const storage = this.getStorage()
+        storage.preparedTransactionsToSign.delete(requestId)
         this.updateStorage(storage)
     }
 

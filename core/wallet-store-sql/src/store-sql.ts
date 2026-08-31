@@ -20,6 +20,8 @@ import {
     MessageRawStatusUpdate,
     TopologyBundleRaw,
     TopologyBundleRawStatusUpdate,
+    PreparedTransactionToSign,
+    PreparedTransactionToSignStatusUpdate,
     Network,
     StoreConfig,
     UpdateWallet,
@@ -40,6 +42,7 @@ import {
     fromTransaction,
     fromMessageRaw,
     fromTopologyBundleRaw,
+    fromPreparedTransactionToSign,
     fromWallet,
     fromPartyRight,
     fromUserRight,
@@ -49,6 +52,7 @@ import {
     toTransaction,
     toMessageRaw,
     toTopologyBundleRaw,
+    toPreparedTransactionToSign,
     toWallet,
     fromApiKey,
     toApiKey,
@@ -1131,6 +1135,106 @@ export class StoreSql implements BaseStore, AuthAware<StoreSql> {
         const network = await this.getCurrentNetwork()
         await this.db
             .deleteFrom('topologyBundlesRaw')
+            .where((eb) =>
+                eb.and([
+                    eb('id', '=', requestId),
+                    eb('userId', '=', userId),
+                    eb('networkId', '=', network.id),
+                ])
+            )
+            .execute()
+    }
+
+    private mergePreparedTransactionToSignStatusUpdate(
+        existing: PreparedTransactionToSign,
+        status: PreparedTransactionToSign['status'],
+        updates: PreparedTransactionToSignStatusUpdate = {}
+    ): PreparedTransactionToSign {
+        const signedAt = updates.signedAt ?? existing.signedAt
+        const signature = updates.signature ?? existing.signature
+
+        return {
+            ...existing,
+            status,
+            ...(signedAt !== undefined && { signedAt }),
+            ...(signature !== undefined && { signature }),
+        }
+    }
+
+    // signPreparedTransaction request methods
+    async setPreparedTransactionToSign(
+        record: PreparedTransactionToSign
+    ): Promise<void> {
+        const userId = this.assertConnected()
+        if (record.userId !== userId) {
+            throw new Error(
+                `PreparedTransactionToSign userId mismatch: expected ${userId}, got ${record.userId}`
+            )
+        }
+        const network = await this.getCurrentNetwork()
+        await this.db
+            .insertInto('preparedTransactionsToSign')
+            .values(fromPreparedTransactionToSign(record, userId, network.id))
+            .execute()
+    }
+
+    async setPreparedTransactionToSignStatus(
+        requestId: string,
+        status: PreparedTransactionToSign['status'],
+        updates: PreparedTransactionToSignStatusUpdate = {}
+    ): Promise<void> {
+        const userId = this.assertConnected()
+        const network = await this.getCurrentNetwork()
+        const existing = await this.getPreparedTransactionToSign(requestId)
+        if (!existing) {
+            throw new Error(
+                `PreparedTransactionToSign not found with id: ${requestId}`
+            )
+        }
+
+        const updated = this.mergePreparedTransactionToSignStatusUpdate(
+            existing,
+            status,
+            updates
+        )
+
+        await this.db
+            .updateTable('preparedTransactionsToSign')
+            .set(fromPreparedTransactionToSign(updated, userId, network.id))
+            .where((eb) =>
+                eb.and([
+                    eb('id', '=', requestId),
+                    eb('userId', '=', userId),
+                    eb('networkId', '=', network.id),
+                ])
+            )
+            .execute()
+    }
+
+    async getPreparedTransactionToSign(
+        requestId: string
+    ): Promise<PreparedTransactionToSign | undefined> {
+        const userId = this.assertConnected()
+        const network = await this.getCurrentNetwork()
+        const record = await this.db
+            .selectFrom('preparedTransactionsToSign')
+            .selectAll()
+            .where((eb) =>
+                eb.and([
+                    eb('id', '=', requestId),
+                    eb('userId', '=', userId),
+                    eb('networkId', '=', network.id),
+                ])
+            )
+            .executeTakeFirst()
+        return record ? toPreparedTransactionToSign(record) : undefined
+    }
+
+    async removePreparedTransactionToSign(requestId: string): Promise<void> {
+        const userId = this.assertConnected()
+        const network = await this.getCurrentNetwork()
+        await this.db
+            .deleteFrom('preparedTransactionsToSign')
             .where((eb) =>
                 eb.and([
                     eb('id', '=', requestId),

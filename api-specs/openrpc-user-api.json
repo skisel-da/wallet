@@ -835,6 +835,47 @@
             "description": "Recomputes the multiHash from the stored raw topology-transaction bytes and signs it with the wallet's private key (Ed25519). Only supported for WALLET_KERNEL wallets."
         },
         {
+            "name": "signPreparedTransaction",
+            "params": [
+                {
+                    "name": "params",
+                    "schema": {
+                        "title": "SignPreparedTransactionParams",
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "requestId": {
+                                "$ref": "#/components/schemas/PreparedTransactionRequestId"
+                            }
+                        },
+                        "required": ["requestId"]
+                    }
+                }
+            ],
+            "result": {
+                "name": "result",
+                "schema": {
+                    "title": "SignPreparedTransactionResult",
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "signature": {
+                            "title": "signature",
+                            "type": "string",
+                            "description": "Base64-encoded Ed25519 signature over the prepared transaction's hash."
+                        },
+                        "signedBy": {
+                            "title": "signedBy",
+                            "type": "string",
+                            "description": "Base64-encoded Ed25519 public key of the wallet that produced the signature."
+                        }
+                    },
+                    "required": ["signature", "signedBy"]
+                }
+            },
+            "description": "Independently recomputes the hash from the stored raw prepared-transaction bytes (never trusting the value supplied at receipt time) and signs it with the caller's own private key (Ed25519) -- one owner's signature towards a Gnosis-Safe-like decentralized party's threshold. Only supported for WALLET_KERNEL wallets."
+        },
+        {
             "name": "getTopologyBundleToSign",
             "params": [
                 {
@@ -915,6 +956,66 @@
                 }
             },
             "description": "Rejects a pending topology-transactions signing request."
+        },
+        {
+            "name": "getPreparedTransactionToSign",
+            "params": [
+                {
+                    "name": "params",
+                    "schema": {
+                        "title": "GetPreparedTransactionToSignParams",
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "requestId": {
+                                "$ref": "#/components/schemas/PreparedTransactionRequestId"
+                            }
+                        },
+                        "required": ["requestId"]
+                    }
+                }
+            ],
+            "result": {
+                "name": "result",
+                "schema": {
+                    "title": "GetPreparedTransactionToSignResult",
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "record": {
+                            "$ref": "#/components/schemas/PreparedTransactionToSign"
+                        }
+                    },
+                    "required": ["record"]
+                }
+            },
+            "description": "Gets a pending signPreparedTransaction signing request. The wallet decodes preparedTransaction for display itself -- the record only carries the raw bytes."
+        },
+        {
+            "name": "deletePreparedTransactionToSign",
+            "params": [
+                {
+                    "name": "params",
+                    "schema": {
+                        "title": "DeletePreparedTransactionToSignParams",
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "requestId": {
+                                "$ref": "#/components/schemas/PreparedTransactionRequestId"
+                            }
+                        },
+                        "required": ["requestId"]
+                    }
+                }
+            ],
+            "result": {
+                "name": "result",
+                "schema": {
+                    "$ref": "#/components/schemas/Null"
+                }
+            },
+            "description": "Rejects a pending signPreparedTransaction signing request."
         },
         {
             "name": "execute",
@@ -1921,6 +2022,12 @@
                 "format": "uuid",
                 "description": "The internal identifier of the pending topology-transactions signing request."
             },
+            "PreparedTransactionRequestId": {
+                "title": "PreparedTransactionRequestId",
+                "type": "string",
+                "format": "uuid",
+                "description": "The internal identifier of the pending signPreparedTransaction signing request."
+            },
             "TopologyHostingParticipant": {
                 "title": "TopologyHostingParticipant",
                 "type": "object",
@@ -2088,6 +2195,72 @@
                     "publicKey",
                     "transactions",
                     "summaries",
+                    "createdAt"
+                ]
+            },
+            "PreparedTransactionToSign": {
+                "title": "PreparedTransactionToSign",
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "id": {
+                        "$ref": "#/components/schemas/PreparedTransactionRequestId"
+                    },
+                    "status": {
+                        "title": "status",
+                        "type": "string",
+                        "enum": ["pending", "signed", "failed"]
+                    },
+                    "partyId": {
+                        "title": "partyId",
+                        "type": "string",
+                        "description": "The party id of the wallet asked to sign this transaction -- the individual owner signing, not the Safe-like party the transaction acts as."
+                    },
+                    "publicKey": {
+                        "title": "publicKey",
+                        "type": "string",
+                        "description": "The public key of the signing party."
+                    },
+                    "preparedTransaction": {
+                        "title": "preparedTransaction",
+                        "type": "string",
+                        "description": "Base64-encoded prepared transaction bytes -- the source of truth the signature is computed from. The wallet decodes this directly for display; nothing is precomputed/stored."
+                    },
+                    "preparedTransactionHash": {
+                        "title": "preparedTransactionHash",
+                        "type": "string",
+                        "description": "As supplied at receipt time; never trusted outright -- independently re-verified against preparedTransaction at sign time."
+                    },
+                    "origin": {
+                        "title": "origin",
+                        "type": "string",
+                        "description": "The origin of the request."
+                    },
+                    "createdAt": {
+                        "title": "createdAt",
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "The timestamp when the request was created."
+                    },
+                    "signedAt": {
+                        "title": "signedAt",
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "The timestamp when the transaction was signed."
+                    },
+                    "signature": {
+                        "title": "signature",
+                        "type": "string",
+                        "description": "The signature over the transaction's hash."
+                    }
+                },
+                "required": [
+                    "id",
+                    "status",
+                    "partyId",
+                    "publicKey",
+                    "preparedTransaction",
+                    "preparedTransactionHash",
                     "createdAt"
                 ]
             },

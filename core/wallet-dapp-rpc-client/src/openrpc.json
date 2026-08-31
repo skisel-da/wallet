@@ -148,6 +148,26 @@
             "description": "Signs a bundle of topology transactions with a single combined signature (a multiHash over all of them). The wallet decodes and displays each transaction before signing; it never signs an opaque precomputed hash."
         },
         {
+            "name": "signPreparedTransaction",
+            "params": [
+                {
+                    "name": "params",
+                    "required": true,
+                    "schema": {
+                        "title": "signPreparedTransactionParams",
+                        "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/SignPreparedTransactionRequest"
+                    }
+                }
+            ],
+            "result": {
+                "name": "result",
+                "schema": {
+                    "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/SignPreparedTransactionResult"
+                }
+            },
+            "description": "Signs an already-prepared ordinary (non-topology) ledger transaction with the caller's own key -- e.g. one owner's signature towards a Gnosis-Safe-like decentralized party's threshold, collected off-ledger and combined later. The wallet independently recomputes the transaction hash from the raw bytes and decodes/displays it before signing; it never signs an opaque precomputed hash."
+        },
+        {
             "name": "ledgerApi",
             "params": [
                 {
@@ -225,6 +245,16 @@
                 "name": "result",
                 "schema": {
                     "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/TopologyTransactionsSignatureEvent"
+                }
+            }
+        },
+        {
+            "name": "preparedTransactionSignature",
+            "params": [],
+            "result": {
+                "name": "result",
+                "schema": {
+                    "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/PreparedTransactionSignatureEvent"
                 }
             }
         }
@@ -823,6 +853,90 @@
                     }
                 ]
             },
+            "PreparedTransactionRequestId": {
+                "title": "PreparedTransactionRequestId",
+                "type": "string",
+                "description": "The unique identifier of the signPreparedTransaction request associated with the transaction to be signed."
+            },
+            "PreparedTransactionSignaturePendingEvent": {
+                "title": "PreparedTransactionSignaturePendingEvent",
+                "description": "Event emitted when a signPreparedTransaction signature is requested.",
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "status": {
+                        "title": "statusPending",
+                        "type": "string",
+                        "enum": ["pending"],
+                        "description": "The status of the prepared-transaction signature."
+                    },
+                    "requestId": {
+                        "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/PreparedTransactionRequestId"
+                    }
+                },
+                "required": ["status", "requestId"]
+            },
+            "PreparedTransactionSignatureSignedEvent": {
+                "title": "PreparedTransactionSignatureSignedEvent",
+                "description": "Event emitted when a signPreparedTransaction signature is completed.",
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "status": {
+                        "title": "statusSigned",
+                        "type": "string",
+                        "enum": ["signed"],
+                        "description": "The status of the prepared-transaction signature."
+                    },
+                    "requestId": {
+                        "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/PreparedTransactionRequestId"
+                    },
+                    "signature": {
+                        "title": "signature",
+                        "type": "string",
+                        "description": "The signature over the prepared transaction's hash."
+                    },
+                    "signedBy": {
+                        "title": "signedBy",
+                        "type": "string",
+                        "description": "The public key that produced the signature."
+                    }
+                },
+                "required": ["status", "requestId", "signature", "signedBy"]
+            },
+            "PreparedTransactionSignatureFailedEvent": {
+                "title": "PreparedTransactionSignatureFailedEvent",
+                "description": "Event emitted when a signPreparedTransaction signature has failed.",
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "status": {
+                        "title": "statusFailed",
+                        "type": "string",
+                        "enum": ["failed"],
+                        "description": "The status of the prepared-transaction signature."
+                    },
+                    "requestId": {
+                        "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/PreparedTransactionRequestId"
+                    }
+                },
+                "required": ["status", "requestId"]
+            },
+            "PreparedTransactionSignatureEvent": {
+                "title": "PreparedTransactionSignatureEvent",
+                "description": "Event emitted when a signPreparedTransaction signature is requested or completed.",
+                "oneOf": [
+                    {
+                        "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/PreparedTransactionSignaturePendingEvent"
+                    },
+                    {
+                        "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/PreparedTransactionSignatureSignedEvent"
+                    },
+                    {
+                        "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/PreparedTransactionSignatureFailedEvent"
+                    }
+                ]
+            },
             "ConnectResult": {
                 "title": "ConnectResult",
                 "type": "object",
@@ -943,6 +1057,44 @@
                     }
                 },
                 "required": ["signature", "multiHash"]
+            },
+            "SignPreparedTransactionRequest": {
+                "title": "SignPreparedTransactionRequest",
+                "type": "object",
+                "description": "Request to sign an already-prepared ordinary ledger transaction with the caller's own key.",
+                "additionalProperties": false,
+                "properties": {
+                    "preparedTransaction": {
+                        "title": "preparedTransaction",
+                        "type": "string",
+                        "description": "Base64-encoded prepared transaction bytes to sign, as returned by the ledger API's interactive-submission prepare endpoint."
+                    },
+                    "preparedTransactionHash": {
+                        "title": "preparedTransactionHash",
+                        "type": "string",
+                        "description": "As supplied by the caller; the wallet independently recomputes this from preparedTransaction and refuses to sign if it doesn't match."
+                    }
+                },
+                "required": ["preparedTransaction", "preparedTransactionHash"]
+            },
+            "SignPreparedTransactionResult": {
+                "title": "SignPreparedTransactionResult",
+                "type": "object",
+                "additionalProperties": false,
+                "description": "Result of signing an already-prepared ordinary ledger transaction.",
+                "properties": {
+                    "signature": {
+                        "title": "signature",
+                        "type": "string",
+                        "description": "The signature over the prepared transaction's hash."
+                    },
+                    "signedBy": {
+                        "title": "signedBy",
+                        "type": "string",
+                        "description": "The public key that produced the signature."
+                    }
+                },
+                "required": ["signature", "signedBy"]
             },
             "Network": {
                 "title": "network",

@@ -267,6 +267,19 @@ export const userController = (
                 'Function deleteTopologyBundleToSign not implemented.'
             )
         },
+        signPreparedTransaction: async () => {
+            throw new Error('Function signPreparedTransaction not implemented.')
+        },
+        getPreparedTransactionToSign: async () => {
+            throw new Error(
+                'Function getPreparedTransactionToSign not implemented.'
+            )
+        },
+        deletePreparedTransactionToSign: async () => {
+            throw new Error(
+                'Function deletePreparedTransactionToSign not implemented.'
+            )
+        },
         execute: async (executeParams: ExecuteParams) => {
             const connectedContext = assertConnected(
                 await AuthService.loadAuthContext()

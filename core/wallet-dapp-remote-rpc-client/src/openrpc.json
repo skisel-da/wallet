@@ -151,6 +151,37 @@
             "description": "Requests a topology-transactions bundle signature. The wallet will prompt the user for confirmation."
         },
         {
+            "name": "signPreparedTransaction",
+            "params": [
+                {
+                    "name": "params",
+                    "required": true,
+                    "schema": {
+                        "title": "signPreparedTransactionParams",
+                        "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/SignPreparedTransactionRequest"
+                    }
+                }
+            ],
+            "result": {
+                "name": "result",
+                "schema": {
+                    "title": "signPreparedTransactionResult",
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "requestId": {
+                            "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/PreparedTransactionRequestId"
+                        },
+                        "userUrl": {
+                            "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/UserUrl"
+                        }
+                    },
+                    "required": ["requestId", "userUrl"]
+                }
+            },
+            "description": "Requests a signature over an already-prepared ordinary ledger transaction. The wallet will prompt the user for confirmation."
+        },
+        {
             "name": "ledgerApi",
             "params": [
                 {
@@ -248,6 +279,16 @@
                 "name": "result",
                 "schema": {
                     "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/TopologyTransactionsSignatureEvent"
+                }
+            }
+        },
+        {
+            "name": "preparedTransactionSignature",
+            "params": [],
+            "result": {
+                "name": "result",
+                "schema": {
+                    "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/PreparedTransactionSignatureEvent"
                 }
             }
         }

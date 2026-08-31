@@ -14,6 +14,7 @@ import {
     MessageRaw,
     TopologyBundleRaw,
     TopologyTransactionSummary,
+    PreparedTransactionToSign,
     ApiKey,
 } from '@canton-network/core-wallet-store'
 
@@ -135,6 +136,21 @@ interface TopologyBundleRawTable {
     multiHash: string | null
 }
 
+interface PreparedTransactionToSignTable {
+    id: string
+    status: string
+    partyId: string
+    publicKey: string
+    preparedTransaction: string
+    preparedTransactionHash: string
+    origin: string | null
+    userId: UserId
+    networkId: string
+    createdAt: string
+    signedAt: string | null
+    signature: string | null
+}
+
 interface SessionTable {
     id: string
     origin: string
@@ -164,6 +180,7 @@ export interface DB {
     transactions: TransactionTable
     messagesRaw: MessageRawTable
     topologyBundlesRaw: TopologyBundleRawTable
+    preparedTransactionsToSign: PreparedTransactionToSignTable
     sessions: SessionTable
     apiKeys: ApiKeysTable
 }
@@ -516,6 +533,57 @@ export const toTopologyBundleRaw = (
     }
     if (table.multiHash) {
         result.multiHash = table.multiHash
+    }
+
+    return result
+}
+
+export const fromPreparedTransactionToSign = (
+    record: PreparedTransactionToSign,
+    userId: UserId,
+    networkId: string
+): PreparedTransactionToSignTable => {
+    if (record.userId !== userId) {
+        throw new Error(
+            `PreparedTransactionToSign userId mismatch: expected ${userId}, got ${record.userId}`
+        )
+    }
+    return {
+        id: record.id,
+        status: record.status,
+        userId: record.userId,
+        partyId: record.partyId,
+        publicKey: record.publicKey,
+        preparedTransaction: record.preparedTransaction,
+        preparedTransactionHash: record.preparedTransactionHash,
+        origin: record.origin || null,
+        networkId,
+        createdAt: record.createdAt.toISOString(),
+        signedAt: record.signedAt?.toISOString() || null,
+        signature: record.signature ?? null,
+    }
+}
+
+export const toPreparedTransactionToSign = (
+    table: PreparedTransactionToSignTable
+): PreparedTransactionToSign => {
+    const result: PreparedTransactionToSign = {
+        id: table.id,
+        status: table.status as PreparedTransactionToSign['status'],
+        userId: table.userId,
+        partyId: table.partyId,
+        publicKey: table.publicKey,
+        preparedTransaction: table.preparedTransaction,
+        preparedTransactionHash: table.preparedTransactionHash,
+        origin: table.origin || null,
+        createdAt: new Date(table.createdAt),
+    }
+
+    if (table.signedAt) {
+        result.signedAt = new Date(table.signedAt)
+    }
+    if (table.signature) {
+        result.signature = table.signature
     }
 
     return result

@@ -21,6 +21,7 @@ export const ALLOWED_ROUTES = [
     '/approve',
     '/sign-message',
     '/sign-topology',
+    '/sign-prepared-transaction',
     '/',
     '/404',
     '/callback',

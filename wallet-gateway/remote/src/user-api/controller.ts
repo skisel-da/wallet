@@ -24,6 +24,12 @@ import {
     DeleteTopologyBundleToSignParams,
     TopologyBundleRaw as TopologyBundleRawDto,
     TopologyTransactionSummary as TopologyTransactionSummaryDto,
+    SignPreparedTransactionParams,
+    SignPreparedTransactionResult,
+    GetPreparedTransactionToSignParams,
+    GetPreparedTransactionToSignResult,
+    DeletePreparedTransactionToSignParams,
+    PreparedTransactionToSign as PreparedTransactionToSignDto,
     AddSessionParams,
     AddSessionResult,
     ListSessionsResult,
@@ -63,8 +69,12 @@ import {
     Network,
     TopologyBundleRaw as StoreTopologyBundleRaw,
     TopologyTransactionSummary as StoreTopologyTransactionSummary,
+    PreparedTransactionToSign as StorePreparedTransactionToSign,
 } from '@canton-network/core-wallet-store'
-import { computeTopologyMultiHash } from '@canton-network/core-tx-visualizer'
+import {
+    computeTopologyMultiHash,
+    hashPreparedTransaction,
+} from '@canton-network/core-tx-visualizer'
 import { Logger } from 'pino'
 import { NotificationService } from '../notification/NotificationService.js'
 import {
@@ -88,6 +98,7 @@ import { StatusEvent } from '../dapp-api/rpc-gen/typings.js'
 import type {
     MessageSignatureEvent,
     TopologyTransactionsSignatureEvent,
+    PreparedTransactionSignatureEvent,
     TxChangedFailedEvent,
 } from '../dapp-api/rpc-gen/typings.js'
 import { providerErrors, rpcErrors } from '@canton-network/core-rpc-errors'
@@ -240,6 +251,25 @@ export const userController = (
             }),
             ...(bundle.signature && { signature: bundle.signature }),
             ...(bundle.multiHash && { multiHash: bundle.multiHash }),
+        }
+    }
+
+    function toPreparedTransactionToSignDto(
+        record: StorePreparedTransactionToSign
+    ): PreparedTransactionToSignDto {
+        return {
+            id: record.id,
+            status: record.status,
+            partyId: record.partyId,
+            publicKey: record.publicKey,
+            preparedTransaction: record.preparedTransaction,
+            preparedTransactionHash: record.preparedTransactionHash,
+            ...(record.origin !== null && { origin: record.origin }),
+            createdAt: record.createdAt.toISOString(),
+            ...(record.signedAt && {
+                signedAt: record.signedAt.toISOString(),
+            }),
+            ...(record.signature && { signature: record.signature }),
         }
     }
 
@@ -1012,6 +1042,202 @@ export const userController = (
                 publicKey: wallet.publicKey,
                 multiHash,
             }
+        },
+        signPreparedTransaction: async (
+            params: SignPreparedTransactionParams
+        ): Promise<SignPreparedTransactionResult> => {
+            const pending = await store.getPreparedTransactionToSign(
+                params.requestId
+            )
+            if (!pending) {
+                throw new Error(
+                    `Prepared-transaction signing request not found with id: ${params.requestId}`
+                )
+            }
+            if (pending.status !== 'pending') {
+                throw new Error(
+                    `Cannot sign prepared transaction with status '${pending.status}'. Only pending requests can be signed.`
+                )
+            }
+
+            const userId = assertConnected(authContext).userId
+            if (pending.userId !== userId) {
+                throw new Error(
+                    `Prepared-transaction signing request ${pending.id} is not owned by user ${userId}`
+                )
+            }
+
+            const session = await store.getSession(
+                assertConnected(authContext).accessToken
+            )
+            if (!session) {
+                throw new Error('No active session found')
+            }
+            const notifier = notificationService.getNotifier(session.id)
+
+            const emitFailedAndPersist = async (
+                details: string
+            ): Promise<never> => {
+                // Best-effort: make sure listeners see a terminal state.
+                try {
+                    await store.setPreparedTransactionToSignStatus(
+                        pending.id,
+                        'failed'
+                    )
+                } catch {
+                    // ignore (e.g. record removed concurrently)
+                }
+                notifier.emit('preparedTransactionSignature', {
+                    status: 'failed',
+                    requestId: pending.id,
+                } satisfies PreparedTransactionSignatureEvent)
+                // Preserve the original error message for the caller/UI.
+                throw new Error(details)
+            }
+
+            const wallet = (await store.getWallets()).find(
+                (w) => w.partyId === pending.partyId
+            )
+            if (!wallet) {
+                return await emitFailedAndPersist(
+                    `No wallet found for partyId ${pending.partyId} (from prepared-transaction request ${pending.id})`
+                )
+            }
+            if (wallet.publicKey !== pending.publicKey) {
+                return await emitFailedAndPersist(
+                    `Wallet public key changed for partyId ${pending.partyId}; refusing to sign prepared-transaction request ${pending.id}`
+                )
+            }
+
+            // Only WALLET_KERNEL wallets are supported: this reuses the
+            // existing, unmodified `signTransaction` method on the signing
+            // driver (which signs a raw hash via signTransactionHash) rather
+            // than adding a new method to the driver interface.
+            if (wallet.signingProviderId !== SigningProvider.WALLET_KERNEL) {
+                return await emitFailedAndPersist(
+                    `signPreparedTransaction is only supported for ${SigningProvider.WALLET_KERNEL} wallets, got ${wallet.signingProviderId}`
+                )
+            }
+
+            const driver =
+                drivers[SigningProvider.WALLET_KERNEL]?.controller(userId)
+            if (!driver) {
+                return await emitFailedAndPersist(
+                    'Wallet Kernel signing driver not available'
+                )
+            }
+
+            // Core security property: the hash is recomputed fresh from the
+            // raw prepared-transaction bytes stored at receipt time -- never
+            // trusted outright from whatever was supplied then, mirroring
+            // signTopologyTransactions's own principle. Unlike topology
+            // (which has no original hash to compare against at all), here
+            // a mismatch against the originally-supplied hash is treated as
+            // a hard failure: this request's preparedTransaction/Hash pair
+            // may have come from another wallet-gateway instance entirely
+            // (a Safe App coordinating other owners), not necessarily this
+            // one's own prepare call, so there's no other party to blame it
+            // on if they disagree.
+            const recomputedHash = await hashPreparedTransaction(
+                pending.preparedTransaction
+            )
+            if (recomputedHash !== pending.preparedTransactionHash) {
+                return await emitFailedAndPersist(
+                    `Prepared transaction hash mismatch for request ${pending.id}: the independently recomputed hash does not match the one supplied at receipt time`
+                )
+            }
+
+            const result = await driver.signTransaction({
+                // Unused by the WALLET_KERNEL driver's signTransaction
+                // (it only inspects txHash and keyIdentifier), but required
+                // by SignTransactionParams.
+                tx: '',
+                txHash: recomputedHash,
+                keyIdentifier: { publicKey: wallet.publicKey },
+            })
+
+            if (isRpcError(result)) {
+                await store.setPreparedTransactionToSignStatus(
+                    pending.id,
+                    'failed'
+                )
+                notifier.emit('preparedTransactionSignature', {
+                    status: 'failed',
+                    requestId: pending.id,
+                } satisfies PreparedTransactionSignatureEvent)
+                throw new Error(result.error_description)
+            }
+
+            if (!result?.signature) {
+                await store.setPreparedTransactionToSignStatus(
+                    pending.id,
+                    'failed'
+                )
+                notifier.emit('preparedTransactionSignature', {
+                    status: 'failed',
+                    requestId: pending.id,
+                } satisfies PreparedTransactionSignatureEvent)
+                throw new Error(`signPreparedTransaction failed`)
+            }
+
+            await store.setPreparedTransactionToSignStatus(
+                pending.id,
+                'signed',
+                {
+                    signedAt: new Date(),
+                    signature: result.signature,
+                }
+            )
+
+            notifier.emit('preparedTransactionSignature', {
+                status: 'signed',
+                requestId: pending.id,
+                signature: result.signature,
+                signedBy: wallet.publicKey,
+            } satisfies PreparedTransactionSignatureEvent)
+
+            return {
+                signature: result.signature,
+                signedBy: wallet.publicKey,
+            }
+        },
+        getPreparedTransactionToSign: async (
+            params: GetPreparedTransactionToSignParams
+        ): Promise<GetPreparedTransactionToSignResult> => {
+            const record = await store.getPreparedTransactionToSign(
+                params.requestId
+            )
+            if (!record) {
+                throw new Error(
+                    `Prepared-transaction signing request not found with id: ${params.requestId}`
+                )
+            }
+            return { record: toPreparedTransactionToSignDto(record) }
+        },
+        deletePreparedTransactionToSign: async (
+            params: DeletePreparedTransactionToSignParams
+        ): Promise<Null> => {
+            const record = await store.getPreparedTransactionToSign(
+                params.requestId
+            )
+            if (!record) {
+                throw new Error(
+                    `Prepared-transaction signing request not found with id: ${params.requestId}`
+                )
+            }
+            if (record.status !== 'pending') {
+                throw new Error(
+                    `Cannot delete prepared-transaction request with status '${record.status}'. Only pending requests can be deleted.`
+                )
+            }
+            const userId = assertConnected(authContext).userId
+            if (record.userId !== userId) {
+                throw new Error(
+                    `Prepared-transaction signing request ${record.id} is not owned by user ${userId}`
+                )
+            }
+            await store.removePreparedTransactionToSign(record.id)
+            return null
         },
         getTopologyBundleToSign: async (
             params: GetTopologyBundleToSignParams

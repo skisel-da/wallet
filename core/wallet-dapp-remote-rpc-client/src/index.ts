@@ -151,6 +151,18 @@ export type TopologyTransactionBase64 = string
  *
  */
 export type Transactions = TopologyTransactionBase64[]
+/**
+ *
+ * Base64-encoded prepared transaction bytes to sign, as returned by the ledger API's interactive-submission prepare endpoint.
+ *
+ */
+export type PreparedTransaction = string
+/**
+ *
+ * As supplied by the caller; the wallet independently recomputes this from preparedTransaction and refuses to sign if it doesn't match.
+ *
+ */
+export type PreparedTransactionHash = string
 export type RequestMethod = 'get' | 'post' | 'patch' | 'put' | 'delete'
 export type Resource = string
 export interface Body {
@@ -302,6 +314,12 @@ export type MessageId = string
 export type TopologyRequestId = string
 /**
  *
+ * The unique identifier of the signPreparedTransaction request associated with the transaction to be signed.
+ *
+ */
+export type PreparedTransactionRequestId = string
+/**
+ *
  * Set as primary wallet for dApp usage.
  *
  */
@@ -378,8 +396,15 @@ export interface Wallet {
     topologyTransactions?: TopologyTransactions
     disabled?: Disabled
     reason?: Reason
+    safeAppUrl?: SafeAppUrl
     rights: Rights
 }
+/**
+ *
+ * A non-null value marks this wallet as a Gnosis-Safe-like decentralized party coordinated by the companion app at this URL. prepareExecute/execute for this party redirects here instead of the normal approve flow.
+ *
+ */
+export type SafeAppUrl = string
 export type PartyLevelRight = any
 /**
  *
@@ -389,7 +414,7 @@ export type PartyLevelRight = any
 export type Rights = PartyLevelRight[]
 /**
  *
- * The status of the topology-transactions signature.
+ * The status of the prepared-transaction signature.
  *
  */
 export type StatusPending = 'pending'
@@ -404,19 +429,19 @@ export interface TxChangedPendingEvent {
 }
 /**
  *
- * The status of the topology-transactions signature.
+ * The status of the prepared-transaction signature.
  *
  */
 export type StatusSigned = 'signed'
 /**
  *
- * The signature over the bundle's multiHash.
+ * The signature over the prepared transaction's hash.
  *
  */
 export type Signature = string
 /**
  *
- * The identifier of the provider that signed the transaction.
+ * The public key that produced the signature.
  *
  */
 export type SignedBy = string
@@ -474,7 +499,7 @@ export interface TxChangedExecutedEvent {
 }
 /**
  *
- * The status of the topology-transactions signature.
+ * The status of the prepared-transaction signature.
  *
  */
 export type StatusFailed = 'failed'
@@ -552,6 +577,35 @@ export interface TopologyTransactionsSignatureFailedEvent {
 }
 /**
  *
+ * Event emitted when a signPreparedTransaction signature is requested.
+ *
+ */
+export interface PreparedTransactionSignaturePendingEvent {
+    status: StatusPending
+    requestId: PreparedTransactionRequestId
+}
+/**
+ *
+ * Event emitted when a signPreparedTransaction signature is completed.
+ *
+ */
+export interface PreparedTransactionSignatureSignedEvent {
+    status: StatusSigned
+    requestId: PreparedTransactionRequestId
+    signature: Signature
+    signedBy: SignedBy
+}
+/**
+ *
+ * Event emitted when a signPreparedTransaction signature has failed.
+ *
+ */
+export interface PreparedTransactionSignatureFailedEvent {
+    status: StatusFailed
+    requestId: PreparedTransactionRequestId
+}
+/**
+ *
  * Structure representing the request for prepare and execute calls
  *
  */
@@ -580,6 +634,15 @@ export interface SignMessageParams {
 export interface SignTopologyTransactionsParams {
     transactions: Transactions
     synchronizerId?: SynchronizerId
+}
+/**
+ *
+ * Request to sign an already-prepared ordinary ledger transaction with the caller's own key.
+ *
+ */
+export interface SignPreparedTransactionParams {
+    preparedTransaction: PreparedTransaction
+    preparedTransactionHash: PreparedTransactionHash
 }
 /**
  *
@@ -614,6 +677,10 @@ export interface SignMessageResult {
 }
 export interface SignTopologyTransactionsResult {
     requestId: TopologyRequestId
+    userUrl: UserUrl
+}
+export interface SignPreparedTransactionResult {
+    requestId: PreparedTransactionRequestId
     userUrl: UserUrl
 }
 /**
@@ -666,6 +733,15 @@ export type TopologyTransactionsSignatureEvent =
     | TopologyTransactionsSignatureFailedEvent
 /**
  *
+ * Event emitted when a signPreparedTransaction signature is requested or completed.
+ *
+ */
+export type PreparedTransactionSignatureEvent =
+    | PreparedTransactionSignaturePendingEvent
+    | PreparedTransactionSignatureSignedEvent
+    | PreparedTransactionSignatureFailedEvent
+/**
+ *
  * Generated! Represents an alias to any of the provided schemas
  *
  */
@@ -684,6 +760,9 @@ export type SignMessage = (
 export type SignTopologyTransactions = (
     params: SignTopologyTransactionsParams
 ) => Promise<SignTopologyTransactionsResult>
+export type SignPreparedTransaction = (
+    params: SignPreparedTransactionParams
+) => Promise<SignPreparedTransactionResult>
 export type LedgerApi = (params: LedgerApiParams) => Promise<LedgerApiResult>
 export type Connected = () => Promise<StatusEvent>
 export type OnStatusChanged = () => Promise<StatusEvent>
@@ -694,6 +773,8 @@ export type TxChanged = () => Promise<TxChangedEvent>
 export type MessageSignature = () => Promise<MessageSignatureEvent>
 export type TopologyTransactionsSignature =
     () => Promise<TopologyTransactionsSignatureEvent>
+export type PreparedTransactionSignature =
+    () => Promise<PreparedTransactionSignatureEvent>
 /* eslint-enable @typescript-eslint/no-unused-vars */
 
 type Params<T> = T extends (...args: infer A) => any
@@ -744,6 +825,11 @@ export type RpcTypes = {
         result: Result<SignTopologyTransactions>
     }
 
+    signPreparedTransaction: {
+        params: Params<SignPreparedTransaction>
+        result: Result<SignPreparedTransaction>
+    }
+
     ledgerApi: {
         params: Params<LedgerApi>
         result: Result<LedgerApi>
@@ -787,6 +873,11 @@ export type RpcTypes = {
     topologyTransactionsSignature: {
         params: Params<TopologyTransactionsSignature>
         result: Result<TopologyTransactionsSignature>
+    }
+
+    preparedTransactionSignature: {
+        params: Params<PreparedTransactionSignature>
+        result: Result<PreparedTransactionSignature>
     }
 }
 

@@ -9,6 +9,7 @@ import type { GetActiveNetwork } from './typings.js'
 import type { PrepareExecute } from './typings.js'
 import type { SignMessage } from './typings.js'
 import type { SignTopologyTransactions } from './typings.js'
+import type { SignPreparedTransaction } from './typings.js'
 import type { LedgerApi } from './typings.js'
 import type { Connected } from './typings.js'
 import type { OnStatusChanged } from './typings.js'
@@ -18,6 +19,7 @@ import type { ListAccounts } from './typings.js'
 import type { TxChanged } from './typings.js'
 import type { MessageSignature } from './typings.js'
 import type { TopologyTransactionsSignature } from './typings.js'
+import type { PreparedTransactionSignature } from './typings.js'
 
 export type Methods = {
     status: Status
@@ -28,6 +30,7 @@ export type Methods = {
     prepareExecute: PrepareExecute
     signMessage: SignMessage
     signTopologyTransactions: SignTopologyTransactions
+    signPreparedTransaction: SignPreparedTransaction
     ledgerApi: LedgerApi
     connected: Connected
     onStatusChanged: OnStatusChanged
@@ -37,6 +40,7 @@ export type Methods = {
     txChanged: TxChanged
     messageSignature: MessageSignature
     topologyTransactionsSignature: TopologyTransactionsSignature
+    preparedTransactionSignature: PreparedTransactionSignature
 }
 
 function buildController(methods: Methods) {
@@ -49,6 +53,7 @@ function buildController(methods: Methods) {
         prepareExecute: methods.prepareExecute,
         signMessage: methods.signMessage,
         signTopologyTransactions: methods.signTopologyTransactions,
+        signPreparedTransaction: methods.signPreparedTransaction,
         ledgerApi: methods.ledgerApi,
         connected: methods.connected,
         onStatusChanged: methods.onStatusChanged,
@@ -58,6 +63,7 @@ function buildController(methods: Methods) {
         txChanged: methods.txChanged,
         messageSignature: methods.messageSignature,
         topologyTransactionsSignature: methods.topologyTransactionsSignature,
+        preparedTransactionSignature: methods.preparedTransactionSignature,
     }
 }
 

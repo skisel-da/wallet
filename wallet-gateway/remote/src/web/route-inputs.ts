@@ -25,6 +25,7 @@ export const ROUTE_INPUTS: Record<string, string> = {
     addApiKey: 'api-keys/add/index.html',
     signMessage: 'sign-message/index.html',
     signTopology: 'sign-topology/index.html',
+    signPreparedTransaction: 'sign-prepared-transaction/index.html',
 }
 
 export function resolveRouteInputs(

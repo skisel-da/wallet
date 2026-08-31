@@ -150,6 +150,18 @@ export type TopologyTransactionBase64 = string
  *
  */
 export type Transactions = TopologyTransactionBase64[]
+/**
+ *
+ * Base64-encoded prepared transaction bytes to sign, as returned by the ledger API's interactive-submission prepare endpoint.
+ *
+ */
+export type PreparedTransaction = string
+/**
+ *
+ * As supplied by the caller; the wallet independently recomputes this from preparedTransaction and refuses to sign if it doesn't match.
+ *
+ */
+export type PreparedTransactionHash = string
 export type RequestMethod = 'get' | 'post' | 'patch' | 'put' | 'delete'
 export type Resource = string
 export interface Body {
@@ -321,7 +333,7 @@ export interface TxChangedExecutedEvent {
 }
 /**
  *
- * The signature over the bundle's multiHash.
+ * The signature over the prepared transaction's hash.
  *
  */
 export type Signature = string
@@ -331,6 +343,12 @@ export type Signature = string
  *
  */
 export type MultiHash = string
+/**
+ *
+ * The public key that produced the signature.
+ *
+ */
+export type SignedBy = string
 /**
  *
  * Set as primary wallet for dApp usage.
@@ -412,7 +430,7 @@ export interface Wallet {
 }
 /**
  *
- * The status of the topology-transactions signature.
+ * The status of the prepared-transaction signature.
  *
  */
 export type StatusPending = 'pending'
@@ -427,16 +445,10 @@ export interface TxChangedPendingEvent {
 }
 /**
  *
- * The status of the topology-transactions signature.
+ * The status of the prepared-transaction signature.
  *
  */
 export type StatusSigned = 'signed'
-/**
- *
- * The identifier of the provider that signed the transaction.
- *
- */
-export type SignedBy = string
 /**
  *
  * Payload for the TxChangedSignedEvent.
@@ -459,7 +471,7 @@ export interface TxChangedSignedEvent {
 }
 /**
  *
- * The status of the topology-transactions signature.
+ * The status of the prepared-transaction signature.
  *
  */
 export type StatusFailed = 'failed'
@@ -543,6 +555,41 @@ export interface TopologyTransactionsSignatureFailedEvent {
 }
 /**
  *
+ * The unique identifier of the signPreparedTransaction request associated with the transaction to be signed.
+ *
+ */
+export type PreparedTransactionRequestId = string
+/**
+ *
+ * Event emitted when a signPreparedTransaction signature is requested.
+ *
+ */
+export interface PreparedTransactionSignaturePendingEvent {
+    status: StatusPending
+    requestId: PreparedTransactionRequestId
+}
+/**
+ *
+ * Event emitted when a signPreparedTransaction signature is completed.
+ *
+ */
+export interface PreparedTransactionSignatureSignedEvent {
+    status: StatusSigned
+    requestId: PreparedTransactionRequestId
+    signature: Signature
+    signedBy: SignedBy
+}
+/**
+ *
+ * Event emitted when a signPreparedTransaction signature has failed.
+ *
+ */
+export interface PreparedTransactionSignatureFailedEvent {
+    status: StatusFailed
+    requestId: PreparedTransactionRequestId
+}
+/**
+ *
  * Structure representing the request for prepare and execute calls
  *
  */
@@ -571,6 +618,15 @@ export interface SignMessageParams {
 export interface SignTopologyTransactionsParams {
     transactions: Transactions
     synchronizerId?: SynchronizerId
+}
+/**
+ *
+ * Request to sign an already-prepared ordinary ledger transaction with the caller's own key.
+ *
+ */
+export interface SignPreparedTransactionParams {
+    preparedTransaction: PreparedTransaction
+    preparedTransactionHash: PreparedTransactionHash
 }
 /**
  *
@@ -615,6 +671,15 @@ export interface SignMessageResult {
 export interface SignTopologyTransactionsResult {
     signature: Signature
     multiHash: MultiHash
+}
+/**
+ *
+ * Result of signing an already-prepared ordinary ledger transaction.
+ *
+ */
+export interface SignPreparedTransactionResult {
+    signature: Signature
+    signedBy: SignedBy
 }
 /**
  *
@@ -666,6 +731,15 @@ export type TopologyTransactionsSignatureEvent =
     | TopologyTransactionsSignatureFailedEvent
 /**
  *
+ * Event emitted when a signPreparedTransaction signature is requested or completed.
+ *
+ */
+export type PreparedTransactionSignatureEvent =
+    | PreparedTransactionSignaturePendingEvent
+    | PreparedTransactionSignatureSignedEvent
+    | PreparedTransactionSignatureFailedEvent
+/**
+ *
  * Generated! Represents an alias to any of the provided schemas
  *
  */
@@ -685,6 +759,9 @@ export type SignMessage = (
 export type SignTopologyTransactions = (
     params: SignTopologyTransactionsParams
 ) => Promise<SignTopologyTransactionsResult>
+export type SignPreparedTransaction = (
+    params: SignPreparedTransactionParams
+) => Promise<SignPreparedTransactionResult>
 export type LedgerApi = (params: LedgerApiParams) => Promise<LedgerApiResult>
 export type AccountsChanged = () => Promise<AccountsChangedEvent>
 export type GetPrimaryAccount = () => Promise<Wallet>
@@ -693,3 +770,5 @@ export type TxChanged = () => Promise<TxChangedEvent>
 export type MessageSignature = () => Promise<MessageSignatureEvent>
 export type TopologyTransactionsSignature =
     () => Promise<TopologyTransactionsSignatureEvent>
+export type PreparedTransactionSignature =
+    () => Promise<PreparedTransactionSignatureEvent>

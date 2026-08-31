@@ -221,6 +221,41 @@ export interface TopologyBundleRawStatusUpdate {
     multiHash?: string
 }
 
+/**
+ * A pending `signPreparedTransaction` request: one owner of a Gnosis-Safe-
+ * like decentralized party (see decentralizer-poc's docs/safe-execution-plan.md)
+ * clear-signing a single ordinary (non-topology) prepared ledger transaction
+ * with their own individual key -- unrelated to whatever wallet-gateway's
+ * own Transaction store is doing for the party the transaction actually
+ * acts as, since that party has no single key to sign with itself.
+ *
+ * Deliberately much lighter than TopologyBundleRaw: no display summary is
+ * precomputed/stored here -- `@canton-network/core-tx-visualizer`'s
+ * `parsePreparedTransaction` decodes `preparedTransaction` directly, on
+ * demand, the same way the existing `approve` page already does for an
+ * ordinary single-signer ledger transaction.
+ */
+export interface PreparedTransactionToSign {
+    id: string
+    status: 'pending' | 'signed' | 'failed'
+    userId: string
+    partyId: PartyId
+    publicKey: string
+    /** Base64-encoded prepared transaction bytes -- the source of truth the signature is computed from. */
+    preparedTransaction: string
+    /** As supplied by the caller; independently re-verified against `preparedTransaction` at sign time, never trusted outright. */
+    preparedTransactionHash: string
+    origin: string | null
+    createdAt: Date
+    signedAt?: Date
+    signature?: string
+}
+
+export interface PreparedTransactionToSignStatusUpdate {
+    signedAt?: Date
+    signature?: string
+}
+
 // API keys
 export interface ApiKey {
     id: string
@@ -335,6 +370,20 @@ export interface Store {
     ): Promise<TopologyBundleRaw | undefined>
     listTopologyBundleRaws(): Promise<Array<TopologyBundleRaw>>
     removeTopologyBundleRaw(requestId: string): Promise<void>
+
+    // signPreparedTransaction request methods
+    setPreparedTransactionToSign(
+        record: PreparedTransactionToSign
+    ): Promise<void>
+    setPreparedTransactionToSignStatus(
+        requestId: string,
+        status: PreparedTransactionToSign['status'],
+        updates?: PreparedTransactionToSignStatusUpdate
+    ): Promise<void>
+    getPreparedTransactionToSign(
+        requestId: string
+    ): Promise<PreparedTransactionToSign | undefined>
+    removePreparedTransactionToSign(requestId: string): Promise<void>
 
     // API Key methods
     addApiKey(apiKey: ApiKey): Promise<void>
