@@ -644,6 +644,9 @@ export interface CreateWalletParams {
 export interface AllocatePartyForWalletParams {
     partyId: PartyId
 }
+export interface ImportPartyParams {
+    partyId: PartyId
+}
 export interface SetPrimaryWalletParams {
     partyId: PartyId
 }
@@ -727,6 +730,9 @@ export interface CreateWalletResult {
     wallet: Wallet
 }
 export interface AllocatePartyForWalletResult {
+    wallet: Wallet
+}
+export interface ImportPartyResult {
     wallet: Wallet
 }
 export interface RemovePartyResult {
@@ -848,6 +854,9 @@ export type CreateWallet = (
 export type AllocatePartyForWallet = (
     params: AllocatePartyForWalletParams
 ) => Promise<AllocatePartyForWalletResult>
+export type ImportParty = (
+    params: ImportPartyParams
+) => Promise<ImportPartyResult>
 export type SetPrimaryWallet = (params: SetPrimaryWalletParams) => Promise<Null>
 export type RemoveWallet = (
     params: RemoveWalletParams

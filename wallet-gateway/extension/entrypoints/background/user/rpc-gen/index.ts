@@ -11,6 +11,7 @@ import type { RemoveIdp } from './typings.js'
 import type { ListIdps } from './typings.js'
 import type { CreateWallet } from './typings.js'
 import type { AllocatePartyForWallet } from './typings.js'
+import type { ImportParty } from './typings.js'
 import type { SetPrimaryWallet } from './typings.js'
 import type { RemoveWallet } from './typings.js'
 import type { ListWallets } from './typings.js'
@@ -51,6 +52,7 @@ export type Methods = {
     listIdps: ListIdps
     createWallet: CreateWallet
     allocatePartyForWallet: AllocatePartyForWallet
+    importParty: ImportParty
     setPrimaryWallet: SetPrimaryWallet
     removeWallet: RemoveWallet
     listWallets: ListWallets
@@ -93,6 +95,7 @@ function buildController(methods: Methods) {
         listIdps: methods.listIdps,
         createWallet: methods.createWallet,
         allocatePartyForWallet: methods.allocatePartyForWallet,
+        importParty: methods.importParty,
         setPrimaryWallet: methods.setPrimaryWallet,
         removeWallet: methods.removeWallet,
         listWallets: methods.listWallets,

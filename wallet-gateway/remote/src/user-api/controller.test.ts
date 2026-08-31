@@ -43,6 +43,10 @@ const walletAllocationMocks = vi.hoisted(() => ({
     allocateParty: vi.fn(),
 }))
 
+const partyAllocationMocks = vi.hoisted(() => ({
+    importExistingParty: vi.fn(),
+}))
+
 const walletSyncMocks = vi.hoisted(() => ({
     syncWallets: vi.fn().mockResolvedValue({
         added: [],
@@ -102,7 +106,9 @@ vi.mock('../ledger/wallet-sync-service.js', () => ({
 }))
 
 vi.mock('../ledger/party-allocation-service.js', () => ({
-    PartyAllocationService: vi.fn(),
+    PartyAllocationService: vi.fn(function PartyAllocationServiceMock() {
+        return partyAllocationMocks
+    }),
 }))
 
 vi.mock('../ledger/transaction-service.js', () => ({
@@ -256,6 +262,7 @@ describe('userController', () => {
         })
         walletAllocationMocks.createWallet.mockReset()
         walletAllocationMocks.allocateParty.mockReset()
+        partyAllocationMocks.importExistingParty.mockReset()
         walletSyncMocks.syncWallets.mockReset()
         walletSyncMocks.syncWallets.mockResolvedValue({
             added: [],
@@ -1569,6 +1576,117 @@ describe('userController', () => {
                     partyId: primaryWallet.partyId,
                 })
             ).rejects.toThrow('Signing provider wallet-kernel not supported')
+        })
+    })
+
+    describe('importParty', () => {
+        const importedWallet: Wallet = {
+            ...primaryWallet,
+            partyId: 'party::imported',
+            hint: 'imported-party',
+        }
+
+        it('imports an existing party and returns its wallet once sync discovers it', async () => {
+            const store = await createStore(logger, auth)
+            const notifier = notificationService.getNotifier('user-1')
+            const emitSpy = vi.spyOn(notifier, 'emit')
+            partyAllocationMocks.importExistingParty.mockResolvedValue(
+                undefined
+            )
+            walletSyncMocks.syncWallets.mockImplementationOnce(async () => {
+                await store.addWallet(importedWallet)
+                return { added: [importedWallet], updated: [], disabled: [] }
+            })
+            const controller = createController(
+                store,
+                notificationService,
+                logger,
+                auth
+            )
+
+            const result = await controller.importParty({
+                partyId: importedWallet.partyId,
+            })
+
+            expect(
+                partyAllocationMocks.importExistingParty
+            ).toHaveBeenCalledWith(auth.userId, importedWallet.partyId)
+            expect(walletSyncMocks.syncWallets).toHaveBeenCalled()
+            expect(emitSpy).toHaveBeenCalledWith(
+                'accountsChanged',
+                expect.any(Array)
+            )
+            expect(result.wallet).toMatchObject({
+                partyId: importedWallet.partyId,
+                networkId: storeNetwork.id,
+            })
+        })
+
+        it('throws when admin auth is not configured', async () => {
+            const networkWithoutAdmin: StoreNetwork = {
+                ...storeNetwork,
+                adminAuth: undefined,
+            }
+            const store = new StoreInternal(
+                { idps: [idp], networks: [networkWithoutAdmin] },
+                getLogger('mock'),
+                auth
+            )
+            await store.setSession(session)
+            const controller = createController(
+                store,
+                notificationService,
+                logger,
+                auth
+            )
+
+            await expect(
+                controller.importParty({ partyId: importedWallet.partyId })
+            ).rejects.toThrow('No admin auth configured')
+        })
+
+        it('propagates the error when the party does not exist on this participant', async () => {
+            const store = await createStore(logger, auth)
+            partyAllocationMocks.importExistingParty.mockRejectedValue(
+                new Error(
+                    `Party ${importedWallet.partyId} was not found on this participant`
+                )
+            )
+            const controller = createController(
+                store,
+                notificationService,
+                logger,
+                auth
+            )
+
+            await expect(
+                controller.importParty({ partyId: importedWallet.partyId })
+            ).rejects.toThrow(
+                `Party ${importedWallet.partyId} was not found on this participant`
+            )
+            expect(walletSyncMocks.syncWallets).not.toHaveBeenCalled()
+        })
+
+        it('throws when the party is still not visible after syncing', async () => {
+            const store = await createStore(logger, auth)
+            partyAllocationMocks.importExistingParty.mockResolvedValue(
+                undefined
+            )
+            // Default walletSyncMocks.syncWallets mock resolves without
+            // touching the store, so the imported party never shows up.
+
+            const controller = createController(
+                store,
+                notificationService,
+                logger,
+                auth
+            )
+
+            await expect(
+                controller.importParty({ partyId: importedWallet.partyId })
+            ).rejects.toThrow(
+                `Party ${importedWallet.partyId} was imported but is not visible yet -- try Sync`
+            )
         })
     })
 

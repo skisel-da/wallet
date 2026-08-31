@@ -196,6 +196,34 @@ export class PartyAllocationService {
         return res.partyId
     }
 
+    /**
+     * Imports an already-allocated party by granting a user rights to act as
+     * it -- unlike allocateParty/allocatePartyWithExistingWallet, this does
+     * not submit any topology transactions, since the party is expected to
+     * already exist (e.g. a decentralized party created by submitting its
+     * onboarding transactions directly, outside this service).
+     * @param userId The ID of the user to grant rights to.
+     * @param partyId The ID of the already-existing party to import.
+     */
+    async importExistingParty(userId: string, partyId: string): Promise<void>
+
+    async importExistingParty(userId: string, partyId: string): Promise<void> {
+        const exists = await this.ledgerClient.checkIfPartyExists(partyId)
+        if (!exists) {
+            throw new Error(
+                `Party ${partyId} was not found on this participant`
+            )
+        }
+
+        const result = await this.ledgerClient.grantRights(userId, {
+            actAs: [partyId],
+        })
+
+        if (!result.newlyGrantedRights) {
+            throw new Error('Failed to grant user rights')
+        }
+    }
+
     private async allocateInternalParty(
         userId: string,
         hint: string

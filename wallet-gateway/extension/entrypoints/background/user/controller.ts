@@ -171,6 +171,9 @@ export const userController = (
         allocatePartyForWallet: async () => {
             throw new Error('Function allocatePartyForWallet not implemented.')
         },
+        importParty: async () => {
+            throw new Error('Function importParty not implemented.')
+        },
         setPrimaryWallet: async () => {
             throw new Error('Function setPrimaryWallet not implemented.')
         },

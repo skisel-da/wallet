@@ -70,7 +70,8 @@ export class UserUiParties extends BaseElement {
                 line-height: 1.2;
             }
 
-            .btn-add {
+            .btn-add,
+            .btn-import {
                 padding: 0.45rem 1.1rem;
                 display: inline-flex;
                 align-items: center;
@@ -118,14 +119,26 @@ export class UserUiParties extends BaseElement {
                     ></wg-wallets-sync>
                 </div>
 
-                <button
-                    class="btn btn-primary btn-sm rounded-pill btn-add"
-                    type="button"
-                    @click=${() => setLocationHref(toRelPath('/parties/add/'))}
-                >
-                    <span class="btn-add-icon" aria-hidden="true">+</span>
-                    <span>New</span>
-                </button>
+                <div class="d-flex gap-2">
+                    <button
+                        class="btn btn-outline-primary btn-sm rounded-pill btn-import"
+                        type="button"
+                        @click=${() =>
+                            setLocationHref(toRelPath('/parties/import/'))}
+                    >
+                        <span>Import</span>
+                    </button>
+
+                    <button
+                        class="btn btn-primary btn-sm rounded-pill btn-add"
+                        type="button"
+                        @click=${() =>
+                            setLocationHref(toRelPath('/parties/add/'))}
+                    >
+                        <span class="btn-add-icon" aria-hidden="true">+</span>
+                        <span>New</span>
+                    </button>
+                </div>
             </div>
 
             ${

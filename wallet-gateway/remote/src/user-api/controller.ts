@@ -34,6 +34,7 @@ import {
     RemoveIdpParams,
     CreateWalletParams,
     AllocatePartyForWalletParams,
+    ImportPartyParams,
     GetTransactionResult,
     GetTransactionParams,
     DeleteTransactionParams,
@@ -538,6 +539,75 @@ export const userController = (
                     w.partyId === existingWallet.partyId &&
                     w.networkId === network.id
             )!
+
+            notificationService
+                .getNotifier(connectedContext.userId)
+                .emit('accountsChanged', wallets)
+
+            return { wallet }
+        },
+        importParty: async (params: ImportPartyParams) => {
+            const connectedContext = assertConnected(authContext)
+
+            const network = await store.getCurrentNetwork()
+            if (!network) {
+                throw new Error('No network session found')
+            }
+            if (!network.adminAuth) {
+                throw new Error('No admin auth configured')
+            }
+
+            const idp = await store.getIdp(network.identityProviderId)
+            const adminTokenProvider = AuthTokenProvider.fromGatewayConfig(
+                idp,
+                network.adminAuth,
+                logger
+            )
+            const partyAllocator = new PartyAllocationService({
+                synchronizerId: network.synchronizerId,
+                accessTokenProvider: adminTokenProvider,
+                httpLedgerUrl: network.ledgerApi.baseUrl,
+                logger,
+            })
+
+            // Just grants rights -- the party is expected to already exist
+            // (e.g. a decentralized party created by submitting its
+            // onboarding transactions directly, outside this gateway).
+            await partyAllocator.importExistingParty(
+                connectedContext.userId,
+                params.partyId
+            )
+
+            // Sync wallets so the newly-rights-granted party shows up
+            // immediately, rather than waiting for the next periodic sync.
+            const ledgerClient = new LedgerClient({
+                baseUrl: new URL(network.ledgerApi.baseUrl),
+                logger,
+                accessTokenProvider: AuthTokenProvider.fromToken(
+                    authContext!.accessToken,
+                    logger
+                ),
+            })
+            const service = new WalletSyncService(
+                store,
+                ledgerClient,
+                authContext!,
+                logger,
+                drivers,
+                partyAllocator
+            )
+            await service.syncWallets()
+
+            const wallets = await store.getWallets()
+            const wallet = wallets.find(
+                (w) =>
+                    w.partyId === params.partyId && w.networkId === network.id
+            )
+            if (!wallet) {
+                throw new Error(
+                    `Party ${params.partyId} was imported but is not visible yet -- try Sync`
+                )
+            }
 
             notificationService
                 .getNotifier(connectedContext.userId)
