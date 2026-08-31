@@ -693,6 +693,64 @@ describe('dappController', () => {
 
             expect(ledgerMocks.getSynchronizerId).toHaveBeenCalled()
         })
+
+        it('redirects to the Safe App instead of the approve page when the wallet has safeAppUrl set', async () => {
+            mockUuidV4.mockReturnValueOnce('generated-command-id')
+            mockUuidV4.mockReturnValueOnce('transaction-id')
+            ledgerMocks.postWithRetry.mockResolvedValueOnce({
+                preparedTransaction: 'prepared-blob',
+                preparedTransactionHash: 'hash',
+            })
+            const store = await createStore(logger, auth, {
+                withWallet: false,
+            })
+            await store.addWallet({
+                ...primaryWallet,
+                safeAppUrl: 'https://safe.example',
+            })
+            const controller = createController(
+                store,
+                notificationService,
+                logger,
+                auth
+            )
+
+            const result = await controller.prepareExecute(
+                prepareParams as never
+            )
+
+            expect(result.userUrl).toBe(
+                'https://safe.example/coordinate?transactionId=transaction-id&partyId=party%3A%3Anamespace&networkId=network1'
+            )
+        })
+
+        it('throws when an API key tries to act as a Safe-like party', async () => {
+            mockUuidV4.mockReturnValueOnce('generated-command-id')
+            mockUuidV4.mockReturnValueOnce('transaction-id')
+            ledgerMocks.postWithRetry.mockResolvedValueOnce({
+                preparedTransaction: 'prepared-blob',
+                preparedTransactionHash: 'hash',
+            })
+            const store = await createStore(logger, auth, {
+                withWallet: false,
+            })
+            await store.addWallet({
+                ...primaryWallet,
+                safeAppUrl: 'https://safe.example',
+            })
+            const controller = createController(
+                store,
+                notificationService,
+                logger,
+                { ...auth, isApiKey: true, ledgerUserId: 'ledger-user' }
+            )
+
+            await expect(
+                controller.prepareExecute(prepareParams as never)
+            ).rejects.toThrow(
+                'Party party::namespace is a Safe-like party coordinated by https://safe.example'
+            )
+        })
     })
 
     describe('signMessage', () => {

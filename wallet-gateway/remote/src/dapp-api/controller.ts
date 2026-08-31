@@ -367,7 +367,28 @@ export const dappController = (
 
             await store.setTransaction(transaction)
 
-            const approveUrl = `${userUrl}/approve/index.html?transactionId=${transactionId}&commandId=${commandId}&closeafteraction`
+            // A Safe-like party (wallet.safeAppUrl set, see
+            // decentralizer-poc's docs/safe-execution-plan.md) has no single
+            // key that can sign for it -- hand off to the companion app that
+            // coordinates collecting every owner's signature, instead of
+            // wallet-gateway's own one-signer approve flow. The companion
+            // app fetches the full prepared transaction itself via the
+            // existing getTransaction user-api RPC (same-origin
+            // authenticated, once its own owner is logged in).
+            const approveUrl = wallet.safeAppUrl
+                ? `${wallet.safeAppUrl}/coordinate?transactionId=${transactionId}&partyId=${encodeURIComponent(wallet.partyId)}&networkId=${encodeURIComponent(wallet.networkId)}`
+                : `${userUrl}/approve/index.html?transactionId=${transactionId}&commandId=${commandId}&closeafteraction`
+
+            if (context.isApiKey && wallet.safeAppUrl) {
+                // An API key/service account has no browser to redirect to
+                // for multi-owner coordination -- fail clearly here rather
+                // than attempting signAndExecute below, which would only
+                // fail deep inside signWithParticipant with a less specific
+                // message.
+                throw new Error(
+                    `Party ${wallet.partyId} is a Safe-like party coordinated by ${wallet.safeAppUrl} -- it cannot be signed for via an API key/service account.`
+                )
+            }
 
             if (context.isApiKey) {
                 logger.info(
@@ -412,7 +433,11 @@ export const dappController = (
             }
 
             return {
-                // closeafteraction query param flag makes approving or deleting tx close the popup
+                // For an ordinary wallet, the closeafteraction query param
+                // flag makes approving or deleting tx close the popup. For a
+                // Safe-like wallet, approveUrl points at the companion app
+                // instead, which stays open for the whole multi-owner
+                // coordination flow.
                 userUrl: approveUrl,
             }
         },
