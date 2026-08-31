@@ -40,6 +40,26 @@ const withTimeout = (
         })
     }, timeoutMs)
 
+// A Safe-like party's companion-app redirect (prepareExecute's userUrl, when
+// openInNewWindow is set) must not reuse the SDK's shared 'wallet-popup'
+// window: that page stays open for the whole multi-owner coordination flow,
+// and any later same-session wallet popup call (its own
+// signPreparedTransaction, "Manage wallets", ...) would otherwise
+// self-target and hijack it instead of opening separately, since browsers
+// resolve window.open(url, 'wallet-popup') against the *calling* window's
+// own name too. A plain, uniquely-named new window has no such collision.
+const openUserUrl = (response: {
+    userUrl?: string
+    openInNewWindow?: boolean
+}) => {
+    if (!response.userUrl) return
+    if (response.openInNewWindow) {
+        window.open(response.userUrl, '_blank')
+    } else {
+        popup.open(response.userUrl)
+    }
+}
+
 export const dappSDKController = (provider: DappAsyncProvider) =>
     buildController({
         connect: async (): Promise<ConnectResult> => {
@@ -89,7 +109,7 @@ export const dappSDKController = (provider: DappAsyncProvider) =>
                 params,
             })
 
-            if (response.userUrl) popup.open(response.userUrl)
+            openUserUrl(response)
 
             return null
         },
@@ -105,7 +125,7 @@ export const dappSDKController = (provider: DappAsyncProvider) =>
                 },
             })
 
-            if (response.userUrl) popup.open(response.userUrl)
+            openUserUrl(response)
 
             const promise = new Promise<PrepareExecuteAndWaitResult>(
                 (resolve, reject) => {

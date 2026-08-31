@@ -335,6 +335,12 @@ export interface Session {
 }
 /**
  *
+ * If true, userUrl must be opened in a brand-new browser window rather than the SDK's shared wallet-popup window. Set for a Safe-like party's companion-app redirect, which stays open for the whole multi-owner coordination flow and must not be reused as the target of any later same-session wallet popup call.
+ *
+ */
+export type OpenInNewWindow = boolean
+/**
+ *
  * The unique identifier of the message associated with the message to be signed.
  *
  */
@@ -697,6 +703,7 @@ export interface StatusEvent {
 export type Null = null
 export interface PrepareExecuteResult {
     userUrl: UserUrl
+    openInNewWindow?: OpenInNewWindow
 }
 export interface SignMessageResult {
     messageId: MessageId

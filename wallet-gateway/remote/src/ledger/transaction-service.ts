@@ -547,7 +547,10 @@ export class TransactionService {
             {
                 userId,
                 preparedTransaction,
-                hashingSchemeVersion: 'HASHING_SCHEME_VERSION_V3',
+                // Must match what the transaction was prepared with; the
+                // scheme is configured once (config.hashingScheme.version)
+                // and threaded through, exactly as executeWithExternal does.
+                hashingSchemeVersion: this.hashingSchemeVersion,
                 submissionId: commandId,
                 deduplicationPeriod: {
                     Empty: {},

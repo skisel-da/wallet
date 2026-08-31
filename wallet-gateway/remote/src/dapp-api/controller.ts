@@ -460,8 +460,14 @@ export const dappController = (
                 // flag makes approving or deleting tx close the popup. For a
                 // Safe-like wallet, approveUrl points at the companion app
                 // instead, which stays open for the whole multi-owner
-                // coordination flow.
+                // coordination flow -- so it must land in its own browser
+                // window rather than the SDK's shared wallet-popup window:
+                // that window gets reused/renavigated by any later wallet
+                // popup call (e.g. this same companion app's own
+                // signPreparedTransaction, or "Manage wallets"), which would
+                // otherwise hijack this page instead of opening separately.
                 userUrl: approveUrl,
+                ...(wallet.safeAppUrl ? { openInNewWindow: true } : {}),
             }
         },
         status: async () => {

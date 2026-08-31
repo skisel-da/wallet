@@ -81,6 +81,11 @@
                     "properties": {
                         "userUrl": {
                             "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/UserUrl"
+                        },
+                        "openInNewWindow": {
+                            "title": "openInNewWindow",
+                            "type": "boolean",
+                            "description": "If true, userUrl must be opened in a brand-new browser window rather than the SDK's shared wallet-popup window. Set for a Safe-like party's companion-app redirect, which stays open for the whole multi-owner coordination flow and must not be reused as the target of any later same-session wallet popup call."
                         }
                     },
                     "required": ["userUrl"]
