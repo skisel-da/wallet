@@ -23,6 +23,8 @@ import type {
     SignTopologyTransactionsResult,
     SignPreparedTransactionParams,
     SignPreparedTransactionResult,
+    ExecuteWithSignaturesParams,
+    ExecuteWithSignaturesResult,
     StatusEvent,
     TopologyTransactionsSignatureEvent,
     PreparedTransactionSignatureEvent,
@@ -112,6 +114,15 @@ export class DappClient {
     ): Promise<SignPreparedTransactionResult> {
         return this.provider.request({
             method: 'signPreparedTransaction',
+            params,
+        })
+    }
+
+    async executeWithSignatures(
+        params: ExecuteWithSignaturesParams
+    ): Promise<ExecuteWithSignaturesResult> {
+        return this.provider.request({
+            method: 'executeWithSignatures',
             params,
         })
     }

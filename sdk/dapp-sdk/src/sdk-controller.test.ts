@@ -13,6 +13,7 @@ import {
 import type { EventListener } from '@canton-network/core-splice-provider'
 import type { DappAsyncProvider } from '@canton-network/core-provider-dapp'
 import type {
+    ExecuteWithSignaturesParams,
     LedgerApiParams,
     PrepareExecuteParams,
     SignMessageParams,
@@ -84,6 +85,13 @@ const ledgerApiParams: LedgerApiParams = {
     requestMethod: 'get',
     resource: '/v2/state/active-contracts',
 }
+const executeWithSignaturesParams: ExecuteWithSignaturesParams = {
+    preparedTransaction: 'prepared-blob',
+    preparedTransactionHash: 'hash-abc',
+    partyId: 'decentralized-party::namespace',
+    commandId: 'command-1',
+    signatures: [{ signature: 'sig-1', signedBy: 'key-1' }],
+}
 
 describe('dappSDKController', () => {
     beforeEach(() => {
@@ -135,6 +143,11 @@ describe('dappSDKController', () => {
         await expect(controller.ledgerApi(ledgerApiParams)).resolves.toEqual({
             result: 'ok',
         })
+
+        mock.request.mockResolvedValueOnce({ updateId: 'update-1' })
+        await expect(
+            controller.executeWithSignatures(executeWithSignaturesParams)
+        ).resolves.toEqual({ updateId: 'update-1' })
     })
 
     it('opens the popup and resolves connect after statusChanged', async () => {

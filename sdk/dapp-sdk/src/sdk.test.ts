@@ -18,6 +18,8 @@ import type { ProviderAdapter } from '@canton-network/core-wallet-discovery'
 import type {
     AccountsChangedEvent,
     ConnectResult,
+    ExecuteWithSignaturesParams,
+    ExecuteWithSignaturesResult,
     LedgerApiParams,
     LedgerApiResult,
     ListAccountsResult,
@@ -35,6 +37,7 @@ import {
     DappSDK,
     connect,
     disconnect,
+    executeWithSignatures,
     getConnectedProvider,
     init,
     isConnected,
@@ -177,6 +180,13 @@ const ledgerApiParams: LedgerApiParams = {
     requestMethod: 'get',
     resource: '/v2/state',
 }
+const executeWithSignaturesParams: ExecuteWithSignaturesParams = {
+    preparedTransaction: 'prepared-blob',
+    preparedTransactionHash: 'hash-abc',
+    partyId: 'decentralized-party::namespace',
+    commandId: 'command-1',
+    signatures: [{ signature: 'sig-1', signedBy: 'key-1' }],
+}
 
 const connectedStatus = (
     overrides: Partial<StatusEvent> = {}
@@ -234,6 +244,8 @@ const makeMockProvider = (
                 return { signature: 'signed' } satisfies SignMessageResult
             case 'ledgerApi':
                 return { ok: true } satisfies LedgerApiResult
+            case 'executeWithSignatures':
+                return { ok: true } satisfies ExecuteWithSignaturesResult
             default:
                 throw new Error(`unexpected method ${String(method)}`)
         }
@@ -350,6 +362,9 @@ describe('DappSDK', () => {
             await expect(sdk.ledgerApi(ledgerApiParams)).rejects.toThrow(
                 'Not connected — call connect() first'
             )
+            await expect(
+                sdk.executeWithSignatures(executeWithSignaturesParams)
+            ).rejects.toThrow('Not connected — call connect() first')
             await expect(sdk.open()).rejects.toThrow(
                 'Not connected — call connect() first'
             )
@@ -589,6 +604,9 @@ describe('DappSDK', () => {
             await expect(sdk.ledgerApi(ledgerApiParams)).resolves.toEqual({
                 ok: true,
             })
+            await expect(
+                sdk.executeWithSignatures(executeWithSignaturesParams)
+            ).resolves.toEqual({ ok: true })
             await expect(sdk.isConnected()).resolves.toEqual(connectedResult())
             await sdk.open()
             await sdk.disconnect()
@@ -684,6 +702,9 @@ describe('DappSDK', () => {
         const ledgerApiSpy = vi
             .spyOn(sdk, 'ledgerApi')
             .mockResolvedValue({ ok: true })
+        const executeWithSignaturesSpy = vi
+            .spyOn(sdk, 'executeWithSignatures')
+            .mockResolvedValue({ ok: true })
         const openSpy = vi.spyOn(sdk, 'open').mockResolvedValue()
         const onStatusChangedSpy = vi
             .spyOn(sdk, 'onStatusChanged')
@@ -743,6 +764,11 @@ describe('DappSDK', () => {
 
         await ledgerApi(ledgerApiParams)
         expect(ledgerApiSpy).toHaveBeenCalledWith(ledgerApiParams)
+
+        await executeWithSignatures(executeWithSignaturesParams)
+        expect(executeWithSignaturesSpy).toHaveBeenCalledWith(
+            executeWithSignaturesParams
+        )
 
         await open()
         expect(openSpy).toHaveBeenCalled()

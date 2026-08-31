@@ -182,6 +182,26 @@
             "description": "Requests a signature over an already-prepared ordinary ledger transaction. The wallet will prompt the user for confirmation."
         },
         {
+            "name": "executeWithSignatures",
+            "params": [
+                {
+                    "name": "params",
+                    "required": true,
+                    "schema": {
+                        "title": "executeWithSignaturesParams",
+                        "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/ExecuteWithSignaturesRequest"
+                    }
+                }
+            ],
+            "result": {
+                "name": "result",
+                "schema": {
+                    "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/ExecuteWithSignaturesResult"
+                }
+            },
+            "description": "Submits an already-prepared ordinary ledger transaction to the ledger once, carrying every owner's collected signature for a Gnosis-Safe-like decentralized party -- called once, by whichever owner finalizes, after signPreparedTransaction has been used to collect every other owner's signature off-ledger."
+        },
+        {
             "name": "ledgerApi",
             "params": [
                 {

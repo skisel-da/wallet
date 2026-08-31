@@ -168,6 +168,26 @@
             "description": "Signs an already-prepared ordinary (non-topology) ledger transaction with the caller's own key -- e.g. one owner's signature towards a Gnosis-Safe-like decentralized party's threshold, collected off-ledger and combined later. The wallet independently recomputes the transaction hash from the raw bytes and decodes/displays it before signing; it never signs an opaque precomputed hash."
         },
         {
+            "name": "executeWithSignatures",
+            "params": [
+                {
+                    "name": "params",
+                    "required": true,
+                    "schema": {
+                        "title": "executeWithSignaturesParams",
+                        "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/ExecuteWithSignaturesRequest"
+                    }
+                }
+            ],
+            "result": {
+                "name": "result",
+                "schema": {
+                    "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/ExecuteWithSignaturesResult"
+                }
+            },
+            "description": "Submits an already-prepared ordinary ledger transaction to the ledger once, carrying every owner's collected signature for a Gnosis-Safe-like decentralized party -- called once, by whichever owner finalizes, after signPreparedTransaction has been used to collect every other owner's signature off-ledger."
+        },
+        {
             "name": "ledgerApi",
             "params": [
                 {
@@ -1095,6 +1115,72 @@
                     }
                 },
                 "required": ["signature", "signedBy"]
+            },
+            "SignatureEntry": {
+                "title": "SignatureEntry",
+                "type": "object",
+                "description": "One owner's signature over a prepared transaction, collected off-ledger before combined submission.",
+                "additionalProperties": false,
+                "properties": {
+                    "signature": {
+                        "title": "signature",
+                        "type": "string",
+                        "description": "The signature over the prepared transaction's hash."
+                    },
+                    "signedBy": {
+                        "title": "signedBy",
+                        "type": "string",
+                        "description": "The public key that produced the signature."
+                    }
+                },
+                "required": ["signature", "signedBy"]
+            },
+            "ExecuteWithSignaturesRequest": {
+                "title": "ExecuteWithSignaturesRequest",
+                "type": "object",
+                "description": "Request to submit an already-prepared ordinary ledger transaction to the ledger once, carrying every owner's collected signature for a Gnosis-Safe-like decentralized party -- Canton's interactive-submission execute endpoint accepts multiple owners' signatures for one party in a single call.",
+                "additionalProperties": false,
+                "properties": {
+                    "preparedTransaction": {
+                        "title": "preparedTransaction",
+                        "type": "string",
+                        "description": "Base64-encoded prepared transaction bytes to submit, as returned by the ledger API's interactive-submission prepare endpoint."
+                    },
+                    "preparedTransactionHash": {
+                        "title": "preparedTransactionHash",
+                        "type": "string",
+                        "description": "As supplied by the caller; the wallet independently recomputes this from preparedTransaction and refuses to submit if it doesn't match, since a mismatch here would mean submitting a different transaction than the one every owner actually signed."
+                    },
+                    "partyId": {
+                        "title": "partyId",
+                        "type": "string",
+                        "description": "The decentralized party whose collected signatures authorize this submission. Not necessarily a party known to the caller's own wallet -- the caller may be any one of its owners, finalizing on the others' behalf."
+                    },
+                    "commandId": {
+                        "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/CommandId"
+                    },
+                    "signatures": {
+                        "title": "signatures",
+                        "type": "array",
+                        "description": "Every owner's collected signature over preparedTransactionHash, including the finalizer's own.",
+                        "items": {
+                            "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/SignatureEntry"
+                        }
+                    }
+                },
+                "required": [
+                    "preparedTransaction",
+                    "preparedTransactionHash",
+                    "partyId",
+                    "commandId",
+                    "signatures"
+                ]
+            },
+            "ExecuteWithSignaturesResult": {
+                "title": "ExecuteWithSignaturesResult",
+                "type": "object",
+                "description": "Raw ledger-API response from the combined executeAndWait submission.",
+                "additionalProperties": true
             },
             "Network": {
                 "title": "network",

@@ -153,16 +153,49 @@ export type TopologyTransactionBase64 = string
 export type Transactions = TopologyTransactionBase64[]
 /**
  *
- * Base64-encoded prepared transaction bytes to sign, as returned by the ledger API's interactive-submission prepare endpoint.
+ * Base64-encoded prepared transaction bytes to submit, as returned by the ledger API's interactive-submission prepare endpoint.
  *
  */
 export type PreparedTransaction = string
 /**
  *
- * As supplied by the caller; the wallet independently recomputes this from preparedTransaction and refuses to sign if it doesn't match.
+ * As supplied by the caller; the wallet independently recomputes this from preparedTransaction and refuses to submit if it doesn't match, since a mismatch here would mean submitting a different transaction than the one every owner actually signed.
  *
  */
 export type PreparedTransactionHash = string
+/**
+ *
+ * The party ID corresponding to the wallet.
+ *
+ */
+export type PartyId = string
+/**
+ *
+ * The signature over the prepared transaction's hash.
+ *
+ */
+export type Signature = string
+/**
+ *
+ * The public key that produced the signature.
+ *
+ */
+export type SignedBy = string
+/**
+ *
+ * One owner's signature over a prepared transaction, collected off-ledger before combined submission.
+ *
+ */
+export interface SignatureEntry {
+    signature: Signature
+    signedBy: SignedBy
+}
+/**
+ *
+ * Every owner's collected signature over preparedTransactionHash, including the finalizer's own.
+ *
+ */
+export type Signatures = SignatureEntry[]
 export type RequestMethod = 'get' | 'post' | 'patch' | 'put' | 'delete'
 export type Resource = string
 export interface Body {
@@ -334,34 +367,16 @@ export interface TxChangedExecutedEvent {
 }
 /**
  *
- * The signature over the prepared transaction's hash.
- *
- */
-export type Signature = string
-/**
- *
  * The wallet-computed multiHash the signature is over, recomputed fresh from the stored raw transaction bytes at sign time -- never a cached or dApp-supplied value. Included so the dApp can cross-check it against its own computation.
  *
  */
 export type MultiHash = string
 /**
  *
- * The public key that produced the signature.
- *
- */
-export type SignedBy = string
-/**
- *
  * Set as primary wallet for dApp usage.
  *
  */
 export type Primary = boolean
-/**
- *
- * The party ID corresponding to the wallet.
- *
- */
-export type PartyId = string
 /**
  *
  * The status of the wallet.
@@ -631,6 +646,18 @@ export interface SignPreparedTransactionParams {
 }
 /**
  *
+ * Request to submit an already-prepared ordinary ledger transaction to the ledger once, carrying every owner's collected signature for a Gnosis-Safe-like decentralized party -- Canton's interactive-submission execute endpoint accepts multiple owners' signatures for one party in a single call.
+ *
+ */
+export interface ExecuteWithSignaturesParams {
+    preparedTransaction: PreparedTransaction
+    preparedTransactionHash: PreparedTransactionHash
+    partyId: PartyId
+    commandId: CommandId
+    signatures: Signatures
+}
+/**
+ *
  * Ledger API request structure
  *
  */
@@ -681,6 +708,14 @@ export interface SignTopologyTransactionsResult {
 export interface SignPreparedTransactionResult {
     signature: Signature
     signedBy: SignedBy
+}
+/**
+ *
+ * Raw ledger-API response from the combined executeAndWait submission.
+ *
+ */
+export interface ExecuteWithSignaturesResult {
+    [key: string]: any
 }
 /**
  *
@@ -763,6 +798,9 @@ export type SignTopologyTransactions = (
 export type SignPreparedTransaction = (
     params: SignPreparedTransactionParams
 ) => Promise<SignPreparedTransactionResult>
+export type ExecuteWithSignatures = (
+    params: ExecuteWithSignaturesParams
+) => Promise<ExecuteWithSignaturesResult>
 export type LedgerApi = (params: LedgerApiParams) => Promise<LedgerApiResult>
 export type AccountsChanged = () => Promise<AccountsChangedEvent>
 export type GetPrimaryAccount = () => Promise<Wallet>
@@ -831,6 +869,11 @@ export type RpcTypes = {
     signPreparedTransaction: {
         params: Params<SignPreparedTransaction>
         result: Result<SignPreparedTransaction>
+    }
+
+    executeWithSignatures: {
+        params: Params<ExecuteWithSignatures>
+        result: Result<ExecuteWithSignatures>
     }
 
     ledgerApi: {

@@ -9,6 +9,8 @@ import {
 import buildController from './rpc-gen/index.js'
 import {
     ConnectResult,
+    ExecuteWithSignaturesParams,
+    ExecuteWithSignaturesResult,
     LedgerApiParams,
     LedgerApiResult,
     MessageSignatureEvent,
@@ -47,6 +49,7 @@ import { rpcErrors } from '@canton-network/core-rpc-errors'
 import { HASHING_SCHEME_VERSION } from '../env.js'
 import {
     decodeVersionedTopologyTransaction,
+    hashPreparedTransaction,
     summarizeTopologyTransaction,
 } from '@canton-network/core-tx-visualizer'
 
@@ -691,6 +694,61 @@ export const dappController = (
                 requestId,
                 userUrl: `${userUrl}/sign-prepared-transaction/index.html?requestId=${requestId}&closeafteraction`,
             }
+        },
+        executeWithSignatures: async (
+            params: ExecuteWithSignaturesParams
+        ): Promise<ExecuteWithSignaturesResult> => {
+            if (context === undefined) {
+                throw new Error('Unauthenticated context')
+            }
+
+            let ledgerUserId = context.userId
+            const accessTokenProvider: AuthTokenProvider =
+                AuthTokenProvider.fromToken(context.accessToken, logger)
+            if (context.isApiKey) {
+                ledgerUserId = context.ledgerUserId
+            }
+
+            // Core security property, same as signPreparedTransaction: the
+            // hash is recomputed fresh from the raw prepared-transaction
+            // bytes and never trusted outright. It matters even more here
+            // than at signing time -- this is the call that actually
+            // submits to Canton, so a mismatch would mean submitting a
+            // different transaction than the one every owner signed.
+            const recomputedHash = await hashPreparedTransaction(
+                params.preparedTransaction
+            )
+            if (recomputedHash !== params.preparedTransactionHash) {
+                throw new Error(
+                    `Prepared transaction hash mismatch: the independently recomputed hash does not match the one supplied by the caller`
+                )
+            }
+
+            const network = await store.getCurrentNetwork()
+            const ledgerClient = new LedgerClient({
+                baseUrl: new URL(network.ledgerApi.baseUrl),
+                logger,
+                accessTokenProvider,
+            })
+
+            const session = await store.getSession(context.accessToken)
+            if (!session) {
+                throw new Error('No active session found')
+            }
+            const notifier = notificationService.getNotifier(session.id)
+
+            const transactionService = new TransactionService(
+                store,
+                logger,
+                deps.signingDrivers,
+                notifier
+            )
+
+            return await transactionService.executeWithSignatures(
+                ledgerUserId,
+                ledgerClient,
+                params
+            )
         },
         getPrimaryAccount: async function (): Promise<Wallet> {
             const wallet = await store.getPrimaryWallet()

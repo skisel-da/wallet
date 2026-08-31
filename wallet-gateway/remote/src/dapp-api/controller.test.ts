@@ -63,6 +63,19 @@ vi.mock('uuid', () => ({
     v4: mockUuidV4,
 }))
 
+const mockHashPreparedTransaction = vi.hoisted(() => vi.fn())
+
+vi.mock('@canton-network/core-tx-visualizer', async (importOriginal) => {
+    const actual =
+        await importOriginal<
+            typeof import('@canton-network/core-tx-visualizer')
+        >()
+    return {
+        ...actual,
+        hashPreparedTransaction: mockHashPreparedTransaction,
+    }
+})
+
 const kernelInfo: KernelInfo = {
     id: 'kernel-test',
     clientType: 'browser',
@@ -186,6 +199,8 @@ describe('dappController', () => {
             cantonVersion: '3.4',
         })
         mockUuidV4.mockReset()
+        mockHashPreparedTransaction.mockReset()
+        mockHashPreparedTransaction.mockResolvedValue('hash-abc')
     })
 
     afterEach(() => {
@@ -749,6 +764,124 @@ describe('dappController', () => {
                 controller.prepareExecute(prepareParams as never)
             ).rejects.toThrow(
                 'Party party::namespace is a Safe-like party coordinated by https://safe.example'
+            )
+        })
+    })
+
+    describe('executeWithSignatures', () => {
+        const executeWithSignaturesParams = {
+            preparedTransaction: 'prepared-blob',
+            preparedTransactionHash: 'hash-abc',
+            partyId: 'decentralized-party::namespace',
+            commandId: 'command-1',
+            signatures: [
+                { signature: 'sig-owner-1', signedBy: 'owner-1-key' },
+                { signature: 'sig-owner-2', signedBy: 'owner-2-key' },
+            ],
+        }
+
+        it('throws when auth context is missing', async () => {
+            const store = await createStore(logger, auth)
+            const controller = createController(
+                store,
+                notificationService,
+                logger,
+                undefined
+            )
+
+            await expect(
+                controller.executeWithSignatures(
+                    executeWithSignaturesParams as never
+                )
+            ).rejects.toThrow('Unauthenticated context')
+        })
+
+        it('throws when the recomputed hash does not match the supplied hash', async () => {
+            mockHashPreparedTransaction.mockResolvedValueOnce(
+                'a-different-hash'
+            )
+            const store = await createStore(logger, auth)
+            const controller = createController(
+                store,
+                notificationService,
+                logger,
+                auth
+            )
+
+            await expect(
+                controller.executeWithSignatures(
+                    executeWithSignaturesParams as never
+                )
+            ).rejects.toThrow('Prepared transaction hash mismatch')
+            expect(ledgerMocks.postWithRetry).not.toHaveBeenCalled()
+        })
+
+        it('submits every collected signature in a single executeAndWait call', async () => {
+            ledgerMocks.postWithRetry.mockResolvedValueOnce({
+                updateId: 'multi-sig-update-1',
+            })
+            const store = await createStore(logger, auth)
+            const controller = createController(
+                store,
+                notificationService,
+                logger,
+                auth
+            )
+
+            const result = await controller.executeWithSignatures(
+                executeWithSignaturesParams as never
+            )
+
+            expect(mockHashPreparedTransaction).toHaveBeenCalledWith(
+                'prepared-blob'
+            )
+            expect(ledgerMocks.postWithRetry).toHaveBeenCalledWith(
+                '/v2/interactive-submission/executeAndWait',
+                expect.objectContaining({
+                    userId: auth.userId,
+                    preparedTransaction: 'prepared-blob',
+                    submissionId: 'command-1',
+                    partySignatures: {
+                        signatures: [
+                            {
+                                party: 'decentralized-party::namespace',
+                                signatures: [
+                                    expect.objectContaining({
+                                        signature: 'sig-owner-1',
+                                        signedBy: 'owner-1-key',
+                                    }),
+                                    expect.objectContaining({
+                                        signature: 'sig-owner-2',
+                                        signedBy: 'owner-2-key',
+                                    }),
+                                ],
+                            },
+                        ],
+                    },
+                })
+            )
+            expect(result).toEqual({ updateId: 'multi-sig-update-1' })
+        })
+
+        it('uses the ledger user id for an API key/service-account caller', async () => {
+            ledgerMocks.postWithRetry.mockResolvedValueOnce({
+                updateId: 'multi-sig-update-2',
+            })
+            const store = await createStore(logger, auth)
+            const controller = createController(
+                store,
+                notificationService,
+                logger,
+                { ...auth, isApiKey: true, ledgerUserId: 'ledger-user' }
+            )
+
+            await controller.executeWithSignatures(
+                executeWithSignaturesParams as never
+            )
+
+            expect(ledgerMocks.postWithRetry).toHaveBeenCalledWith(
+                '/v2/interactive-submission/executeAndWait',
+                expect.objectContaining({ userId: 'ledger-user' })
             )
         })
     })

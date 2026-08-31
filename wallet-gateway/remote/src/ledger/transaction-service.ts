@@ -24,7 +24,11 @@ import {
     ExecuteResult,
     SignParams,
 } from '../user-api/rpc-gen/typings.js'
-import { UserId } from '../dapp-api/rpc-gen/typings.js'
+import {
+    UserId,
+    ExecuteWithSignaturesParams,
+    ExecuteWithSignaturesResult,
+} from '../dapp-api/rpc-gen/typings.js'
 import { Notifier } from '../notification/NotificationService.js'
 import {
     ledgerPrepareParams,
@@ -517,6 +521,58 @@ export class TransactionService {
             payload: result,
         })
         this.notifier.emit('txChanged', executedTx)
+
+        return result
+    }
+
+    // Submits an already-prepared ordinary ledger transaction once, carrying
+    // every owner's collected signature for a Gnosis-Safe-like decentralized
+    // party (docs/safe-execution-plan.md in decentralizer-poc). Unlike
+    // executeWithExternal above, there is no local Transaction store record
+    // to read from: the prepared transaction was originally prepared by a
+    // *different* wallet-gateway user (whoever called prepareExecute), and
+    // the caller here (whichever owner finalizes) isn't necessarily one of
+    // that user's own wallets, nor does the decentralized party need to be
+    // known to the caller's own wallet at all -- everything needed to
+    // submit is passed in directly instead.
+    public async executeWithSignatures(
+        userId: UserId,
+        ledgerClient: LedgerClient,
+        params: ExecuteWithSignaturesParams
+    ): Promise<ExecuteWithSignaturesResult> {
+        const { preparedTransaction, partyId, commandId, signatures } = params
+
+        const result = await ledgerClient.postWithRetry(
+            '/v2/interactive-submission/executeAndWait',
+            {
+                userId,
+                preparedTransaction,
+                hashingSchemeVersion: 'HASHING_SCHEME_VERSION_V3',
+                submissionId: commandId,
+                deduplicationPeriod: {
+                    Empty: {},
+                },
+                partySignatures: {
+                    signatures: [
+                        {
+                            party: partyId,
+                            signatures: signatures.map((entry) => ({
+                                signature: entry.signature,
+                                signedBy: entry.signedBy,
+                                format: 'SIGNATURE_FORMAT_CONCAT',
+                                signingAlgorithmSpec:
+                                    'SIGNING_ALGORITHM_SPEC_ED25519',
+                            })),
+                        },
+                    ],
+                },
+            } as Types['JsExecuteSubmissionAndWaitRequest']
+        )
+
+        logDynamically(this.logger, 'Multi-signature execution result', {
+            info: { partyId, commandId },
+            debug: { result, params, userId },
+        })
 
         return result
     }

@@ -11,6 +11,7 @@ import type { PrepareExecuteAndWait } from './typings.js'
 import type { SignMessage } from './typings.js'
 import type { SignTopologyTransactions } from './typings.js'
 import type { SignPreparedTransaction } from './typings.js'
+import type { ExecuteWithSignatures } from './typings.js'
 import type { LedgerApi } from './typings.js'
 import type { AccountsChanged } from './typings.js'
 import type { GetPrimaryAccount } from './typings.js'
@@ -31,6 +32,7 @@ export type Methods = {
     signMessage: SignMessage
     signTopologyTransactions: SignTopologyTransactions
     signPreparedTransaction: SignPreparedTransaction
+    executeWithSignatures: ExecuteWithSignatures
     ledgerApi: LedgerApi
     accountsChanged: AccountsChanged
     getPrimaryAccount: GetPrimaryAccount
@@ -53,6 +55,7 @@ function buildController(methods: Methods) {
         signMessage: methods.signMessage,
         signTopologyTransactions: methods.signTopologyTransactions,
         signPreparedTransaction: methods.signPreparedTransaction,
+        executeWithSignatures: methods.executeWithSignatures,
         ledgerApi: methods.ledgerApi,
         accountsChanged: methods.accountsChanged,
         getPrimaryAccount: methods.getPrimaryAccount,
