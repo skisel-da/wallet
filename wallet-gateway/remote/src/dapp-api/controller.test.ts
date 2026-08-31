@@ -768,6 +768,102 @@ describe('dappController', () => {
         })
     })
 
+    describe('signPreparedTransaction', () => {
+        const signPreparedTransactionParams = {
+            preparedTransaction: 'prepared-blob',
+            preparedTransactionHash: 'hash-abc',
+        }
+
+        it('throws when preparedTransaction is missing', async () => {
+            const store = await createStore(logger, auth)
+            const controller = createController(
+                store,
+                notificationService,
+                logger,
+                auth
+            )
+
+            await expect(
+                controller.signPreparedTransaction({
+                    preparedTransactionHash: 'hash-abc',
+                } as never)
+            ).rejects.toThrow(
+                'preparedTransaction and preparedTransactionHash are required'
+            )
+        })
+
+        it('throws when auth context is missing', async () => {
+            const store = await createStore(logger, auth)
+            const controller = createController(
+                store,
+                notificationService,
+                logger,
+                undefined
+            )
+
+            await expect(
+                controller.signPreparedTransaction(
+                    signPreparedTransactionParams
+                )
+            ).rejects.toThrow('Unauthenticated context')
+        })
+
+        it('throws when there is no primary wallet', async () => {
+            const store = await createStore(logger, auth, { withWallet: false })
+            const controller = createController(
+                store,
+                notificationService,
+                logger,
+                auth
+            )
+
+            await expect(
+                controller.signPreparedTransaction(
+                    signPreparedTransactionParams
+                )
+            ).rejects.toThrow('No primary wallet found')
+        })
+
+        it('stores a pending request, emits preparedTransactionSignature, and returns the popup URL', async () => {
+            mockUuidV4.mockReturnValueOnce('request-1')
+            const store = await createStore(logger, auth)
+            const setSpy = vi.spyOn(store, 'setPreparedTransactionToSign')
+            const notifier = notificationService.getNotifier('session-1')
+            const emitSpy = vi.spyOn(notifier, 'emit')
+            const controller = createController(
+                store,
+                notificationService,
+                logger,
+                auth
+            )
+
+            const result = await controller.signPreparedTransaction(
+                signPreparedTransactionParams
+            )
+
+            expect(setSpy).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    id: 'request-1',
+                    status: 'pending',
+                    userId: auth.userId,
+                    partyId: primaryWallet.partyId,
+                    publicKey: primaryWallet.publicKey,
+                    preparedTransaction: 'prepared-blob',
+                    preparedTransactionHash: 'hash-abc',
+                    origin,
+                })
+            )
+            expect(emitSpy).toHaveBeenCalledWith(
+                'preparedTransactionSignature',
+                { status: 'pending', requestId: 'request-1' }
+            )
+            expect(result).toEqual({
+                requestId: 'request-1',
+                userUrl: `${userUrl}/sign-prepared-transaction/index.html?requestId=request-1&closeafteraction`,
+            })
+        })
+    })
+
     describe('executeWithSignatures', () => {
         const executeWithSignaturesParams = {
             preparedTransaction: 'prepared-blob',

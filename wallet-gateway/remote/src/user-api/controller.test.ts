@@ -9,6 +9,7 @@ import {
     MessageRaw,
     Network as StoreNetwork,
     PartyLevelRight,
+    PreparedTransactionToSign,
     Session,
     Transaction,
     Wallet,
@@ -808,6 +809,293 @@ describe('userController', () => {
             expect(emitSpy).toHaveBeenCalledWith('messageSignature', {
                 status: 'failed',
                 messageId: 'msg-1',
+            })
+        })
+    })
+
+    describe('prepared-transaction signing', () => {
+        // A real, valid prepared-transaction blob and its independently
+        // verified hash (from core-tx-visualizer's own Tx.test.ts) -- using
+        // real bytes here, rather than mocking hashPreparedTransaction,
+        // exercises the actual clear-signing recompute-and-compare path.
+        const validPreparedTransaction =
+            'CsoHCgMyLjESATAamwcKATDCPpQHCpEHCgMyLjESQjAwMTY4Nzc3ODEwNzU3MmJlZWVjYzQzODk3MmQxODQ4M2VhZDI1MGQxZDUwYmI2MzU3ZjdmYjhmNjdkY2U3ZDYzNRoNc3BsaWNlLXdhbGxldCKCAQpAZWI2ZTAxZWZhY2MzMzk3ZTIzYzZiZThiOWJlN2RiNGJmMzc2NzIyMTE5NzRkNjllMjRiNDg5ODBlMmY5OGI3ZRIhU3BsaWNlLldhbGxldC5UcmFuc2ZlclByZWFwcHJvdmFsGhtUcmFuc2ZlclByZWFwcHJvdmFsUHJvcG9zYWwqtQNysgMKggEKQGViNmUwMWVmYWNjMzM5N2UyM2M2YmU4YjliZTdkYjRiZjM3NjcyMjExOTc0ZDY5ZTI0YjQ4OTgwZTJmOThiN2USIVNwbGljZS5XYWxsZXQuVHJhbnNmZXJQcmVhcHByb3ZhbBobVHJhbnNmZXJQcmVhcHByb3ZhbFByb3Bvc2FsElcKCHJlY2VpdmVyEks6SWJvYjo6MTIyMDViZTNiOWQxNzc1NzNmZmZiNjhlYjI0NTk4NmY4OGI5ZGY1OGQ0NGNlNTc1ODE5MDc4OTcwNTgwZDg3ZDFkYzAScgoIcHJvdmlkZXISZjpkYXBwX3VzZXJfbG9jYWxuZXQtbG9jYWxwYXJ0eS0xOjoxMjIwM2E1MmZlNWFmM2I4N2UwNjk2MTgyYWM2NjhhNmNiMzE1ZGFiNGJkYzMwZGE5ZTViNmRkYTllYjcyODc4NDIxNhJeCgtleHBlY3RlZERzbxJPUk0KSzpJRFNPOjoxMjIwYmJkMDAwYjY5ODc1NzNiOGMwOWY0NDRlNGRmNTUwOWFmODk5N2I4MzkxMDlkN2UyYzIxMmQ1NDdmMGFmMDk1MDJJYm9iOjoxMjIwNWJlM2I5ZDE3NzU3M2ZmZmI2OGViMjQ1OTg2Zjg4YjlkZjU4ZDQ0Y2U1NzU4MTkwNzg5NzA1ODBkODdkMWRjMDpkYXBwX3VzZXJfbG9jYWxuZXQtbG9jYWxwYXJ0eS0xOjoxMjIwM2E1MmZlNWFmM2I4N2UwNjk2MTgyYWM2NjhhNmNiMzE1ZGFiNGJkYzMwZGE5ZTViNmRkYTllYjcyODc4NDIxNjpJYm9iOjoxMjIwNWJlM2I5ZDE3NzU3M2ZmZmI2OGViMjQ1OTg2Zjg4YjlkZjU4ZDQ0Y2U1NzU4MTkwNzg5NzA1ODBkODdkMWRjMCIiEiDBzeNcgqLvsssBxhNx7wP9pK71TsAprgz+a8jag/Lb3RL3ARJxCklib2I6OjEyMjA1YmUzYjlkMTc3NTczZmZmYjY4ZWIyNDU5ODZmODhiOWRmNThkNDRjZTU3NTgxOTA3ODk3MDU4MGQ4N2QxZGMwEiQ5NzU4ZTQ2ZS05ZmJlLTRmOTQtOTczZC04NWQ5ZTBmMTMyNzUaU2dsb2JhbC1kb21haW46OjEyMjBiYmQwMDBiNjk4NzU3M2I4YzA5ZjQ0NGU0ZGY1NTA5YWY4OTk3YjgzOTEwOWQ3ZTJjMjEyZDU0N2YwYWYwOTUwKiQ5NGJkYmFmNS0wYjJjLTQwYmMtOTZjZC1jM2M5YTlkODQ3ZDIw+eaGkdz0jwM='
+        const validPreparedTransactionHash =
+            'f97Cv1BO7QS7jmSY03p56JGsPf60Vx/ABXmRub7iiQI='
+
+        const pendingRequest: PreparedTransactionToSign = {
+            id: 'req-1',
+            status: 'pending',
+            userId: auth.userId,
+            partyId: primaryWallet.partyId,
+            publicKey: primaryWallet.publicKey,
+            preparedTransaction: validPreparedTransaction,
+            preparedTransactionHash: validPreparedTransactionHash,
+            origin: 'https://dapp.example',
+            createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        }
+
+        async function storeWithRequest(
+            request: typeof pendingRequest = pendingRequest
+        ): Promise<StoreInternal> {
+            const store = await createStore(logger, auth)
+            await store.setPreparedTransactionToSign(request)
+            return store
+        }
+
+        describe('getPreparedTransactionToSign', () => {
+            it('returns the record', async () => {
+                const store = await storeWithRequest()
+                const controller = createController(
+                    store,
+                    notificationService,
+                    logger,
+                    auth
+                )
+
+                const result = await controller.getPreparedTransactionToSign({
+                    requestId: 'req-1',
+                })
+
+                expect(result.record).toMatchObject({
+                    id: 'req-1',
+                    status: 'pending',
+                    preparedTransaction: validPreparedTransaction,
+                    preparedTransactionHash: validPreparedTransactionHash,
+                    origin: 'https://dapp.example',
+                })
+            })
+
+            it('throws when the request does not exist', async () => {
+                const store = await createStore(logger, auth)
+                const controller = createController(
+                    store,
+                    notificationService,
+                    logger,
+                    auth
+                )
+
+                await expect(
+                    controller.getPreparedTransactionToSign({
+                        requestId: 'missing',
+                    })
+                ).rejects.toThrow('not found')
+            })
+        })
+
+        describe('deletePreparedTransactionToSign', () => {
+            it('deletes a pending request owned by the user', async () => {
+                const store = await storeWithRequest()
+                const removeSpy = vi.spyOn(
+                    store,
+                    'removePreparedTransactionToSign'
+                )
+                const controller = createController(
+                    store,
+                    notificationService,
+                    logger,
+                    auth
+                )
+
+                await controller.deletePreparedTransactionToSign({
+                    requestId: 'req-1',
+                })
+
+                expect(removeSpy).toHaveBeenCalledWith('req-1')
+            })
+
+            it('rejects delete when the request is not pending', async () => {
+                const store = await storeWithRequest({
+                    ...pendingRequest,
+                    status: 'signed',
+                })
+                const controller = createController(
+                    store,
+                    notificationService,
+                    logger,
+                    auth
+                )
+
+                await expect(
+                    controller.deletePreparedTransactionToSign({
+                        requestId: 'req-1',
+                    })
+                ).rejects.toThrow(
+                    "Cannot delete prepared-transaction request with status 'signed'"
+                )
+            })
+
+            it('rejects delete when the request belongs to another user', async () => {
+                const store = await storeWithRequest()
+                vi.spyOn(
+                    store,
+                    'getPreparedTransactionToSign'
+                ).mockResolvedValue({ ...pendingRequest, userId: 'other-user' })
+                const controller = createController(
+                    store,
+                    notificationService,
+                    logger,
+                    auth
+                )
+
+                await expect(
+                    controller.deletePreparedTransactionToSign({
+                        requestId: 'req-1',
+                    })
+                ).rejects.toThrow('not owned by user')
+            })
+        })
+
+        describe('signPreparedTransaction', () => {
+            it('signs a pending request with a WALLET_KERNEL wallet and emits preparedTransactionSignature', async () => {
+                const store = await storeWithRequest()
+                const mockSignTransaction = vi.fn().mockResolvedValue({
+                    signature: 'signature',
+                })
+                const drivers = {
+                    [SigningProvider.WALLET_KERNEL]: {
+                        controller: vi.fn(() => ({
+                            signTransaction: mockSignTransaction,
+                        })),
+                    },
+                }
+                const notifier = notificationService.getNotifier('session-1')
+                const emitSpy = vi.spyOn(notifier, 'emit')
+                const controller = createController(
+                    store,
+                    notificationService,
+                    logger,
+                    auth,
+                    drivers
+                )
+
+                const result = await controller.signPreparedTransaction({
+                    requestId: 'req-1',
+                })
+
+                expect(mockSignTransaction).toHaveBeenCalledWith({
+                    tx: '',
+                    txHash: validPreparedTransactionHash,
+                    keyIdentifier: { publicKey: primaryWallet.publicKey },
+                })
+                expect(result).toEqual({
+                    signature: 'signature',
+                    signedBy: primaryWallet.publicKey,
+                })
+                expect(emitSpy).toHaveBeenCalledWith(
+                    'preparedTransactionSignature',
+                    {
+                        status: 'signed',
+                        requestId: 'req-1',
+                        signature: 'signature',
+                        signedBy: primaryWallet.publicKey,
+                    }
+                )
+                const updated =
+                    await store.getPreparedTransactionToSign('req-1')
+                expect(updated?.status).toBe('signed')
+                expect(updated?.signature).toBe('signature')
+            })
+
+            it('rejects signPreparedTransaction for non-WALLET_KERNEL wallets', async () => {
+                const store = await createStore(logger, auth)
+                await store.removeWallet(primaryWallet.partyId)
+                await store.addWallet({
+                    ...primaryWallet,
+                    signingProviderId: SigningProvider.FIREBLOCKS,
+                })
+                await store.setPreparedTransactionToSign(pendingRequest)
+                const notifier = notificationService.getNotifier('session-1')
+                const emitSpy = vi.spyOn(notifier, 'emit')
+                const controller = createController(
+                    store,
+                    notificationService,
+                    logger,
+                    auth,
+                    {
+                        [SigningProvider.WALLET_KERNEL]: {
+                            controller: vi.fn(() => ({
+                                signTransaction: vi.fn(),
+                            })),
+                        },
+                    }
+                )
+
+                await expect(
+                    controller.signPreparedTransaction({ requestId: 'req-1' })
+                ).rejects.toThrow(
+                    'signPreparedTransaction is only supported for wallet-kernel wallets'
+                )
+                expect(emitSpy).toHaveBeenCalledWith(
+                    'preparedTransactionSignature',
+                    { status: 'failed', requestId: 'req-1' }
+                )
+            })
+
+            it('fails hard on a hash mismatch instead of signing', async () => {
+                const store = await storeWithRequest({
+                    ...pendingRequest,
+                    preparedTransactionHash: 'not-the-real-hash',
+                })
+                const mockSignTransaction = vi.fn()
+                const controller = createController(
+                    store,
+                    notificationService,
+                    logger,
+                    auth,
+                    {
+                        [SigningProvider.WALLET_KERNEL]: {
+                            controller: vi.fn(() => ({
+                                signTransaction: mockSignTransaction,
+                            })),
+                        },
+                    }
+                )
+
+                await expect(
+                    controller.signPreparedTransaction({ requestId: 'req-1' })
+                ).rejects.toThrow('Prepared transaction hash mismatch')
+                expect(mockSignTransaction).not.toHaveBeenCalled()
+                const updated =
+                    await store.getPreparedTransactionToSign('req-1')
+                expect(updated?.status).toBe('failed')
+            })
+
+            it('rejects signing a request already signed', async () => {
+                const store = await storeWithRequest({
+                    ...pendingRequest,
+                    status: 'signed',
+                })
+                const controller = createController(
+                    store,
+                    notificationService,
+                    logger,
+                    auth
+                )
+
+                await expect(
+                    controller.signPreparedTransaction({ requestId: 'req-1' })
+                ).rejects.toThrow(
+                    "Cannot sign prepared transaction with status 'signed'"
+                )
+            })
+
+            it('rejects signing a request owned by another user', async () => {
+                const store = await storeWithRequest()
+                vi.spyOn(
+                    store,
+                    'getPreparedTransactionToSign'
+                ).mockResolvedValue({ ...pendingRequest, userId: 'other-user' })
+                const controller = createController(
+                    store,
+                    notificationService,
+                    logger,
+                    auth
+                )
+
+                await expect(
+                    controller.signPreparedTransaction({ requestId: 'req-1' })
+                ).rejects.toThrow('not owned by user')
             })
         })
     })
