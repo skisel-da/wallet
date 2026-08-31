@@ -371,12 +371,29 @@ export const dappController = (
             // decentralizer-poc's docs/safe-execution-plan.md) has no single
             // key that can sign for it -- hand off to the companion app that
             // coordinates collecting every owner's signature, instead of
-            // wallet-gateway's own one-signer approve flow. The companion
-            // app fetches the full prepared transaction itself via the
-            // existing getTransaction user-api RPC (same-origin
-            // authenticated, once its own owner is logged in).
+            // wallet-gateway's own one-signer approve flow.
+            //
+            // The prepared transaction is embedded directly in the redirect
+            // URL rather than left as a transactionId reference the
+            // companion app fetches later: whichever of the Safe party's
+            // owners actually lands on this URL is not necessarily the same
+            // wallet-gateway user who called prepareExecute (each owner logs
+            // into the companion app independently, with their own
+            // individual party -- see safe-execution-plan.md's session
+            // decision), so there is no same-origin-authenticated way for
+            // them to look this transactionId up afterwards. Once the
+            // companion app turns this into its own coordination contract,
+            // every other owner learns about it from that contract directly
+            // (an ordinary ACS query), never from this URL or wallet-gateway's
+            // Transaction store again.
             const approveUrl = wallet.safeAppUrl
-                ? `${wallet.safeAppUrl}/coordinate?transactionId=${transactionId}&partyId=${encodeURIComponent(wallet.partyId)}&networkId=${encodeURIComponent(wallet.networkId)}`
+                ? `${wallet.safeAppUrl}/coordinate?${new URLSearchParams({
+                      preparedTransaction: prepared.preparedTransaction,
+                      preparedTransactionHash: prepared.preparedTransactionHash,
+                      partyId: wallet.partyId,
+                      networkId: wallet.networkId,
+                      commandId,
+                  }).toString()}`
                 : `${userUrl}/approve/index.html?transactionId=${transactionId}&commandId=${commandId}&closeafteraction`
 
             if (context.isApiKey && wallet.safeAppUrl) {

@@ -720,7 +720,7 @@ describe('dappController', () => {
             )
 
             expect(result.userUrl).toBe(
-                'https://safe.example/coordinate?transactionId=transaction-id&partyId=party%3A%3Anamespace&networkId=network1'
+                'https://safe.example/coordinate?preparedTransaction=prepared-blob&preparedTransactionHash=hash&partyId=party%3A%3Anamespace&networkId=network1&commandId=generated-command-id'
             )
         })
 
