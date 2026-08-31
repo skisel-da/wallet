@@ -22,6 +22,8 @@ export class UserUiImportParty extends BaseElement {
     @state() accessor submitting = false
 
     @query('#party-id') accessor partyIdInput: HTMLInputElement | null = null
+    @query('#safe-app-url') accessor safeAppUrlInput: HTMLInputElement | null =
+        null
 
     static styles = [
         BaseElement.styles,
@@ -99,6 +101,7 @@ export class UserUiImportParty extends BaseElement {
         if (!partyId) {
             return
         }
+        const safeAppUrl = this.safeAppUrlInput?.value.trim() || undefined
 
         this.submitting = true
 
@@ -109,10 +112,16 @@ export class UserUiImportParty extends BaseElement {
             )
             const result = await userClient.request({
                 method: 'importParty',
-                params: { partyId },
+                params: { partyId, ...(safeAppUrl && { safeAppUrl }) },
             })
 
-            if (result?.wallet?.disabled) {
+            if (result?.wallet?.safeAppUrl) {
+                showToast(
+                    'Safe-like party imported',
+                    'This party is coordinated by a companion app -- transactions for it will redirect there to collect every owner’s signature.',
+                    'success'
+                )
+            } else if (result?.wallet?.disabled) {
                 showToast(
                     'Party imported',
                     "The party was imported, but no signing provider matches its namespace -- it's shown but disabled.",
@@ -168,6 +177,30 @@ export class UserUiImportParty extends BaseElement {
                             The party must already exist on this participant --
                             this grants the current session rights to act as it,
                             it does not create anything on the ledger.
+                        </p>
+                    </div>
+
+                    <div class="field-group d-flex flex-column">
+                        <label
+                            for="safe-app-url"
+                            class="form-label field-label mb-0"
+                        >
+                            Safe App URL (optional)
+                        </label>
+                        <input
+                            ?disabled=${this.submitting}
+                            class="form-control field-control"
+                            id="safe-app-url"
+                            type="url"
+                            placeholder="https://your-safe-app.example"
+                        />
+                        <p class="field-hint mb-0">
+                            Set this if the party is a decentralized/
+                            multi-owner party coordinated by a companion app --
+                            transactions for it will redirect there instead of
+                            the normal approval flow, since no single key can
+                            sign for it directly. Leave blank for an ordinary
+                            party.
                         </p>
                     </div>
 

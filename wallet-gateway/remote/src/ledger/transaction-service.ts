@@ -292,6 +292,24 @@ export class TransactionService {
         tx: Transaction,
         signTransactionParams: SignTransactionParams
     ): Promise<SignResult> {
+        // resolveSigningProvider (wallet-sync-service.ts) labels a wallet
+        // SigningProvider.PARTICIPANT in two different situations that must not
+        // be conflated: (1) the party's namespace genuinely IS the
+        // participant's own namespace -- signing and execution really are
+        // handled implicitly by participant keys; (2) nothing else matched
+        // either, and PARTICIPANT was used as a fallback label -- there is no
+        // key here that can actually authorize anything (e.g. a
+        // decentralized/multi-owner party's threshold namespace). Only
+        // `wallet.disabled` distinguishes them. Letting case (2) reach a
+        // driver produces a transaction wallet-gateway believes is signed but
+        // isn't, which fails (or worse, misbehaves) later at real submission
+        // -- fail loudly here instead.
+        if (driverId === SigningProvider.PARTICIPANT && wallet.disabled) {
+            throw new Error(
+                `Cannot sign as party ${wallet.partyId}: no signing provider matches its namespace, so there is no key here that can authorize this transaction.`
+            )
+        }
+
         let signingResult: Exclude<
             GetTransactionResult | SignTransactionResult,
             SigningError

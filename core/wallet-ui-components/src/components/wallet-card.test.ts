@@ -94,4 +94,41 @@ describe('wg-wallet-card', () => {
         expect(el.shadowRoot?.textContent).toContain('CanActAs')
         expect(el.shadowRoot?.textContent).toContain('CanReadAs')
     })
+
+    it('renders a Safe badge when safeAppUrl is set', async () => {
+        const wallet = makeWallet({ safeAppUrl: 'https://safe.example' })
+        const el = await fixture(
+            html`<wg-wallet-card .wallet=${wallet}></wg-wallet-card>`
+        )
+
+        expect(
+            el.shadowRoot!.querySelector('.badge-safe')?.textContent?.trim()
+        ).toBe('Safe')
+    })
+
+    it('renders both Disabled and Safe badges for an imported decentralized party', async () => {
+        const wallet = makeWallet({
+            disabled: true,
+            safeAppUrl: 'https://safe.example',
+        })
+        const el = await fixture(
+            html`<wg-wallet-card .wallet=${wallet}></wg-wallet-card>`
+        )
+
+        expect(
+            el.shadowRoot!.querySelector('.badge-disabled')?.textContent?.trim()
+        ).toBe('Disabled')
+        expect(
+            el.shadowRoot!.querySelector('.badge-safe')?.textContent?.trim()
+        ).toBe('Safe')
+    })
+
+    it('does not render a Safe badge for an ordinary wallet', async () => {
+        const wallet = makeWallet()
+        const el = await fixture(
+            html`<wg-wallet-card .wallet=${wallet}></wg-wallet-card>`
+        )
+
+        expect(el.shadowRoot!.querySelector('.badge-safe')).toBeNull()
+    })
 })

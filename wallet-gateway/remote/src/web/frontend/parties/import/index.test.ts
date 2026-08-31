@@ -70,6 +70,12 @@ describe('UserUiImportParty', () => {
         input!.value = value
     }
 
+    function fillSafeAppUrl(value: string) {
+        const input =
+            el.shadowRoot?.querySelector<HTMLInputElement>('#safe-app-url')
+        input!.value = value
+    }
+
     function submitForm() {
         const form = el.shadowRoot?.querySelector('form')
         form!.dispatchEvent(new Event('submit', { cancelable: true }))
@@ -115,6 +121,52 @@ describe('UserUiImportParty', () => {
         expect(setLocationHref).toHaveBeenCalledWith(
             expect.stringContaining('/parties/')
         )
+    })
+
+    it('submits safeAppUrl when filled in, and shows the Safe-like success toast', async () => {
+        mockRequest.mockImplementation(async ({ method, params }) => {
+            if (method === 'importParty') {
+                expect(params).toEqual({
+                    partyId: 'decentralized::abc123',
+                    safeAppUrl: 'https://safe.example',
+                })
+                return {
+                    wallet: makeWallet({
+                        partyId: 'decentralized::abc123',
+                        disabled: true,
+                        safeAppUrl: 'https://safe.example',
+                    }),
+                }
+            }
+            return undefined
+        })
+
+        fillPartyId('decentralized::abc123')
+        fillSafeAppUrl('https://safe.example')
+        submitForm()
+
+        await waitUntil(() => showToast.mock.calls.length > 0)
+
+        expect(showToast).toHaveBeenCalledWith(
+            'Safe-like party imported',
+            'This party is coordinated by a companion app -- transactions for it will redirect there to collect every owner’s signature.',
+            'success'
+        )
+    })
+
+    it('omits safeAppUrl from the request when left blank', async () => {
+        mockRequest.mockImplementation(async ({ method, params }) => {
+            if (method === 'importParty') {
+                expect(params).toEqual({ partyId: 'alice::12200a1b2c' })
+                return { wallet: makeWallet({ partyId: 'alice::12200a1b2c' }) }
+            }
+            return undefined
+        })
+
+        fillPartyId('alice::12200a1b2c')
+        submitForm()
+
+        await waitUntil(() => setLocationHref.mock.calls.length > 0)
     })
 
     it('shows an info toast when the imported wallet has no matching signing provider', async () => {

@@ -62,6 +62,7 @@ interface WalletTable {
     status: string | null
     disabled: number
     reason: string | null
+    safeAppUrl: string | null
 }
 interface UpdateWalletProperties {
     primary?: number
@@ -70,6 +71,7 @@ interface UpdateWalletProperties {
     status?: string | null
     disabled?: number
     reason?: string | null
+    safeAppUrl?: string | null
 }
 
 interface UserPartyRightTable {
@@ -279,6 +281,7 @@ export const fromWallet = (wallet: Wallet, userId: UserId): WalletTable => {
         userId: userId,
         disabled: wallet.disabled !== undefined && wallet.disabled ? 1 : 0,
         reason: wallet.reason ?? null,
+        safeAppUrl: wallet.safeAppUrl ?? null,
         externalTxId: externalTxId && externalTxId !== '' ? externalTxId : null,
         topologyTransactions:
             topologyTransactions && topologyTransactions !== ''
@@ -301,6 +304,7 @@ export const toWalletUpdateProperties = (
         signingProviderId,
         publicKey,
         namespace,
+        safeAppUrl,
     } = params
     return {
         ...(status !== undefined && { status }),
@@ -312,6 +316,7 @@ export const toWalletUpdateProperties = (
         ...(signingProviderId !== undefined && { signingProviderId }),
         ...(publicKey !== undefined && { publicKey }),
         ...(namespace !== undefined && { namespace }),
+        ...(safeAppUrl !== undefined && { safeAppUrl }),
     }
 }
 
@@ -341,6 +346,9 @@ export const toWallet = (table: WalletTable): Wallet => {
         }),
         ...(table.reason !== null && {
             reason: table.reason,
+        }),
+        ...(table.safeAppUrl !== null && {
+            safeAppUrl: table.safeAppUrl,
         }),
         rights: [],
     }

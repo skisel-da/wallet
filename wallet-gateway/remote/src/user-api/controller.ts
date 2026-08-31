@@ -598,8 +598,8 @@ export const userController = (
             )
             await service.syncWallets()
 
-            const wallets = await store.getWallets()
-            const wallet = wallets.find(
+            let wallets = await store.getWallets()
+            let wallet = wallets.find(
                 (w) =>
                     w.partyId === params.partyId && w.networkId === network.id
             )
@@ -607,6 +607,20 @@ export const userController = (
                 throw new Error(
                     `Party ${params.partyId} was imported but is not visible yet -- try Sync`
                 )
+            }
+
+            if (params.safeAppUrl) {
+                await store.updateWallet({
+                    partyId: wallet.partyId,
+                    networkId: wallet.networkId,
+                    safeAppUrl: params.safeAppUrl,
+                })
+                wallets = await store.getWallets()
+                wallet = wallets.find(
+                    (w) =>
+                        w.partyId === params.partyId &&
+                        w.networkId === network.id
+                )!
             }
 
             notificationService

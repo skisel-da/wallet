@@ -350,6 +350,11 @@
                                 "title": "partyId",
                                 "type": "string",
                                 "description": "The ID of an already-existing party to import into this wallet."
+                            },
+                            "safeAppUrl": {
+                                "title": "safeAppUrl",
+                                "type": "string",
+                                "description": "Marks this wallet as a Gnosis-Safe-like decentralized party coordinated by the companion app at this URL. When set, prepareExecute/execute for this party redirects here instead of the normal approve flow, since no single key can sign for it directly."
                             }
                         },
                         "required": ["partyId"]
@@ -1633,6 +1638,11 @@
                         "title": "reason",
                         "type": "string",
                         "description": "Reason for the wallet state, e.g., 'no signing provider matched'."
+                    },
+                    "safeAppUrl": {
+                        "title": "safeAppUrl",
+                        "type": "string",
+                        "description": "A non-null value marks this wallet as a Gnosis-Safe-like decentralized party coordinated by the companion app at this URL. prepareExecute/execute for this party redirects here instead of the normal approve flow."
                     },
                     "rights": {
                         "title": "rights",

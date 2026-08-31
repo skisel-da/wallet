@@ -142,6 +142,12 @@ export type VaultName = string
 export type PartyId = string
 /**
  *
+ * A non-null value marks this wallet as a Gnosis-Safe-like decentralized party coordinated by the companion app at this URL. prepareExecute/execute for this party redirects here instead of the normal approve flow.
+ *
+ */
+export type SafeAppUrl = string
+/**
+ *
  * Filter wallets by network IDs.
  *
  */
@@ -314,6 +320,7 @@ export interface Wallet {
     topologyTransactions?: TopologyTransactions
     disabled?: Disabled
     reason?: Reason
+    safeAppUrl?: SafeAppUrl
     rights: Rights
 }
 type AlwaysTrue = any
@@ -646,6 +653,7 @@ export interface AllocatePartyForWalletParams {
 }
 export interface ImportPartyParams {
     partyId: PartyId
+    safeAppUrl?: SafeAppUrl
 }
 export interface SetPrimaryWalletParams {
     partyId: PartyId

@@ -61,6 +61,11 @@ export class WgWalletCard extends BaseElement {
                 color: var(--wg-error);
             }
 
+            .badge-safe {
+                background: rgba(var(--wg-accent-rgb), 0.14);
+                color: var(--wg-accent);
+            }
+
             .badge-right {
                 background: var(--wg-badge-bg);
                 color: var(--wg-text);
@@ -204,7 +209,11 @@ export class WgWalletCard extends BaseElement {
               ? html`<span class="badge badge-disabled">Disabled</span>`
               : nothing
 
-        return badge
+        return html`${badge}${
+            this.wallet.safeAppUrl
+                ? html`<span class="badge badge-safe">Safe</span>`
+                : nothing
+        }`
     }
 
     private renderMeta() {

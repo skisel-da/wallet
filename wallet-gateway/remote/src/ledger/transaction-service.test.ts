@@ -670,6 +670,24 @@ describe('TransactionService', () => {
                     )
                 ).rejects.toThrow('No driver found for bitgo')
             })
+
+            it('throws instead of faking a signature for a disabled participant-fallback wallet', async () => {
+                const service = createService(
+                    createStore(),
+                    { [SigningProvider.PARTICIPANT]: createDriver({}) },
+                    notifier,
+                    logger
+                )
+                const disabledWallet: Wallet = {
+                    ...walletWithProvider(SigningProvider.PARTICIPANT),
+                    disabled: true,
+                }
+                await expect(
+                    service.sign(authContext, disabledWallet, signParams)
+                ).rejects.toThrow(
+                    'Cannot sign as party party::namespace: no signing provider matches its namespace'
+                )
+            })
         })
 
         it.each([

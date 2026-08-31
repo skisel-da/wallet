@@ -57,6 +57,13 @@ export interface Wallet {
     rights: PartyLevelRight[]
     userId: string
     // hosted: [network]
+    // A non-null value marks this wallet as a Gnosis-Safe-like decentralized
+    // party (rather than inferring that from being merely "disabled for some
+    // reason") and doubles as the redirect target: prepareExecute/execute
+    // for this party hands off to `${safeAppUrl}/coordinate?...` instead of
+    // wallet-gateway's own approve flow, since no single key here can sign
+    // for it. See decentralizer-poc's docs/safe-execution-plan.md.
+    safeAppUrl?: string
 }
 
 export type WalletUniqueConstraint = Pick<
@@ -82,6 +89,7 @@ export type UpdateWallet =
                 | 'signingProviderId'
                 | 'publicKey'
                 | 'namespace'
+                | 'safeAppUrl'
             >
         >
 
