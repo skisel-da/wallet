@@ -197,12 +197,13 @@ export const dappController = (
             } satisfies ConnectResult
         },
         ledgerApi: async (params: LedgerApiParams) => {
+            const connectedContext = assertConnected(context)
             const network = await store.getCurrentNetwork()
             const ledgerClient = new LedgerClient({
                 baseUrl: new URL(network.ledgerApi.baseUrl),
                 logger,
                 accessTokenProvider: AuthTokenProvider.fromToken(
-                    assertConnected(context).accessToken,
+                    connectedContext.accessToken,
                     logger
                 ),
             })
@@ -222,19 +223,48 @@ export const dappController = (
                         { path: params.path ?? {}, query: params.query ?? {} }
                     )
                     break
-                case 'post':
+                case 'post': {
                     if (!isValidPostEndpoint(params.resource)) {
                         throw new Error(
                             `Unsupported post resource: ${params.resource}`
                         )
                     }
+
+                    let body = params.body
+
+                    // AllocateExternalPartyRequest.user_id (field 6, see
+                    // com/daml/ledger/api/v2/admin/party_management_service.proto):
+                    // "The user who will get the act_as rights to the newly
+                    // allocated party." The dApp calling this generic
+                    // passthrough has no business knowing about ledger-api
+                    // userIds -- every other business-specific RPC here
+                    // (executeWithSignatures, prepareExecute, ...) already
+                    // derives and fills this in server-side from the
+                    // session itself, so this generic one should too rather
+                    // than requiring the caller to supply it. Same
+                    // ledgerUserId derivation as executeWithSignatures below.
+                    if (
+                        // Cast around core-ledger-client's isValidPostEndpoint
+                        // -- it incorrectly narrows to `resource is GetEndpoint`
+                        // (a pre-existing bug, unrelated to this change), which
+                        // would otherwise make this comparison a type error.
+                        (params.resource as string) ===
+                        '/v2/parties/external/allocate'
+                    ) {
+                        const ledgerUserId = connectedContext.isApiKey
+                            ? connectedContext.ledgerUserId
+                            : connectedContext.userId
+                        body = { ...body, userId: ledgerUserId }
+                    }
+
                     result = await ledgerClient.postWithRetry(
                         params.resource as PostEndpoint,
-                        params.body as never,
+                        body as never,
                         undefined,
                         { query: params.query ?? {}, path: params.path ?? {} }
                     )
                     break
+                }
                 default:
                     throw new Error(
                         `Unsupported request method: ${params.requestMethod}`
