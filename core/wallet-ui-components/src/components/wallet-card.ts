@@ -5,6 +5,7 @@ import { css, html, nothing } from 'lit'
 import { customElement, property } from 'lit/decorators.js'
 import { BaseElement } from '../internal/base-element.js'
 import { PartyLevelRight, Wallet } from '@canton-network/core-wallet-store'
+import { WALLET_DISABLED_REASON } from '@canton-network/core-types'
 import { cardStyles } from '../styles/card.js'
 
 export class WalletSetPrimaryEvent extends Event {
@@ -16,6 +17,15 @@ export class WalletSetPrimaryEvent extends Event {
 export class WalletCardEditEvent extends Event {
     constructor(public wallet: Wallet) {
         super('wallet-edit', { bubbles: true, composed: true })
+    }
+}
+
+export class WalletEditDelegatedSigningEvent extends Event {
+    constructor(public wallet: Wallet) {
+        super('wallet-edit-delegated-signing', {
+            bubbles: true,
+            composed: true,
+        })
     }
 }
 
@@ -61,7 +71,7 @@ export class WgWalletCard extends BaseElement {
                 color: var(--wg-error);
             }
 
-            .badge-safe {
+            .badge-delegated {
                 background: rgba(var(--wg-accent-rgb), 0.14);
                 color: var(--wg-accent);
             }
@@ -210,8 +220,10 @@ export class WgWalletCard extends BaseElement {
               : nothing
 
         return html`${badge}${
-            this.wallet.safeAppUrl
-                ? html`<span class="badge badge-safe">Safe</span>`
+            this.wallet.delegatedSigningUrl
+                ? html`<span class="badge badge-delegated"
+                      >Delegated signing</span
+                  >`
                 : nothing
         }`
     }
@@ -347,24 +359,52 @@ export class WgWalletCard extends BaseElement {
         const editButton = this.renderEditButton()
 
         if (this.verified) {
-            // A disabled wallet normally has no usable signing key, so
-            // setting it primary would be a dead end -- except a Safe-like
-            // one (safeAppUrl set, see decentralizer-poc's
-            // docs/safe-execution-plan.md), which is disabled for the same
-            // "no single key matches" reason but is still meant to be used:
-            // a dApp acting through it gets redirected to the companion app
-            // instead of signing locally. It still needs to be selectable as
-            // primary for a dApp to pick it up as the acting party at all.
-            const isUsableDespiteDisabled =
-                this.wallet.disabled && !!this.wallet.safeAppUrl
-            if (
-                this.wallet.primary ||
-                (this.wallet.disabled && !isUsableDespiteDisabled)
-            ) {
-                if (!badge) return null
+            // Delegating signing is only meaningful for a party this gateway
+            // cannot sign for itself. Offering it on a working wallet would
+            // be a trap: it pins the provider to 'decentralized', so the key
+            // that legitimately signs for that party stops being used, every
+            // transaction parks at a coordinator that has no owner set for
+            // it, and wallet sync deliberately will not undo the pin -- the
+            // wallet is stuck until the URL is cleared again.
+            //
+            // "No signing provider matched" is exactly the precondition, and
+            // the only disabled reason that qualifies: a participant whose
+            // namespace changed, or a failed topology transaction, are
+            // different problems that delegation does not solve.
+            const canDelegate =
+                this.wallet.delegatedSigningUrl !== undefined ||
+                (this.wallet.disabled === true &&
+                    this.wallet.reason ===
+                        WALLET_DISABLED_REASON.NO_SIGNING_PROVIDER_MATCHED)
 
+            const delegateAction = canDelegate
+                ? html`
+                      <button
+                          type="button"
+                          class="link-action"
+                          ?disabled=${this.loading}
+                          @click=${() =>
+                              this.dispatchEvent(
+                                  new WalletEditDelegatedSigningEvent(
+                                      this.wallet!
+                                  )
+                              )}
+                      >
+                          ${
+                              this.wallet.delegatedSigningUrl
+                                  ? 'Edit delegated signing'
+                                  : 'Delegate signing'
+                          }
+                      </button>
+                  `
+                : null
+
+            if (this.wallet.primary || this.wallet.disabled) {
+                if (!badge && !delegateAction) return null
                 return html`
-                    <div class="card-actions">${badge} ${editButton}</div>
+                    <div class="card-actions">
+                        ${badge} ${editButton}${delegateAction}
+                    </div>
                 `
             }
 
@@ -382,7 +422,7 @@ export class WgWalletCard extends BaseElement {
                     >
                         Set as primary
                     </button>
-                    ${editButton}
+                    ${editButton}${delegateAction}
                 </div>
             `
         }

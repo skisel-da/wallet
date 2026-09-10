@@ -351,10 +351,10 @@
                                 "type": "string",
                                 "description": "The ID of an already-existing party to import into this wallet."
                             },
-                            "safeAppUrl": {
-                                "title": "safeAppUrl",
+                            "delegatedSigningUrl": {
+                                "title": "delegatedSigningUrl",
                                 "type": "string",
-                                "description": "Marks this wallet as a Gnosis-Safe-like decentralized party coordinated by the companion app at this URL. When set, prepareExecute/execute for this party redirects here instead of the normal approve flow, since no single key can sign for it directly."
+                                "description": "Coordinator this party's signing is delegated to. Only meaningful for a wallet whose signingProviderId is 'decentralized': no single key in this gateway can authorize for such a party, so each signing request is parked and its owners are sent here to collect the signature set out of band."
                             }
                         },
                         "required": ["partyId"]
@@ -377,6 +377,48 @@
                 }
             },
             "description": "Imports an already-allocated party by granting the current session rights to act as it, so it shows up in this wallet. Does not submit any topology transactions -- the party must already exist on this participant (e.g. a decentralized party created by submitting its onboarding transactions directly)."
+        },
+        {
+            "name": "setDelegatedSigning",
+            "params": [
+                {
+                    "name": "params",
+                    "schema": {
+                        "title": "SetDelegatedSigningParams",
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "partyId": {
+                                "title": "partyId",
+                                "type": "string",
+                                "description": "The party id of the wallet to configure."
+                            },
+                            "delegatedSigningUrl": {
+                                "title": "delegatedSigningUrl",
+                                "type": "string",
+                                "description": "Coordinator to delegate this party's signing to. Pass an empty string to stop delegating, which hands the wallet back to ordinary provider resolution on the next sync."
+                            }
+                        },
+                        "required": ["partyId", "delegatedSigningUrl"]
+                    }
+                }
+            ],
+            "result": {
+                "name": "result",
+                "schema": {
+                    "title": "SetDelegatedSigningResult",
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "wallet": {
+                            "description": "The updated wallet.",
+                            "$ref": "#/components/schemas/Wallet"
+                        }
+                    },
+                    "required": ["wallet"]
+                }
+            },
+            "description": "Delegates this party's transaction signing to an external coordinator, pinning its signingProviderId to 'decentralized'. Use it to set the coordinator URL for a party whose signing authority is not held here (typically a decentralized/threshold-namespace party), or to change it later. Clearing the URL releases the pin."
         },
         {
             "name": "setPrimaryWallet",
@@ -609,6 +651,17 @@
                                 "externalTxId": {
                                     "title": "externalTxId",
                                     "type": "string"
+                                },
+                                "userUrl": {
+                                    "title": "userUrl",
+                                    "type": "string",
+                                    "description": "Where a human must go to carry this signing request forward, when the provider needs one. Set by providers that delegate signing to an external coordinator (signingProviderId 'decentralized'); absent for providers that complete on their own, such as a custody service."
+                                },
+                                "userUrlKind": {
+                                    "title": "userUrlKind",
+                                    "type": "string",
+                                    "enum": ["approval", "handoff"],
+                                    "description": "What the page at userUrl is, so a client can present it appropriately. 'approval' is this wallet's own short-lived approve/sign page for the calling user. 'handoff' is a different application, where other people take part and the user may stay for a while -- multi-owner coordination for a party whose signing is delegated. A browser client should give a handoff a normal tab rather than a small transient popup; a CLI or mobile client can act on the distinction too, which is why this says what the page IS rather than which window to use. Absent means 'approval'."
                                 }
                             },
                             "required": ["status", "partyId", "externalTxId"]
@@ -1740,10 +1793,10 @@
                         "type": "string",
                         "description": "Reason for the wallet state, e.g., 'no signing provider matched'."
                     },
-                    "safeAppUrl": {
-                        "title": "safeAppUrl",
+                    "delegatedSigningUrl": {
+                        "title": "delegatedSigningUrl",
                         "type": "string",
-                        "description": "A non-null value marks this wallet as a Gnosis-Safe-like decentralized party coordinated by the companion app at this URL. prepareExecute/execute for this party redirects here instead of the normal approve flow."
+                        "description": "Coordinator this party's signing is delegated to. Only meaningful for a wallet whose signingProviderId is 'decentralized': no single key in this gateway can authorize for such a party, so each signing request is parked and its owners are sent here to collect the signature set out of band."
                     },
                     "rights": {
                         "title": "rights",

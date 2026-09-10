@@ -82,10 +82,11 @@
                         "userUrl": {
                             "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/UserUrl"
                         },
-                        "openInNewWindow": {
-                            "title": "openInNewWindow",
-                            "type": "boolean",
-                            "description": "If true, userUrl must be opened in a brand-new browser window rather than the SDK's shared wallet-popup window. Set for a Safe-like party's companion-app redirect, which stays open for the whole multi-owner coordination flow and must not be reused as the target of any later same-session wallet popup call."
+                        "userUrlKind": {
+                            "title": "userUrlKind",
+                            "type": "string",
+                            "enum": ["approval", "handoff"],
+                            "description": "What the page at userUrl is, so a client can present it appropriately. 'approval' is this wallet's own short-lived approve/sign page for the calling user. 'handoff' is a different application, where other people take part and the user may stay for a while -- multi-owner coordination for a party whose signing is delegated. A browser client should give a handoff a normal tab rather than a small transient popup; a CLI or mobile client can act on the distinction too, which is why this says what the page IS rather than which window to use. Absent means 'approval'."
                         }
                     },
                     "required": ["userUrl"]
@@ -187,24 +188,22 @@
             "description": "Requests a signature over an already-prepared ordinary ledger transaction. The wallet will prompt the user for confirmation."
         },
         {
-            "name": "executeWithSignatures",
+            "name": "submitDelegatedSignatures",
             "params": [
                 {
                     "name": "params",
-                    "required": true,
                     "schema": {
-                        "title": "executeWithSignaturesParams",
-                        "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/ExecuteWithSignaturesRequest"
+                        "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/SubmitDelegatedSignaturesRequest"
                     }
                 }
             ],
             "result": {
                 "name": "result",
                 "schema": {
-                    "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/ExecuteWithSignaturesResult"
+                    "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/SubmitDelegatedSignaturesResult"
                 }
             },
-            "description": "Submits an already-prepared ordinary ledger transaction to the ledger once, carrying every owner's collected signature for a Gnosis-Safe-like decentralized party -- called once, by whichever owner finalizes, after signPreparedTransaction has been used to collect every other owner's signature off-ledger."
+            "description": "Hands the Wallet Gateway the signature set an external coordinator collected for a delegated signing request (a party whose signingProviderId is 'decentralized'). The gateway verifies them against the hash the request was created for, then submits the transaction once. Any connected owner may call this -- coordination is inherently multi-party, and the signatures themselves are the authorization."
         },
         {
             "name": "ledgerApi",
@@ -324,6 +323,34 @@
                 "title": "Null",
                 "type": "null",
                 "description": "Represents a null value, used in responses where no data is returned."
+            },
+            "SubmitDelegatedSignaturesRequest": {
+                "title": "SubmitDelegatedSignaturesRequest",
+                "type": "object",
+                "additionalProperties": false,
+                "description": "Signatures collected for one delegated signing request.",
+                "properties": {
+                    "requestId": {
+                        "title": "requestId",
+                        "type": "string",
+                        "description": "Id of the delegated signing request, as handed to the coordinator in its URL."
+                    },
+                    "signatures": {
+                        "title": "signatures",
+                        "type": "array",
+                        "description": "Every owner's signature over the request's prepared-transaction hash.",
+                        "items": {
+                            "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/SignatureEntry"
+                        }
+                    }
+                },
+                "required": ["requestId", "signatures"]
+            },
+            "SubmitDelegatedSignaturesResult": {
+                "title": "SubmitDelegatedSignaturesResult",
+                "type": "object",
+                "additionalProperties": true,
+                "description": "The ledger's response to the submitted transaction."
             }
         }
     }

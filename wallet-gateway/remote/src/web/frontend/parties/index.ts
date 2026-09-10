@@ -11,6 +11,7 @@ import {
     BaseElement,
     WalletSetPrimaryEvent,
     WalletAllocateEvent,
+    WalletEditDelegatedSigningEvent,
     handleErrorToast,
     toRelPath,
     WalletCardEditEvent,
@@ -174,6 +175,9 @@ export class UserUiParties extends BaseElement {
                                 ?loading=${this.loading}
                                 @wallet-edit=${this._onWalletEdit}
                                 @wallet-set-primary=${this._onSetPrimary}
+                                @wallet-edit-delegated-signing=${
+                                    this._onEditDelegatedSigning
+                                }
                             ></wg-wallet-card>
                         </div>
                     `
@@ -275,6 +279,44 @@ export class UserUiParties extends BaseElement {
             },
         })
         this.updateWallets()
+    }
+
+    private async _onEditDelegatedSigning(e: WalletEditDelegatedSigningEvent) {
+        const current = e.wallet.delegatedSigningUrl ?? ''
+        const entered = window.prompt(
+            `Delegate signing for ${e.wallet.partyId} to a coordinator URL.\n\nNo single key here can sign for a decentralized party, so each transaction is parked with the coordinator until every owner has signed.\n\nLeave blank to stop delegating.`,
+            current
+        )
+        // Cancel leaves the wallet alone; an empty string is a deliberate
+        // "stop delegating", which is why the two are distinguished here.
+        if (entered === null) return
+
+        const delegatedSigningUrl = entered.trim()
+        this.loading = true
+        try {
+            const currentOrigin = await detectCurrentOrigin()
+            const userClient = await createUserClient(
+                await stateManager.accessToken.get(currentOrigin)
+            )
+            await userClient.request({
+                method: 'setDelegatedSigning',
+                params: { partyId: e.wallet.partyId, delegatedSigningUrl },
+            })
+            showToast(
+                delegatedSigningUrl
+                    ? 'Delegated signing updated'
+                    : 'Delegated signing removed',
+                delegatedSigningUrl
+                    ? `Transactions for ${e.wallet.partyId} will be coordinated at ${delegatedSigningUrl}.`
+                    : `${e.wallet.partyId} no longer delegates signing. Its provider is resolved normally again on the next sync.`,
+                'success'
+            )
+            this.updateWallets()
+        } catch (error) {
+            handleErrorToast(error)
+        } finally {
+            this.loading = false
+        }
     }
 
     private async _onAllocateParty(e: WalletAllocateEvent) {

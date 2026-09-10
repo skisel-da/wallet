@@ -878,7 +878,7 @@ describe('TransactionService', () => {
         })
     })
 
-    describe('executeWithSignatures', () => {
+    describe('executeDelegated', () => {
         it('submits every collected signature in a single executeAndWait call', async () => {
             const postWithRetry = vi
                 .fn()
@@ -888,13 +888,11 @@ describe('TransactionService', () => {
             } as unknown as LedgerClient
             const service = createService(createStore(), {}, notifier, logger)
 
-            const result = await service.executeWithSignatures(
+            const result = await service.executeDelegated(
                 authContext.userId,
                 ledgerClient,
                 {
                     preparedTransaction: pendingTransaction.preparedTransaction,
-                    preparedTransactionHash:
-                        pendingTransaction.preparedTransactionHash,
                     partyId: 'decentralized-party::namespace',
                     commandId: pendingTransaction.commandId,
                     signatures: [

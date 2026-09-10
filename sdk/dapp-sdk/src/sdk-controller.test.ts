@@ -13,7 +13,7 @@ import {
 import type { EventListener } from '@canton-network/core-splice-provider'
 import type { DappAsyncProvider } from '@canton-network/core-provider-dapp'
 import type {
-    ExecuteWithSignaturesParams,
+    SubmitDelegatedSignaturesRequest,
     LedgerApiParams,
     PrepareExecuteParams,
     SignMessageParams,
@@ -85,11 +85,8 @@ const ledgerApiParams: LedgerApiParams = {
     requestMethod: 'get',
     resource: '/v2/state/active-contracts',
 }
-const executeWithSignaturesParams: ExecuteWithSignaturesParams = {
-    preparedTransaction: 'prepared-blob',
-    preparedTransactionHash: 'hash-abc',
-    partyId: 'decentralized-party::namespace',
-    commandId: 'command-1',
+const submitDelegatedSignaturesParams: SubmitDelegatedSignaturesRequest = {
+    requestId: 'request-1',
     signatures: [{ signature: 'sig-1', signedBy: 'key-1' }],
 }
 
@@ -146,7 +143,9 @@ describe('dappSDKController', () => {
 
         mock.request.mockResolvedValueOnce({ updateId: 'update-1' })
         await expect(
-            controller.executeWithSignatures(executeWithSignaturesParams)
+            controller.submitDelegatedSignatures(
+                submitDelegatedSignaturesParams
+            )
         ).resolves.toEqual({ updateId: 'update-1' })
     })
 
@@ -189,6 +188,50 @@ describe('dappSDKController', () => {
         expect(popupOpen).toHaveBeenCalledWith(
             'https://wallet.example.com/prepare'
         )
+    })
+
+    it('gives a handoff a real tab instead of the small approval popup', async () => {
+        // A coordination page is a different application where the party's
+        // other owners take part; the 400x600 approval popup is the wrong
+        // frame for it, and users hit exactly that as a regression.
+        const openSpy = vi
+            .spyOn(window, 'open')
+            .mockReturnValue(null as unknown as Window)
+        const mock = makeProvider()
+        mock.request.mockResolvedValue({
+            userUrl: 'https://coordinator.example/coordinate?requestId=r1',
+            userUrlKind: 'handoff',
+        })
+
+        const controller = dappSDKController(asProvider(mock))
+        await controller.prepareExecute(prepareExecuteParams)
+
+        expect(openSpy).toHaveBeenCalledWith(
+            'https://coordinator.example/coordinate?requestId=r1',
+            '_blank'
+        )
+        expect(popupOpen).not.toHaveBeenCalled()
+        openSpy.mockRestore()
+    })
+
+    it('still uses the popup for an explicit approval', async () => {
+        const openSpy = vi
+            .spyOn(window, 'open')
+            .mockReturnValue(null as unknown as Window)
+        const mock = makeProvider()
+        mock.request.mockResolvedValue({
+            userUrl: 'https://wallet.example.com/approve',
+            userUrlKind: 'approval',
+        })
+
+        const controller = dappSDKController(asProvider(mock))
+        await controller.prepareExecute(prepareExecuteParams)
+
+        expect(popupOpen).toHaveBeenCalledWith(
+            'https://wallet.example.com/approve'
+        )
+        expect(openSpy).not.toHaveBeenCalled()
+        openSpy.mockRestore()
     })
 
     it('waits for executed transactions in prepareExecuteAndWait', async () => {

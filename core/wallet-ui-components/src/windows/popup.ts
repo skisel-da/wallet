@@ -23,13 +23,31 @@ interface StyledElement {
 
 let globalPopupInstance: WindowProxy | undefined
 
+/**
+ * Window name for this page's popup, unique per loaded instance.
+ *
+ * A fixed name ('wallet-popup') looks harmless but self-targets: browsers
+ * resolve `window.open(url, name)` against the whole family of related
+ * browsing contexts *including the calling window's own name*. So once a page
+ * is itself the wallet popup, any popup it opens renavigates the page making
+ * the call rather than opening beside it -- which is how a wallet page that
+ * hands off to another app could hijack the very window it was trying to open.
+ *
+ * Making the name unique per page keeps what the shared name was for (repeat
+ * calls from one page reuse one window) and drops what it was not (collisions
+ * between different pages). Nothing about this needs to reach the protocol.
+ */
+const POPUP_WINDOW_NAME = `wallet-popup-${
+    globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)
+}`
+
 class PopupInstance {
     static getInstance() {
         if (!globalPopupInstance || globalPopupInstance.closed) {
             console.log('[PopupInstance] Creating new global popup instance')
             const win = window.open(
                 '',
-                'wallet-popup',
+                POPUP_WINDOW_NAME,
                 `width=400,height=600,screenX=200,screenY=200`
             )
             if (!win) throw new Error('Failed to open popup window')

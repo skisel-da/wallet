@@ -174,6 +174,9 @@ export const userController = (
         importParty: async () => {
             throw new Error('Function importParty not implemented.')
         },
+        setDelegatedSigning: async () => {
+            throw new Error('Function setDelegatedSigning not implemented.')
+        },
         setPrimaryWallet: async () => {
             throw new Error('Function setPrimaryWallet not implemented.')
         },

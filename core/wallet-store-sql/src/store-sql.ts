@@ -484,6 +484,35 @@ export class StoreSql implements BaseStore, AuthAware<StoreSql> {
     /**
      * Lists all pending transactions across all users.
      */
+    async setAnyTransactionStatus(
+        transactionId: string,
+        status: Transaction['status'],
+        updates: TransactionStatusUpdate = {}
+    ): Promise<void> {
+        const row = await this.db
+            .selectFrom('transactions')
+            .selectAll()
+            .where('id', '=', transactionId)
+            .executeTakeFirst()
+        if (!row) {
+            throw new Error(`Transaction not found with id: ${transactionId}`)
+        }
+
+        const updated = this.mergeTransactionStatusUpdate(
+            toTransaction(row),
+            status,
+            updates
+        )
+
+        // row.userId / row.networkId, not the caller's -- the point of this
+        // method is that the finalizer is someone else.
+        await this.db
+            .updateTable('transactions')
+            .set(fromTransaction(updated, row.userId, row.networkId))
+            .where('id', '=', transactionId)
+            .execute()
+    }
+
     async listAllPendingTransactions(): Promise<Array<Transaction>> {
         const rows = await this.db
             .selectFrom('transactions')

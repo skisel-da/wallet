@@ -153,22 +153,22 @@ export type TopologyTransactionBase64 = string
 export type Transactions = TopologyTransactionBase64[]
 /**
  *
- * Base64-encoded prepared transaction bytes to submit, as returned by the ledger API's interactive-submission prepare endpoint.
+ * Base64-encoded prepared transaction bytes to sign, as returned by the ledger API's interactive-submission prepare endpoint.
  *
  */
 export type PreparedTransaction = string
 /**
  *
- * As supplied by the caller; the wallet independently recomputes this from preparedTransaction and refuses to submit if it doesn't match, since a mismatch here would mean submitting a different transaction than the one every owner actually signed.
+ * As supplied by the caller; the wallet independently recomputes this from preparedTransaction and refuses to sign if it doesn't match.
  *
  */
 export type PreparedTransactionHash = string
 /**
  *
- * The party ID corresponding to the wallet.
+ * Id of the delegated signing request, as handed to the coordinator in its URL.
  *
  */
-export type PartyId = string
+export type RequestId = string
 /**
  *
  * The signature over the prepared transaction's hash.
@@ -192,7 +192,7 @@ export interface SignatureEntry {
 }
 /**
  *
- * Every owner's collected signature over preparedTransactionHash, including the finalizer's own.
+ * Every owner's signature over the request's prepared-transaction hash.
  *
  */
 export type Signatures = SignatureEntry[]
@@ -335,10 +335,10 @@ export interface Session {
 }
 /**
  *
- * If true, userUrl must be opened in a brand-new browser window rather than the SDK's shared wallet-popup window. Set for a Safe-like party's companion-app redirect, which stays open for the whole multi-owner coordination flow and must not be reused as the target of any later same-session wallet popup call.
+ * What the page at userUrl is, so a client can present it appropriately. 'approval' is this wallet's own short-lived approve/sign page for the calling user. 'handoff' is a different application, where other people take part and the user may stay for a while -- multi-owner coordination for a party whose signing is delegated. A browser client should give a handoff a normal tab rather than a small transient popup; a CLI or mobile client can act on the distinction too, which is why this says what the page IS rather than which window to use. Absent means 'approval'.
  *
  */
-export type OpenInNewWindow = boolean
+export type UserUrlKind = 'approval' | 'handoff'
 /**
  *
  * The unique identifier of the message associated with the message to be signed.
@@ -363,6 +363,12 @@ export type PreparedTransactionRequestId = string
  *
  */
 export type Primary = boolean
+/**
+ *
+ * The party ID corresponding to the wallet.
+ *
+ */
+export type PartyId = string
 /**
  *
  * The status of the wallet.
@@ -429,15 +435,15 @@ export interface Wallet {
     topologyTransactions?: TopologyTransactions
     disabled?: Disabled
     reason?: Reason
-    safeAppUrl?: SafeAppUrl
+    delegatedSigningUrl?: DelegatedSigningUrl
     rights: Rights
 }
 /**
  *
- * A non-null value marks this wallet as a Gnosis-Safe-like decentralized party coordinated by the companion app at this URL. prepareExecute/execute for this party redirects here instead of the normal approve flow.
+ * Coordinator this party's signing is delegated to. Only meaningful for a wallet whose signingProviderId is 'decentralized': no single key in this gateway can authorize for such a party, so each signing request is parked and its owners are sent here to collect the signature set out of band.
  *
  */
-export type SafeAppUrl = string
+export type DelegatedSigningUrl = string
 export type PartyLevelRight = any
 /**
  *
@@ -667,14 +673,11 @@ export interface SignPreparedTransactionParams {
 }
 /**
  *
- * Request to submit an already-prepared ordinary ledger transaction to the ledger once, carrying every owner's collected signature for a Gnosis-Safe-like decentralized party -- Canton's interactive-submission execute endpoint accepts multiple owners' signatures for one party in a single call.
+ * Signatures collected for one delegated signing request.
  *
  */
-export interface ExecuteWithSignaturesParams {
-    preparedTransaction: PreparedTransaction
-    preparedTransactionHash: PreparedTransactionHash
-    partyId: PartyId
-    commandId: CommandId
+export interface SubmitDelegatedSignaturesRequest {
+    requestId: RequestId
     signatures: Signatures
 }
 /**
@@ -703,7 +706,7 @@ export interface StatusEvent {
 export type Null = null
 export interface PrepareExecuteResult {
     userUrl: UserUrl
-    openInNewWindow?: OpenInNewWindow
+    userUrlKind?: UserUrlKind
 }
 export interface SignMessageResult {
     messageId: MessageId
@@ -719,10 +722,10 @@ export interface SignPreparedTransactionResult {
 }
 /**
  *
- * Raw ledger-API response from the combined executeAndWait submission.
+ * The ledger's response to the submitted transaction.
  *
  */
-export interface ExecuteWithSignaturesResult {
+export interface SubmitDelegatedSignaturesResult {
     [key: string]: any
 }
 /**
@@ -805,9 +808,9 @@ export type SignTopologyTransactions = (
 export type SignPreparedTransaction = (
     params: SignPreparedTransactionParams
 ) => Promise<SignPreparedTransactionResult>
-export type ExecuteWithSignatures = (
-    params: ExecuteWithSignaturesParams
-) => Promise<ExecuteWithSignaturesResult>
+export type SubmitDelegatedSignatures = (
+    params: SubmitDelegatedSignaturesRequest
+) => Promise<SubmitDelegatedSignaturesResult>
 export type LedgerApi = (params: LedgerApiParams) => Promise<LedgerApiResult>
 export type Connected = () => Promise<StatusEvent>
 export type OnStatusChanged = () => Promise<StatusEvent>
@@ -875,9 +878,9 @@ export type RpcTypes = {
         result: Result<SignPreparedTransaction>
     }
 
-    executeWithSignatures: {
-        params: Params<ExecuteWithSignatures>
-        result: Result<ExecuteWithSignatures>
+    submitDelegatedSignatures: {
+        params: Params<SubmitDelegatedSignatures>
+        result: Result<SubmitDelegatedSignatures>
     }
 
     ledgerApi: {

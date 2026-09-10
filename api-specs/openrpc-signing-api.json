@@ -464,6 +464,14 @@
                         "$ref": "#/components/schemas/Signature",
                         "description": "Signature of the transaction if it was signed."
                     },
+                    "signatures": {
+                        "title": "signatures",
+                        "type": "array",
+                        "description": "All signatures authorizing this transaction, for parties where more than one key must sign (e.g. a decentralized/threshold namespace). Optional: providers whose transactions are authorized by a single key return `signature` alone.",
+                        "items": {
+                            "$ref": "#/components/schemas/SignatureEntry"
+                        }
+                    },
                     "publicKey": {
                         "title": "publicKey",
                         "type": "string",
@@ -482,6 +490,23 @@
                 "title": "signature",
                 "type": "string",
                 "description": "Base64-encoded Ed25519 signature."
+            },
+            "SignatureEntry": {
+                "type": "object",
+                "title": "SignatureEntry",
+                "additionalProperties": false,
+                "description": "One owner's signature over the transaction hash, tagged with the fingerprint of the key that produced it.",
+                "properties": {
+                    "signature": {
+                        "$ref": "#/components/schemas/Signature"
+                    },
+                    "signedBy": {
+                        "title": "signedBy",
+                        "type": "string",
+                        "description": "Fingerprint of the key that produced this signature."
+                    }
+                },
+                "required": ["signature", "signedBy"]
             }
         }
     }

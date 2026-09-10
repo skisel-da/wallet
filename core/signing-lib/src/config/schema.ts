@@ -11,6 +11,13 @@ export enum SigningProvider {
     DFNS = 'dfns',
     SECUROSYS = 'securosys',
     BITGO = 'bitgo',
+    // A party whose signing authority is not held here at all: no single key
+    // in this gateway can authorize for it (e.g. a decentralized/threshold
+    // namespace party). Signing is delegated to an external coordinator at
+    // the wallet's `delegatedSigningUrl`, which collects every owner's
+    // signature out of band and posts the set back. See
+    // `@canton-network/core-signing-decentralized`.
+    DECENTRALIZED = 'decentralized',
 }
 
 // Generic signing driver configuration schema

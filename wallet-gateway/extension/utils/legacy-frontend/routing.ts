@@ -1,11 +1,17 @@
 // Copyright (c) 2025-2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+// Keep in sync with core/wallet-ui-components' ALLOWED_ROUTES: this is a
+// second, independent copy, and a route added only to the shared list breaks
+// this package's build rather than failing at runtime where it would be
+// noticed. (That is exactly how /parties/import, /sign-topology and
+// /sign-prepared-transaction went missing here.)
 export const ALLOWED_ROUTES = [
     '/api-keys/add',
     '/api-keys',
     '/login',
     '/parties/add',
+    '/parties/import',
     '/parties',
     '/wallets',
     '/settings',
@@ -18,6 +24,8 @@ export const ALLOWED_ROUTES = [
     '/activities',
     '/approve',
     '/sign-message',
+    '/sign-topology',
+    '/sign-prepared-transaction',
     '/',
     '/404',
     '/callback',
@@ -35,6 +43,7 @@ const ROUTE_TO_HTML_MAP: Record<AllowedRoute, string> = {
     '/api-keys': '/api-keys.html',
     '/login': '/login.html',
     '/parties/add': '/parties-add.html',
+    '/parties/import': '/parties-import.html',
     '/parties': '/parties.html',
     '/wallets': '/wallets.html',
     '/settings': '/settings.html',
@@ -47,6 +56,8 @@ const ROUTE_TO_HTML_MAP: Record<AllowedRoute, string> = {
     '/activities': '/activities.html',
     '/approve': '/approve.html',
     '/sign-message': '/sign-message.html',
+    '/sign-topology': '/sign-topology.html',
+    '/sign-prepared-transaction': '/sign-prepared-transaction.html',
     '/': '/popup.html', // Assumes your root entrypoint is entrypoints/popup/index.html
     '/404': '/404.html',
     '/callback': '/callback.html',

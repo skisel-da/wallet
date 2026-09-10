@@ -232,9 +232,20 @@ export class StoreInternal implements Store, AuthAware<StoreInternal> {
         const targetNetworkId = networkId ?? (await this.getCurrentNetwork()).id
         if (Object.keys(updates).length === 0) return
 
+        // `null` means clear, matching the SQL store, where a nulled column
+        // comes back as an absent field rather than as a null-valued one.
+        const applyUpdates = (wallet: Wallet): Wallet => {
+            const merged: Wallet & Record<string, unknown> = { ...wallet }
+            for (const [key, value] of Object.entries(updates)) {
+                if (value === null) delete merged[key]
+                else merged[key] = value
+            }
+            return merged
+        }
+
         const wallets = storage.wallets.map((wallet) =>
             wallet.partyId === partyId && wallet.networkId === targetNetworkId
-                ? { ...wallet, ...updates }
+                ? applyUpdates(wallet)
                 : wallet
         )
 
@@ -416,6 +427,13 @@ export class StoreInternal implements Store, AuthAware<StoreInternal> {
             }),
             ...(signedAt !== undefined && { signedAt }),
             ...(externalTxId !== undefined && { externalTxId }),
+            // Rebuilding the record field-by-field silently dropped these two
+            // on every status change, so a transaction forgot who owned it as
+            // soon as it moved off 'pending'.
+            ...(existing.userId !== undefined && { userId: existing.userId }),
+            ...(existing.networkId !== undefined && {
+                networkId: existing.networkId,
+            }),
         }
     }
 
@@ -468,6 +486,24 @@ export class StoreInternal implements Store, AuthAware<StoreInternal> {
         const storage = this.getStorage()
 
         return storage.transactions.get(transactionId)
+    }
+
+    async setAnyTransactionStatus(
+        transactionId: string,
+        status: Transaction['status'],
+        updates: TransactionStatusUpdate = {}
+    ): Promise<void> {
+        const storage = this.getStorage()
+        const existing = storage.transactions.get(transactionId)
+        if (!existing) {
+            throw new Error(`Transaction not found with id: ${transactionId}`)
+        }
+
+        storage.transactions.set(
+            transactionId,
+            this.mergeTransactionStatusUpdate(existing, status, updates)
+        )
+        this.updateStorage(storage)
     }
 
     async listAllPendingTransactions(): Promise<Array<Transaction>> {

@@ -12,6 +12,7 @@ import type { ListIdps } from './typings.js'
 import type { CreateWallet } from './typings.js'
 import type { AllocatePartyForWallet } from './typings.js'
 import type { ImportParty } from './typings.js'
+import type { SetDelegatedSigning } from './typings.js'
 import type { SetPrimaryWallet } from './typings.js'
 import type { RemoveWallet } from './typings.js'
 import type { ListWallets } from './typings.js'
@@ -56,6 +57,7 @@ export type Methods = {
     createWallet: CreateWallet
     allocatePartyForWallet: AllocatePartyForWallet
     importParty: ImportParty
+    setDelegatedSigning: SetDelegatedSigning
     setPrimaryWallet: SetPrimaryWallet
     removeWallet: RemoveWallet
     listWallets: ListWallets
@@ -102,6 +104,7 @@ function buildController(methods: Methods) {
         createWallet: methods.createWallet,
         allocatePartyForWallet: methods.allocatePartyForWallet,
         importParty: methods.importParty,
+        setDelegatedSigning: methods.setDelegatedSigning,
         setPrimaryWallet: methods.setPrimaryWallet,
         removeWallet: methods.removeWallet,
         listWallets: methods.listWallets,

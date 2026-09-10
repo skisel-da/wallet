@@ -70,9 +70,10 @@ describe('UserUiImportParty', () => {
         input!.value = value
     }
 
-    function fillSafeAppUrl(value: string) {
-        const input =
-            el.shadowRoot?.querySelector<HTMLInputElement>('#safe-app-url')
+    function fillDelegatedSigningUrl(value: string) {
+        const input = el.shadowRoot?.querySelector<HTMLInputElement>(
+            '#delegated-signing-url'
+        )
         input!.value = value
     }
 
@@ -123,18 +124,18 @@ describe('UserUiImportParty', () => {
         )
     })
 
-    it('submits safeAppUrl when filled in, and shows the Safe-like success toast', async () => {
+    it('submits delegatedSigningUrl when filled in, and shows the delegated-signing toast', async () => {
         mockRequest.mockImplementation(async ({ method, params }) => {
             if (method === 'importParty') {
                 expect(params).toEqual({
                     partyId: 'decentralized::abc123',
-                    safeAppUrl: 'https://safe.example',
+                    delegatedSigningUrl: 'https://safe.example',
                 })
                 return {
                     wallet: makeWallet({
                         partyId: 'decentralized::abc123',
                         disabled: true,
-                        safeAppUrl: 'https://safe.example',
+                        delegatedSigningUrl: 'https://safe.example',
                     }),
                 }
             }
@@ -142,19 +143,19 @@ describe('UserUiImportParty', () => {
         })
 
         fillPartyId('decentralized::abc123')
-        fillSafeAppUrl('https://safe.example')
+        fillDelegatedSigningUrl('https://safe.example')
         submitForm()
 
         await waitUntil(() => showToast.mock.calls.length > 0)
 
         expect(showToast).toHaveBeenCalledWith(
-            'Safe-like party imported',
-            'This party is coordinated by a companion app -- transactions for it will redirect there to collect every owner’s signature.',
+            'Party imported with delegated signing',
+            'Signing for this party is delegated to its coordinator -- transactions will be parked there until every owner has signed.',
             'success'
         )
     })
 
-    it('omits safeAppUrl from the request when left blank', async () => {
+    it('omits delegatedSigningUrl from the request when left blank', async () => {
         mockRequest.mockImplementation(async ({ method, params }) => {
             if (method === 'importParty') {
                 expect(params).toEqual({ partyId: 'alice::12200a1b2c' })

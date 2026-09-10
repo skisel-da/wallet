@@ -10,10 +10,13 @@ export async function up(db: Kysely<DB>): Promise<void> {
     // the query-building layer, not in raw migration DDL.
     await db.schema
         .alterTable('wallets')
-        .addColumn('safe_app_url', 'text')
+        .addColumn('delegated_signing_url', 'text')
         .execute()
 }
 
 export async function down(db: Kysely<DB>): Promise<void> {
-    await db.schema.alterTable('wallets').dropColumn('safe_app_url').execute()
+    await db.schema
+        .alterTable('wallets')
+        .dropColumn('delegated_signing_url')
+        .execute()
 }

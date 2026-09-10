@@ -1,0 +1,56 @@
+{
+    "name": "@canton-network/core-signing-decentralized",
+    "version": "1.10.1",
+    "type": "module",
+    "description": "Wallet Gateway driver for decentralized parties whose signing is delegated to an external coordinator URL",
+    "license": "Apache-2.0",
+    "main": "dist/index.cjs",
+    "module": "dist/index.js",
+    "types": "dist/types/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/types/index.d.ts",
+            "import": "./dist/index.js",
+            "require": "./dist/index.cjs",
+            "default": "./dist/index.js"
+        }
+    },
+    "scripts": {
+        "build": "tsdown --onSuccess \"tsc\"",
+        "dev": "tsdown --watch --onSuccess \"tsc\"",
+        "clean": "tsc -b --clean && rm -rf ./dist",
+        "flatpack": "pnpm pack --pack-destination \"$FLATPACK_OUTDIR\"",
+        "test": "vitest run --project node",
+        "test:coverage": "vitest run --project node --coverage"
+    },
+    "dependencies": {
+        "@canton-network/core-signing-lib": "workspace:^",
+        "@canton-network/core-wallet-auth": "workspace:^"
+    },
+    "devDependencies": {
+        "@types/fs-extra": "^11.0.4",
+        "@types/lodash": "^4.17.24",
+        "@types/node": "^25.9.4",
+        "@vitest/coverage-v8": "^4.1.10",
+        "tsdown": "^0.22.9",
+        "tweetnacl": "^1.0.3",
+        "tweetnacl-util": "^0.15.1",
+        "typescript": "^5.9.3",
+        "vitest": "^4.1.10"
+    },
+    "files": [
+        "dist/**"
+    ],
+    "publishConfig": {
+        "access": "public"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/canton-network/wallet.git",
+        "directory": "core/signing-decentralized"
+    },
+    "homepage": "https://github.com/canton-network/wallet/tree/main/core/signing-decentralized#readme",
+    "bugs": {
+        "url": "https://github.com/canton-network/wallet/issues"
+    }
+}

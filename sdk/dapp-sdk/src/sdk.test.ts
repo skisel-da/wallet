@@ -18,8 +18,8 @@ import type { ProviderAdapter } from '@canton-network/core-wallet-discovery'
 import type {
     AccountsChangedEvent,
     ConnectResult,
-    ExecuteWithSignaturesParams,
-    ExecuteWithSignaturesResult,
+    SubmitDelegatedSignaturesRequest,
+    SubmitDelegatedSignaturesResult,
     LedgerApiParams,
     LedgerApiResult,
     ListAccountsResult,
@@ -37,7 +37,7 @@ import {
     DappSDK,
     connect,
     disconnect,
-    executeWithSignatures,
+    submitDelegatedSignatures,
     getConnectedProvider,
     init,
     isConnected,
@@ -180,11 +180,8 @@ const ledgerApiParams: LedgerApiParams = {
     requestMethod: 'get',
     resource: '/v2/state',
 }
-const executeWithSignaturesParams: ExecuteWithSignaturesParams = {
-    preparedTransaction: 'prepared-blob',
-    preparedTransactionHash: 'hash-abc',
-    partyId: 'decentralized-party::namespace',
-    commandId: 'command-1',
+const submitDelegatedSignaturesParams: SubmitDelegatedSignaturesRequest = {
+    requestId: 'request-1',
     signatures: [{ signature: 'sig-1', signedBy: 'key-1' }],
 }
 
@@ -244,8 +241,8 @@ const makeMockProvider = (
                 return { signature: 'signed' } satisfies SignMessageResult
             case 'ledgerApi':
                 return { ok: true } satisfies LedgerApiResult
-            case 'executeWithSignatures':
-                return { ok: true } satisfies ExecuteWithSignaturesResult
+            case 'submitDelegatedSignatures':
+                return { ok: true } satisfies SubmitDelegatedSignaturesResult
             default:
                 throw new Error(`unexpected method ${String(method)}`)
         }
@@ -363,7 +360,7 @@ describe('DappSDK', () => {
                 'Not connected — call connect() first'
             )
             await expect(
-                sdk.executeWithSignatures(executeWithSignaturesParams)
+                sdk.submitDelegatedSignatures(submitDelegatedSignaturesParams)
             ).rejects.toThrow('Not connected — call connect() first')
             await expect(sdk.open()).rejects.toThrow(
                 'Not connected — call connect() first'
@@ -605,7 +602,7 @@ describe('DappSDK', () => {
                 ok: true,
             })
             await expect(
-                sdk.executeWithSignatures(executeWithSignaturesParams)
+                sdk.submitDelegatedSignatures(submitDelegatedSignaturesParams)
             ).resolves.toEqual({ ok: true })
             await expect(sdk.isConnected()).resolves.toEqual(connectedResult())
             await sdk.open()
@@ -702,8 +699,8 @@ describe('DappSDK', () => {
         const ledgerApiSpy = vi
             .spyOn(sdk, 'ledgerApi')
             .mockResolvedValue({ ok: true })
-        const executeWithSignaturesSpy = vi
-            .spyOn(sdk, 'executeWithSignatures')
+        const submitDelegatedSignaturesSpy = vi
+            .spyOn(sdk, 'submitDelegatedSignatures')
             .mockResolvedValue({ ok: true })
         const openSpy = vi.spyOn(sdk, 'open').mockResolvedValue()
         const onStatusChangedSpy = vi
@@ -765,9 +762,9 @@ describe('DappSDK', () => {
         await ledgerApi(ledgerApiParams)
         expect(ledgerApiSpy).toHaveBeenCalledWith(ledgerApiParams)
 
-        await executeWithSignatures(executeWithSignaturesParams)
-        expect(executeWithSignaturesSpy).toHaveBeenCalledWith(
-            executeWithSignaturesParams
+        await submitDelegatedSignatures(submitDelegatedSignaturesParams)
+        expect(submitDelegatedSignaturesSpy).toHaveBeenCalledWith(
+            submitDelegatedSignaturesParams
         )
 
         await open()

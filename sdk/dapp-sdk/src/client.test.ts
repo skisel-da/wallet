@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { WalletEvent } from '@canton-network/core-types'
 import { popup } from '@canton-network/core-wallet-ui-components'
 import type {
-    ExecuteWithSignaturesParams,
+    SubmitDelegatedSignaturesRequest,
     LedgerApiParams,
     PrepareExecuteParams,
     SignMessageParams,
@@ -31,11 +31,8 @@ const ledgerApiParams: LedgerApiParams = {
     requestMethod: 'get',
     resource: '/v2/state/active-contracts',
 }
-const executeWithSignaturesParams: ExecuteWithSignaturesParams = {
-    preparedTransaction: 'prepared-blob',
-    preparedTransactionHash: 'hash-abc',
-    partyId: 'decentralized-party::namespace',
-    commandId: 'command-1',
+const submitDelegatedSignaturesParams: SubmitDelegatedSignaturesRequest = {
+    requestId: 'request-1',
     signatures: [{ signature: 'sig-1', signedBy: 'key-1' }],
 }
 
@@ -69,7 +66,7 @@ describe('DappClient', () => {
                     return { signature: 'sig' }
                 case 'ledgerApi':
                     return { result: 'ok' }
-                case 'executeWithSignatures':
+                case 'submitDelegatedSignatures':
                     return { updateId: 'update-1' }
                 case 'isConnected':
                     return { isConnected: true }
@@ -98,7 +95,7 @@ describe('DappClient', () => {
             result: 'ok',
         })
         await expect(
-            client.executeWithSignatures(executeWithSignaturesParams)
+            client.submitDelegatedSignatures(submitDelegatedSignaturesParams)
         ).resolves.toEqual({ updateId: 'update-1' })
         await expect(client.isConnected()).resolves.toEqual({
             isConnected: true,

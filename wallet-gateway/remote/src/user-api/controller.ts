@@ -41,6 +41,7 @@ import {
     CreateWalletParams,
     AllocatePartyForWalletParams,
     ImportPartyParams,
+    SetDelegatedSigningParams,
     GetTransactionResult,
     GetTransactionParams,
     DeleteTransactionParams,
@@ -86,7 +87,58 @@ import {
     idpSchema,
 } from '@canton-network/core-wallet-auth'
 import { KernelInfo } from '../config/Config.js'
+import { WALLET_DISABLED_REASON } from '@canton-network/core-types'
 import { isRpcError, SigningProvider } from '@canton-network/core-signing-lib'
+import type { UpdateWallet } from '@canton-network/core-wallet-store'
+
+/**
+ * Rejects a coordinator URL the gateway would later hand a user's browser to.
+ * Only http(s) is allowed: `javascript:` and `data:` URLs in particular would
+ * otherwise turn the wallet's own redirect into a script-execution vector.
+ */
+function assertValidDelegatedSigningUrl(url: string): void {
+    let parsed: URL
+    try {
+        parsed = new URL(url)
+    } catch {
+        throw new Error(`delegatedSigningUrl is not a valid URL: ${url}`)
+    }
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+        throw new Error(
+            `delegatedSigningUrl must be an http(s) URL, got ${parsed.protocol}`
+        )
+    }
+}
+
+/**
+ * Builds the wallet update that turns delegation on or off.
+ *
+ * The provider is pinned alongside the URL because wallet sync resolves a
+ * provider by matching the party's namespace against each driver's keys, and a
+ * decentralized namespace is no key's fingerprint -- left to itself, sync
+ * labels the party PARTICIPANT and disables it on every pass. Clearing the URL
+ * releases the pin and hands the wallet back to ordinary resolution.
+ */
+function delegatedSigningUpdate(
+    partyId: string,
+    networkId: string,
+    url: string
+): UpdateWallet {
+    return url
+        ? {
+              partyId,
+              networkId,
+              delegatedSigningUrl: url,
+              signingProviderId: SigningProvider.DECENTRALIZED,
+              disabled: false,
+              reason: '',
+          }
+        : {
+              partyId,
+              networkId,
+              delegatedSigningUrl: null,
+          }
+}
 import type { SigningDrivers } from '../signing/signing-drivers.js'
 import { PartyAllocationService } from '../ledger/party-allocation-service.js'
 import { WalletAllocationService } from '../ledger/wallet-allocation/wallet-allocation-service.js'
@@ -639,12 +691,14 @@ export const userController = (
                 )
             }
 
-            if (params.safeAppUrl) {
-                await store.updateWallet({
-                    partyId: wallet.partyId,
-                    networkId: wallet.networkId,
-                    safeAppUrl: params.safeAppUrl,
-                })
+            if (params.delegatedSigningUrl) {
+                await store.updateWallet(
+                    delegatedSigningUpdate(
+                        wallet.partyId,
+                        wallet.networkId,
+                        params.delegatedSigningUrl
+                    )
+                )
                 wallets = await store.getWallets()
                 wallet = wallets.find(
                     (w) =>
@@ -658,6 +712,68 @@ export const userController = (
                 .emit('accountsChanged', wallets)
 
             return { wallet }
+        },
+        setDelegatedSigning: async (params: SetDelegatedSigningParams) => {
+            assertConnected(authContext)
+
+            const network = await store.getCurrentNetwork()
+            if (!network) {
+                throw new Error('No network session found')
+            }
+
+            const wallets = await store.getWallets()
+            const wallet = wallets.find(
+                (w) =>
+                    w.partyId === params.partyId && w.networkId === network.id
+            )
+            if (!wallet) {
+                throw new Error(
+                    `No wallet found for party ${params.partyId} on network ${network.id}`
+                )
+            }
+
+            const url = params.delegatedSigningUrl.trim()
+            if (url) {
+                assertValidDelegatedSigningUrl(url)
+
+                // Refuse to delegate a party this gateway can already sign
+                // for. Doing so pins the provider to DECENTRALIZED, which
+                // strands the key that actually authorizes for the party and
+                // parks every transaction at a coordinator with no owner set
+                // -- and the pin is deliberately immune to wallet sync, so
+                // the wallet stays stuck until the URL is cleared. The UI
+                // hides the action for such a wallet; this is the same rule
+                // where it can actually be relied on.
+                //
+                // Clearing (an empty URL) is always allowed, so a wallet
+                // delegated by mistake can be recovered.
+                const alreadyDelegated =
+                    wallet.signingProviderId === SigningProvider.DECENTRALIZED
+                const nothingHereCanSign =
+                    wallet.disabled === true &&
+                    wallet.reason ===
+                        WALLET_DISABLED_REASON.NO_SIGNING_PROVIDER_MATCHED
+                if (!alreadyDelegated && !nothingHereCanSign) {
+                    throw new Error(
+                        `Party ${wallet.partyId} is signed for by ${wallet.signingProviderId}, so its signing cannot be delegated. Delegation is only for a party no signing provider here matches -- typically a decentralized/threshold-namespace party.`
+                    )
+                }
+            }
+
+            await store.updateWallet(
+                delegatedSigningUpdate(wallet.partyId, wallet.networkId, url)
+            )
+
+            const updated = await store.getWallets()
+            notificationService
+                .getNotifier(assertConnected(authContext).userId)
+                .emit('accountsChanged', updated)
+
+            const result = updated.find(
+                (w) =>
+                    w.partyId === params.partyId && w.networkId === network.id
+            )!
+            return { wallet: result }
         },
         setPrimaryWallet: async (params: SetPrimaryWalletParams) => {
             await store.setPrimaryWallet(params.partyId)

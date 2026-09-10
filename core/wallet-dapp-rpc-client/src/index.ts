@@ -153,22 +153,22 @@ export type TopologyTransactionBase64 = string
 export type Transactions = TopologyTransactionBase64[]
 /**
  *
- * Base64-encoded prepared transaction bytes to submit, as returned by the ledger API's interactive-submission prepare endpoint.
+ * Base64-encoded prepared transaction bytes to sign, as returned by the ledger API's interactive-submission prepare endpoint.
  *
  */
 export type PreparedTransaction = string
 /**
  *
- * As supplied by the caller; the wallet independently recomputes this from preparedTransaction and refuses to submit if it doesn't match, since a mismatch here would mean submitting a different transaction than the one every owner actually signed.
+ * As supplied by the caller; the wallet independently recomputes this from preparedTransaction and refuses to sign if it doesn't match.
  *
  */
 export type PreparedTransactionHash = string
 /**
  *
- * The party ID corresponding to the wallet.
+ * Id of the delegated signing request, as handed to the coordinator in its URL.
  *
  */
-export type PartyId = string
+export type RequestId = string
 /**
  *
  * The signature over the prepared transaction's hash.
@@ -192,7 +192,7 @@ export interface SignatureEntry {
 }
 /**
  *
- * Every owner's collected signature over preparedTransactionHash, including the finalizer's own.
+ * Every owner's signature over the request's prepared-transaction hash.
  *
  */
 export type Signatures = SignatureEntry[]
@@ -377,6 +377,12 @@ export type MultiHash = string
  *
  */
 export type Primary = boolean
+/**
+ *
+ * The party ID corresponding to the wallet.
+ *
+ */
+export type PartyId = string
 /**
  *
  * The status of the wallet.
@@ -646,14 +652,11 @@ export interface SignPreparedTransactionParams {
 }
 /**
  *
- * Request to submit an already-prepared ordinary ledger transaction to the ledger once, carrying every owner's collected signature for a Gnosis-Safe-like decentralized party -- Canton's interactive-submission execute endpoint accepts multiple owners' signatures for one party in a single call.
+ * Signatures collected for one delegated signing request.
  *
  */
-export interface ExecuteWithSignaturesParams {
-    preparedTransaction: PreparedTransaction
-    preparedTransactionHash: PreparedTransactionHash
-    partyId: PartyId
-    commandId: CommandId
+export interface SubmitDelegatedSignaturesRequest {
+    requestId: RequestId
     signatures: Signatures
 }
 /**
@@ -711,10 +714,10 @@ export interface SignPreparedTransactionResult {
 }
 /**
  *
- * Raw ledger-API response from the combined executeAndWait submission.
+ * The ledger's response to the submitted transaction.
  *
  */
-export interface ExecuteWithSignaturesResult {
+export interface SubmitDelegatedSignaturesResult {
     [key: string]: any
 }
 /**
@@ -798,9 +801,9 @@ export type SignTopologyTransactions = (
 export type SignPreparedTransaction = (
     params: SignPreparedTransactionParams
 ) => Promise<SignPreparedTransactionResult>
-export type ExecuteWithSignatures = (
-    params: ExecuteWithSignaturesParams
-) => Promise<ExecuteWithSignaturesResult>
+export type SubmitDelegatedSignatures = (
+    params: SubmitDelegatedSignaturesRequest
+) => Promise<SubmitDelegatedSignaturesResult>
 export type LedgerApi = (params: LedgerApiParams) => Promise<LedgerApiResult>
 export type AccountsChanged = () => Promise<AccountsChangedEvent>
 export type GetPrimaryAccount = () => Promise<Wallet>
@@ -871,9 +874,9 @@ export type RpcTypes = {
         result: Result<SignPreparedTransaction>
     }
 
-    executeWithSignatures: {
-        params: Params<ExecuteWithSignatures>
-        result: Result<ExecuteWithSignatures>
+    submitDelegatedSignatures: {
+        params: Params<SubmitDelegatedSignatures>
+        result: Result<SubmitDelegatedSignatures>
     }
 
     ledgerApi: {

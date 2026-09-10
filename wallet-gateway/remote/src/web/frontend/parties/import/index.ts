@@ -22,8 +22,8 @@ export class UserUiImportParty extends BaseElement {
     @state() accessor submitting = false
 
     @query('#party-id') accessor partyIdInput: HTMLInputElement | null = null
-    @query('#safe-app-url') accessor safeAppUrlInput: HTMLInputElement | null =
-        null
+    @query('#delegated-signing-url')
+    accessor delegatedSigningUrlInput: HTMLInputElement | null = null
 
     static styles = [
         BaseElement.styles,
@@ -101,7 +101,8 @@ export class UserUiImportParty extends BaseElement {
         if (!partyId) {
             return
         }
-        const safeAppUrl = this.safeAppUrlInput?.value.trim() || undefined
+        const delegatedSigningUrl =
+            this.delegatedSigningUrlInput?.value.trim() || undefined
 
         this.submitting = true
 
@@ -112,13 +113,16 @@ export class UserUiImportParty extends BaseElement {
             )
             const result = await userClient.request({
                 method: 'importParty',
-                params: { partyId, ...(safeAppUrl && { safeAppUrl }) },
+                params: {
+                    partyId,
+                    ...(delegatedSigningUrl && { delegatedSigningUrl }),
+                },
             })
 
-            if (result?.wallet?.safeAppUrl) {
+            if (result?.wallet?.delegatedSigningUrl) {
                 showToast(
-                    'Safe-like party imported',
-                    'This party is coordinated by a companion app -- transactions for it will redirect there to collect every owner’s signature.',
+                    'Party imported with delegated signing',
+                    'Signing for this party is delegated to its coordinator -- transactions will be parked there until every owner has signed.',
                     'success'
                 )
             } else if (result?.wallet?.disabled) {
@@ -182,25 +186,26 @@ export class UserUiImportParty extends BaseElement {
 
                     <div class="field-group d-flex flex-column">
                         <label
-                            for="safe-app-url"
+                            for="delegated-signing-url"
                             class="form-label field-label mb-0"
                         >
-                            Safe App URL (optional)
+                            Delegated signing URL (optional)
                         </label>
                         <input
                             ?disabled=${this.submitting}
                             class="form-control field-control"
-                            id="safe-app-url"
+                            id="delegated-signing-url"
                             type="url"
-                            placeholder="https://your-safe-app.example"
+                            placeholder="https://your-coordinator.example"
                         />
                         <p class="field-hint mb-0">
-                            Set this if the party is a decentralized/
-                            multi-owner party coordinated by a companion app --
-                            transactions for it will redirect there instead of
-                            the normal approval flow, since no single key can
-                            sign for it directly. Leave blank for an ordinary
-                            party.
+                            Set this if no single key here can sign for the
+                            party -- a decentralized/multi-owner party, say.
+                            Signing is then delegated to the coordinator at this
+                            address, which collects every owner's signature
+                            before the transaction is submitted. You can set or
+                            change it later from the parties list. Leave blank
+                            for an ordinary party.
                         </p>
                     </div>
 

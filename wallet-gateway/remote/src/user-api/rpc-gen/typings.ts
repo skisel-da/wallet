@@ -142,10 +142,10 @@ export type VaultName = string
 export type PartyId = string
 /**
  *
- * A non-null value marks this wallet as a Gnosis-Safe-like decentralized party coordinated by the companion app at this URL. prepareExecute/execute for this party redirects here instead of the normal approve flow.
+ * Coordinator this party's signing is delegated to. Only meaningful for a wallet whose signingProviderId is 'decentralized': no single key in this gateway can authorize for such a party, so each signing request is parked and its owners are sent here to collect the signature set out of band.
  *
  */
-export type SafeAppUrl = string
+export type DelegatedSigningUrl = string
 /**
  *
  * Filter wallets by network IDs.
@@ -331,7 +331,7 @@ export interface Wallet {
     topologyTransactions?: TopologyTransactions
     disabled?: Disabled
     reason?: Reason
-    safeAppUrl?: SafeAppUrl
+    delegatedSigningUrl?: DelegatedSigningUrl
     rights: Rights
 }
 type AlwaysTrue = any
@@ -368,10 +368,24 @@ export interface SignResultSigned {
     externalTxId?: ExternalTxId
 }
 export type TxStatusPending = 'pending'
+/**
+ *
+ * Where a human must go to carry this signing request forward, when the provider needs one. Set by providers that delegate signing to an external coordinator (signingProviderId 'decentralized'); absent for providers that complete on their own, such as a custody service.
+ *
+ */
+export type UserUrl = string
+/**
+ *
+ * What the page at userUrl is, so a client can present it appropriately. 'approval' is this wallet's own short-lived approve/sign page for the calling user. 'handoff' is a different application, where other people take part and the user may stay for a while -- multi-owner coordination for a party whose signing is delegated. A browser client should give a handoff a normal tab rather than a small transient popup; a CLI or mobile client can act on the distinction too, which is why this says what the page IS rather than which window to use. Absent means 'approval'.
+ *
+ */
+export type UserUrlKind = 'approval' | 'handoff'
 export interface SignResultPending {
     status: TxStatusPending
     partyId: PartyId
     externalTxId: ExternalTxId
+    userUrl?: UserUrl
+    userUrlKind?: UserUrlKind
 }
 export type TxStatusRejected = 'rejected'
 export interface SignResultRejected {
@@ -676,7 +690,11 @@ export interface AllocatePartyForWalletParams {
 }
 export interface ImportPartyParams {
     partyId: PartyId
-    safeAppUrl?: SafeAppUrl
+    delegatedSigningUrl?: DelegatedSigningUrl
+}
+export interface SetDelegatedSigningParams {
+    partyId: PartyId
+    delegatedSigningUrl: DelegatedSigningUrl
 }
 export interface SetPrimaryWalletParams {
     partyId: PartyId
@@ -773,6 +791,9 @@ export interface AllocatePartyForWalletResult {
     wallet: Wallet
 }
 export interface ImportPartyResult {
+    wallet: Wallet
+}
+export interface SetDelegatedSigningResult {
     wallet: Wallet
 }
 export interface RemovePartyResult {
@@ -904,6 +925,9 @@ export type AllocatePartyForWallet = (
 export type ImportParty = (
     params: ImportPartyParams
 ) => Promise<ImportPartyResult>
+export type SetDelegatedSigning = (
+    params: SetDelegatedSigningParams
+) => Promise<SetDelegatedSigningResult>
 export type SetPrimaryWallet = (params: SetPrimaryWalletParams) => Promise<Null>
 export type RemoveWallet = (
     params: RemoveWalletParams

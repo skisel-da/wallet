@@ -5,8 +5,8 @@ import { DappAsyncProvider } from '@canton-network/core-provider-dapp'
 import buildController from './dapp-api/rpc-gen'
 import {
     ConnectResult,
-    ExecuteWithSignaturesParams,
-    ExecuteWithSignaturesResult,
+    SubmitDelegatedSignaturesRequest,
+    SubmitDelegatedSignaturesResult,
     LedgerApiParams,
     MessageSignatureEvent,
     Network,
@@ -40,24 +40,30 @@ const withTimeout = (
         })
     }, timeoutMs)
 
-// A Safe-like party's companion-app redirect (prepareExecute's userUrl, when
-// openInNewWindow is set) must not reuse the SDK's shared 'wallet-popup'
-// window: that page stays open for the whole multi-owner coordination flow,
-// and any later same-session wallet popup call (its own
-// signPreparedTransaction, "Manage wallets", ...) would otherwise
-// self-target and hijack it instead of opening separately, since browsers
-// resolve window.open(url, 'wallet-popup') against the *calling* window's
-// own name too. A plain, uniquely-named new window has no such collision.
+// The wallet says what the page IS; this decides how to show it.
+//
+// An 'approval' is this wallet's own short-lived approve page -- the shared
+// popup is exactly right for it. A 'handoff' is a different application where
+// the party's other owners take part and the user may stay for a long time;
+// the 400x600 popup is the wrong frame for that, so it gets a normal tab.
+//
+// Note this is not the old openInNewWindow flag reinstated. That was a browser
+// instruction in the protocol, and it was also load-bearing for a bug -- a
+// window-name collision that let a wallet page hijack the window it was
+// opening, since fixed in popup.ts. What travels now is a fact about the page,
+// which a non-browser client can act on too.
 const openUserUrl = (response: {
     userUrl?: string
-    openInNewWindow?: boolean
+    userUrlKind?: 'approval' | 'handoff'
 }) => {
     if (!response.userUrl) return
-    if (response.openInNewWindow) {
+    if (response.userUrlKind === 'handoff') {
+        // No feature string: passing one makes some browsers open a popup
+        // window rather than a tab, which is the very thing being avoided.
         window.open(response.userUrl, '_blank')
-    } else {
-        popup.open(response.userUrl)
+        return
     }
+    popup.open(response.userUrl)
 }
 
 export const dappSDKController = (provider: DappAsyncProvider) =>
@@ -338,11 +344,11 @@ export const dappSDKController = (provider: DappAsyncProvider) =>
                 }
             )
         },
-        executeWithSignatures: async (
-            params: ExecuteWithSignaturesParams
-        ): Promise<ExecuteWithSignaturesResult> =>
+        submitDelegatedSignatures: async (
+            params: SubmitDelegatedSignaturesRequest
+        ): Promise<SubmitDelegatedSignaturesResult> =>
             provider.request({
-                method: 'executeWithSignatures',
+                method: 'submitDelegatedSignatures',
                 params,
             }),
         getPrimaryAccount: async (): Promise<Wallet> =>

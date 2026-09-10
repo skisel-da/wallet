@@ -9,8 +9,8 @@ import {
 import buildController from './rpc-gen/index.js'
 import {
     ConnectResult,
-    ExecuteWithSignaturesParams,
-    ExecuteWithSignaturesResult,
+    SubmitDelegatedSignaturesRequest,
+    SubmitDelegatedSignaturesResult,
     LedgerApiParams,
     LedgerApiResult,
     MessageSignatureEvent,
@@ -43,13 +43,14 @@ import { Logger } from 'pino'
 import { networkStatus, ledgerPrepareParams, logDynamically } from '../utils.js'
 import type { Network as StoreNetwork } from '@canton-network/core-wallet-store'
 import { TransactionService } from '../ledger/transaction-service.js'
+import { SigningProvider } from '@canton-network/core-signing-lib'
+import { DecentralizedSigningDriver } from '@canton-network/core-signing-decentralized'
 
 import { SigningDrivers } from '../signing/signing-drivers.js'
 import { rpcErrors } from '@canton-network/core-rpc-errors'
 import { HASHING_SCHEME_VERSION } from '../env.js'
 import {
     decodeVersionedTopologyTransaction,
-    hashPreparedTransaction,
     summarizeTopologyTransaction,
 } from '@canton-network/core-tx-visualizer'
 
@@ -238,11 +239,11 @@ export const dappController = (
                     // allocated party." The dApp calling this generic
                     // passthrough has no business knowing about ledger-api
                     // userIds -- every other business-specific RPC here
-                    // (executeWithSignatures, prepareExecute, ...) already
+                    // (submitDelegatedSignatures, prepareExecute, ...) already
                     // derives and fills this in server-side from the
                     // session itself, so this generic one should too rather
                     // than requiring the caller to supply it. Same
-                    // ledgerUserId derivation as executeWithSignatures below.
+                    // ledgerUserId derivation as submitDelegatedSignatures below.
                     if (
                         // Cast around core-ledger-client's isValidPostEndpoint
                         // -- it incorrectly narrows to `resource is GetEndpoint`
@@ -384,6 +385,12 @@ export const dappController = (
                 payload: params,
                 origin: origin || null,
                 createdAt: new Date(),
+                // Recorded so a request parked with a signing provider can be
+                // completed later by whoever finalizes it, who is generally
+                // not this caller: a delegated party's owners each
+                // authenticate separately, and the parked request is keyed by
+                // the user who prepared it.
+                userId: gatewayUserId,
             }
 
             logger.info(
@@ -403,44 +410,47 @@ export const dappController = (
 
             await store.setTransaction(transaction)
 
-            // A Safe-like party (wallet.safeAppUrl set, see
-            // decentralizer-poc's docs/safe-execution-plan.md) has no single
-            // key that can sign for it -- hand off to the companion app that
-            // coordinates collecting every owner's signature, instead of
-            // wallet-gateway's own one-signer approve flow.
-            //
-            // The prepared transaction is embedded directly in the redirect
-            // URL rather than left as a transactionId reference the
-            // companion app fetches later: whichever of the Safe party's
-            // owners actually lands on this URL is not necessarily the same
-            // wallet-gateway user who called prepareExecute (each owner logs
-            // into the companion app independently, with their own
-            // individual party -- see safe-execution-plan.md's session
-            // decision), so there is no same-origin-authenticated way for
-            // them to look this transactionId up afterwards. Once the
-            // companion app turns this into its own coordination contract,
-            // every other owner learns about it from that contract directly
-            // (an ordinary ACS query), never from this URL or wallet-gateway's
-            // Transaction store again.
-            const approveUrl = wallet.safeAppUrl
-                ? `${wallet.safeAppUrl}/coordinate?${new URLSearchParams({
-                      preparedTransaction: prepared.preparedTransaction,
-                      preparedTransactionHash: prepared.preparedTransactionHash,
-                      partyId: wallet.partyId,
-                      networkId: wallet.networkId,
-                      commandId,
-                  }).toString()}`
-                : `${userUrl}/approve/index.html?transactionId=${transactionId}&commandId=${commandId}&closeafteraction`
+            // A party whose signing is delegated (signingProviderId
+            // 'decentralized') has no key here that can authorize anything, so
+            // the request is parked with its coordinator instead of being sent
+            // to this gateway's own one-signer approve page. Asking the
+            // signing driver for the handoff URL -- rather than branching on a
+            // wallet field here -- keeps this call provider-generic: any
+            // provider that needs a human somewhere else can answer the same
+            // way, and nothing about browser window management leaks into the
+            // dApp-facing response.
+            const isDelegated =
+                wallet.signingProviderId === SigningProvider.DECENTRALIZED
 
-            if (context.isApiKey && wallet.safeAppUrl) {
-                // An API key/service account has no browser to redirect to
-                // for multi-owner coordination -- fail clearly here rather
-                // than attempting signAndExecute below, which would only
-                // fail deep inside signWithParticipant with a less specific
-                // message.
+            if (context.isApiKey && isDelegated) {
+                // A service account has no browser to send anywhere, and a
+                // delegated party cannot complete without one.
                 throw new Error(
-                    `Party ${wallet.partyId} is a Safe-like party coordinated by ${wallet.safeAppUrl} -- it cannot be signed for via an API key/service account.`
+                    `Party ${wallet.partyId} delegates signing to an external coordinator -- it cannot be signed for via an API key/service account.`
                 )
+            }
+
+            let approveUrl = `${userUrl}/approve/index.html?transactionId=${transactionId}&commandId=${commandId}&closeafteraction`
+            let userUrlKind: 'approval' | 'handoff' = 'approval'
+
+            if (isDelegated) {
+                const transactionService = new TransactionService(
+                    store,
+                    logger,
+                    deps!.signingDrivers,
+                    notifier
+                )
+                const parked = await transactionService.sign(context, wallet, {
+                    transactionId,
+                    partyId: wallet.partyId,
+                })
+                if (parked.status !== 'pending' || !parked.userUrl) {
+                    throw new Error(
+                        `Delegated signing for party ${wallet.partyId} did not yield a coordination URL (status: ${parked.status})`
+                    )
+                }
+                approveUrl = parked.userUrl
+                userUrlKind = parked.userUrlKind ?? 'handoff'
             }
 
             if (context.isApiKey) {
@@ -485,20 +495,16 @@ export const dappController = (
                 }
             }
 
-            return {
-                // For an ordinary wallet, the closeafteraction query param
-                // flag makes approving or deleting tx close the popup. For a
-                // Safe-like wallet, approveUrl points at the companion app
-                // instead, which stays open for the whole multi-owner
-                // coordination flow -- so it must land in its own browser
-                // window rather than the SDK's shared wallet-popup window:
-                // that window gets reused/renavigated by any later wallet
-                // popup call (e.g. this same companion app's own
-                // signPreparedTransaction, or "Manage wallets"), which would
-                // otherwise hijack this page instead of opening separately.
-                userUrl: approveUrl,
-                ...(wallet.safeAppUrl ? { openInNewWindow: true } : {}),
-            }
+            // The closeafteraction flag on the ordinary approve page makes
+            // approving or deleting a tx close the popup. A coordinator URL
+            // carries no such flag: it is a different application, where the
+            // party's other owners take part and the user may stay a while.
+            //
+            // userUrlKind says which of those this is. It is a statement
+            // about the page, not an instruction about windows -- a browser
+            // client gives a handoff a real tab instead of a cramped popup,
+            // and a CLI or mobile client can act on the same distinction.
+            return { userUrl: approveUrl, userUrlKind }
         },
         status: async () => {
             const provider = {
@@ -731,40 +737,79 @@ export const dappController = (
                 userUrl: `${userUrl}/sign-prepared-transaction/index.html?requestId=${requestId}&closeafteraction`,
             }
         },
-        executeWithSignatures: async (
-            params: ExecuteWithSignaturesParams
-        ): Promise<ExecuteWithSignaturesResult> => {
+        submitDelegatedSignatures: async (
+            params: SubmitDelegatedSignaturesRequest
+        ): Promise<SubmitDelegatedSignaturesResult> => {
             if (context === undefined) {
                 throw new Error('Unauthenticated context')
             }
-
-            let ledgerUserId = context.userId
-            const accessTokenProvider: AuthTokenProvider =
-                AuthTokenProvider.fromToken(context.accessToken, logger)
-            if (context.isApiKey) {
-                ledgerUserId = context.ledgerUserId
-            }
-
-            // Core security property, same as signPreparedTransaction: the
-            // hash is recomputed fresh from the raw prepared-transaction
-            // bytes and never trusted outright. It matters even more here
-            // than at signing time -- this is the call that actually
-            // submits to Canton, so a mismatch would mean submitting a
-            // different transaction than the one every owner signed.
-            const recomputedHash = await hashPreparedTransaction(
-                params.preparedTransaction
-            )
-            if (recomputedHash !== params.preparedTransactionHash) {
+            if (!params?.requestId || !params?.signatures?.length) {
                 throw new Error(
-                    `Prepared transaction hash mismatch: the independently recomputed hash does not match the one supplied by the caller`
+                    'requestId and at least one signature are required'
                 )
             }
+
+            const driver = deps.signingDrivers[SigningProvider.DECENTRALIZED]
+            if (!(driver instanceof DecentralizedSigningDriver)) {
+                throw new Error(
+                    'Decentralized signing driver is not configured on this gateway'
+                )
+            }
+
+            // The parked request belongs to the gateway user who ran
+            // prepareExecute, who is generally NOT whoever finalizes -- often
+            // not even the same gateway account, since each owner
+            // authenticates to the coordinator independently as their own
+            // party. So this deliberately looks across users
+            // (listAllPendingTransactions is the same unscoped view the
+            // signing worker uses) rather than through the caller's own
+            // session-scoped store, which is what made only the initiator
+            // able to finalize.
+            //
+            // That is safe because nothing here is taken on trust: the
+            // request id is only known to someone who saw the coordination
+            // contract on the ledger, the signatures are checked against the
+            // hash the request was created for, and Canton enforces the
+            // party's own threshold on submission. Being able to complete a
+            // coordination someone else started is the entire point.
+            const pending = await store.listAllPendingTransactions()
+            const transaction = pending.find((tx) => tx.id === params.requestId)
+            if (!transaction) {
+                throw new Error(
+                    `No pending transaction found for delegated signing request ${params.requestId} -- it may already have been submitted`
+                )
+            }
+            const owningUserId = transaction.userId
+            if (!owningUserId) {
+                throw new Error(
+                    `Transaction ${params.requestId} has no owning user recorded`
+                )
+            }
+
+            const parked = await driver.getRequest(
+                owningUserId,
+                params.requestId
+            )
+            if (!parked?.partyId) {
+                throw new Error(
+                    `Delegated signing request ${params.requestId} is not known to the decentralized signing driver`
+                )
+            }
+
+            await driver.submitSignatures(
+                owningUserId,
+                params.requestId,
+                params.signatures
+            )
 
             const network = await store.getCurrentNetwork()
             const ledgerClient = new LedgerClient({
                 baseUrl: new URL(network.ledgerApi.baseUrl),
                 logger,
-                accessTokenProvider,
+                accessTokenProvider: AuthTokenProvider.fromToken(
+                    context.accessToken,
+                    logger
+                ),
             })
 
             const session = await store.getSession(context.accessToken)
@@ -772,7 +817,6 @@ export const dappController = (
                 throw new Error('No active session found')
             }
             const notifier = notificationService.getNotifier(session.id)
-
             const transactionService = new TransactionService(
                 store,
                 logger,
@@ -780,11 +824,35 @@ export const dappController = (
                 notifier
             )
 
-            return await transactionService.executeWithSignatures(
-                ledgerUserId,
+            const result = await transactionService.executeDelegated(
+                context.isApiKey ? context.ledgerUserId : context.userId,
                 ledgerClient,
-                params
+                {
+                    preparedTransaction: transaction.preparedTransaction,
+                    partyId: parked.partyId,
+                    commandId: transaction.commandId,
+                    signatures: params.signatures,
+                }
             )
+
+            // Submitted with *this* caller's ledger credentials -- they hold
+            // actAs for the party, which is what Canton checks. The
+            // Transaction row, though, belongs to whoever prepared it, and
+            // the scoped setTransactionStatus both reads and writes under the
+            // calling user (the SQL one would even reassign the row's owner).
+            // The unscoped write keeps the record with its owner and, more
+            // importantly, actually moves it off 'pending' -- otherwise the
+            // signing worker could pick it up and submit a second time.
+            await store.setAnyTransactionStatus(transaction.id, 'executed', {
+                payload: result,
+            })
+            notifier.emit('txChanged', {
+                ...transaction,
+                status: 'executed',
+                payload: result,
+            })
+
+            return result as SubmitDelegatedSignaturesResult
         },
         getPrimaryAccount: async function (): Promise<Wallet> {
             const wallet = await store.getPrimaryWallet()

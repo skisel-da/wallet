@@ -57,13 +57,13 @@ export interface Wallet {
     rights: PartyLevelRight[]
     userId: string
     // hosted: [network]
-    // A non-null value marks this wallet as a Gnosis-Safe-like decentralized
-    // party (rather than inferring that from being merely "disabled for some
-    // reason") and doubles as the redirect target: prepareExecute/execute
-    // for this party hands off to `${safeAppUrl}/coordinate?...` instead of
-    // wallet-gateway's own approve flow, since no single key here can sign
-    // for it. See decentralizer-poc's docs/safe-execution-plan.md.
-    safeAppUrl?: string
+    // Coordinator this party's signing is delegated to. Only meaningful when
+    // `signingProviderId` is SigningProvider.DECENTRALIZED: no single key in
+    // this gateway can authorize for such a party, so its signing driver
+    // parks each request and sends the owners here to collect the signature
+    // set out of band. Addressed per wallet rather than per driver so one
+    // gateway can serve several independently coordinated parties.
+    delegatedSigningUrl?: string
 }
 
 export type WalletUniqueConstraint = Pick<
@@ -89,9 +89,11 @@ export type UpdateWallet =
                 | 'signingProviderId'
                 | 'publicKey'
                 | 'namespace'
-                | 'safeAppUrl'
             >
-        >
+        > & {
+            // `null` clears it; omitting it leaves it alone.
+            delegatedSigningUrl?: string | null
+        }
 
 // Session management
 
@@ -344,6 +346,23 @@ export interface Store {
         options?: ListTransactionsOptions
     ): Promise<{ transactions: Array<Transaction>; nextCursor: string | null }>
     listAllPendingTransactions(): Promise<Array<Transaction>>
+    /**
+     * Moves a transaction's status without scoping the write to the calling
+     * user, leaving its recorded owner intact.
+     *
+     * The scoped {@link Store.setTransactionStatus} is right for a session
+     * acting on its own transaction. It cannot express "this transaction was
+     * completed on someone else's behalf", which is the normal case for a
+     * party whose signing is delegated: whoever finalizes is usually a
+     * different gateway account from whoever prepared it. Pairs with
+     * {@link Store.listAllPendingTransactions}, which is unscoped for the
+     * same reason.
+     */
+    setAnyTransactionStatus(
+        transactionId: string,
+        status: Transaction['status'],
+        updates?: TransactionStatusUpdate
+    ): Promise<void>
     removeTransaction(transactionId: string): Promise<void>
     transactionsCount(): Promise<number>
 

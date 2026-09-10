@@ -4,6 +4,7 @@
 import { fixture } from '@open-wc/testing-helpers'
 import { html } from 'lit'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { WALLET_DISABLED_REASON } from '@canton-network/core-types'
 import './copy-button.js'
 import './wallet-card.js'
 import { WalletAllocateEvent, WalletSetPrimaryEvent } from './wallet-card.js'
@@ -95,32 +96,28 @@ describe('wg-wallet-card', () => {
         expect(el.shadowRoot?.textContent).toContain('CanReadAs')
     })
 
-    it('renders a Safe badge when safeAppUrl is set', async () => {
-        const wallet = makeWallet({ safeAppUrl: 'https://safe.example' })
-        const el = await fixture(
-            html`<wg-wallet-card .wallet=${wallet}></wg-wallet-card>`
-        )
-
-        expect(
-            el.shadowRoot!.querySelector('.badge-safe')?.textContent?.trim()
-        ).toBe('Safe')
-    })
-
-    it('renders both Disabled and Safe badges for an imported decentralized party', async () => {
+    it('renders a delegated-signing badge when delegatedSigningUrl is set', async () => {
         const wallet = makeWallet({
-            disabled: true,
-            safeAppUrl: 'https://safe.example',
+            delegatedSigningUrl: 'https://coordinator.example',
         })
         const el = await fixture(
             html`<wg-wallet-card .wallet=${wallet}></wg-wallet-card>`
         )
 
         expect(
-            el.shadowRoot!.querySelector('.badge-disabled')?.textContent?.trim()
-        ).toBe('Disabled')
-        expect(
-            el.shadowRoot!.querySelector('.badge-safe')?.textContent?.trim()
-        ).toBe('Safe')
+            el
+                .shadowRoot!.querySelector('.badge-delegated')
+                ?.textContent?.trim()
+        ).toBe('Delegated signing')
+    })
+
+    it('does not render a delegated-signing badge for an ordinary wallet', async () => {
+        const wallet = makeWallet()
+        const el = await fixture(
+            html`<wg-wallet-card .wallet=${wallet}></wg-wallet-card>`
+        )
+
+        expect(el.shadowRoot!.querySelector('.badge-delegated')).toBeNull()
     })
 
     it('does not offer to set an ordinary disabled wallet as primary', async () => {
@@ -132,14 +129,17 @@ describe('wg-wallet-card', () => {
             ></wg-wallet-card>`
         )
 
-        expect(el.shadowRoot!.querySelector('.link-action')).toBeNull()
+        const labels = [...el.shadowRoot!.querySelectorAll('.link-action')].map(
+            (b) => b.textContent?.trim()
+        )
+        expect(labels).not.toContain('Set as primary')
     })
 
-    it('still offers to set a Safe-like disabled wallet as primary', async () => {
+    it('offers to delegate signing when no provider here matches the party', async () => {
         const wallet = makeWallet({
-            disabled: true,
             primary: false,
-            safeAppUrl: 'https://safe.example',
+            disabled: true,
+            reason: WALLET_DISABLED_REASON.NO_SIGNING_PROVIDER_MATCHED,
         })
         const el = await fixture(
             html`<wg-wallet-card
@@ -149,19 +149,72 @@ describe('wg-wallet-card', () => {
         )
 
         const listener = vi.fn()
-        el.addEventListener('wallet-set-primary', listener)
+        el.addEventListener('wallet-edit-delegated-signing', listener)
 
-        el.shadowRoot!.querySelector<HTMLButtonElement>('.link-action')!.click()
+        const button = [
+            ...el.shadowRoot!.querySelectorAll<HTMLButtonElement>(
+                '.link-action'
+            ),
+        ].find((b) => b.textContent?.trim() === 'Delegate signing')
+        expect(button).toBeDefined()
+        button!.click()
 
         expect(listener).toHaveBeenCalledOnce()
     })
 
-    it('does not render a Safe badge for an ordinary wallet', async () => {
-        const wallet = makeWallet()
+    it('does not offer to delegate a wallet this gateway can sign for', async () => {
+        // Delegating a working wallet strands the key that actually signs
+        // for it, and the pin survives wallet sync -- so the action must not
+        // be reachable at all here.
+        const wallet = makeWallet({ primary: false })
         const el = await fixture(
-            html`<wg-wallet-card .wallet=${wallet}></wg-wallet-card>`
+            html`<wg-wallet-card
+                .wallet=${wallet}
+                .verified=${true}
+            ></wg-wallet-card>`
         )
 
-        expect(el.shadowRoot!.querySelector('.badge-safe')).toBeNull()
+        const labels = [...el.shadowRoot!.querySelectorAll('.link-action')].map(
+            (b) => b.textContent?.trim()
+        )
+        expect(labels).not.toContain('Delegate signing')
+        expect(labels).toContain('Set as primary')
+    })
+
+    it('does not offer to delegate a wallet disabled for an unrelated reason', async () => {
+        const wallet = makeWallet({
+            primary: false,
+            disabled: true,
+            reason: WALLET_DISABLED_REASON.PARTICIPANT_NAMESPACE_CHANGED,
+        })
+        const el = await fixture(
+            html`<wg-wallet-card
+                .wallet=${wallet}
+                .verified=${true}
+            ></wg-wallet-card>`
+        )
+
+        const labels = [...el.shadowRoot!.querySelectorAll('.link-action')].map(
+            (b) => b.textContent?.trim()
+        )
+        expect(labels).not.toContain('Delegate signing')
+    })
+
+    it('offers to edit an existing delegation rather than create one', async () => {
+        const wallet = makeWallet({
+            primary: true,
+            delegatedSigningUrl: 'https://coordinator.example',
+        })
+        const el = await fixture(
+            html`<wg-wallet-card
+                .wallet=${wallet}
+                .verified=${true}
+            ></wg-wallet-card>`
+        )
+
+        const labels = [...el.shadowRoot!.querySelectorAll('.link-action')].map(
+            (b) => b.textContent?.trim()
+        )
+        expect(labels).toContain('Edit delegated signing')
     })
 })

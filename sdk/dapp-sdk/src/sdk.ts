@@ -46,8 +46,8 @@ import type {
     PreparedTransactionSignatureEvent,
     SignPreparedTransactionParams,
     SignPreparedTransactionResult,
-    ExecuteWithSignaturesParams,
-    ExecuteWithSignaturesResult,
+    SubmitDelegatedSignaturesRequest,
+    SubmitDelegatedSignaturesResult,
 } from '@canton-network/core-wallet-dapp-rpc-client'
 import { DappClient } from './client'
 import { ExtensionAdapter } from './adapter/extension-adapter'
@@ -548,10 +548,10 @@ export class DappSDK {
         return this.requireClient().signPreparedTransaction(params)
     }
 
-    async executeWithSignatures(
-        params: ExecuteWithSignaturesParams
-    ): Promise<ExecuteWithSignaturesResult> {
-        return this.requireClient().executeWithSignatures(params)
+    async submitDelegatedSignatures(
+        params: SubmitDelegatedSignaturesRequest
+    ): Promise<SubmitDelegatedSignaturesResult> {
+        return this.requireClient().submitDelegatedSignatures(params)
     }
 
     async ledgerApi(params: LedgerApiParams): Promise<LedgerApiResult> {
@@ -687,9 +687,10 @@ export const prepareExecuteAndWait = (
     params: PrepareExecuteParams
 ): Promise<PrepareExecuteAndWaitResult> => sdk.prepareExecuteAndWait(params)
 
-export const executeWithSignatures = (
-    params: ExecuteWithSignaturesParams
-): Promise<ExecuteWithSignaturesResult> => sdk.executeWithSignatures(params)
+export const submitDelegatedSignatures = (
+    params: SubmitDelegatedSignaturesRequest
+): Promise<SubmitDelegatedSignaturesResult> =>
+    sdk.submitDelegatedSignatures(params)
 
 export const ledgerApi = (params: LedgerApiParams): Promise<LedgerApiResult> =>
     sdk.ledgerApi(params)

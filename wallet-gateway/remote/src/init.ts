@@ -22,6 +22,7 @@ import { SigningProvider } from '@canton-network/core-signing-lib'
 import type { SigningDrivers } from './signing/signing-drivers.js'
 import { ParticipantSigningDriver } from '@canton-network/core-signing-participant'
 import { InternalSigningDriver } from '@canton-network/core-signing-internal'
+import { DecentralizedSigningDriver } from '@canton-network/core-signing-decentralized'
 import DfnsSigningProvider from '@canton-network/core-signing-dfns'
 import FireblocksSigningProvider from '@canton-network/core-signing-fireblocks'
 import BlockdaemonSigningProvider, {
@@ -304,6 +305,12 @@ export async function initialize(opts: CliOptions, logger: Logger) {
     const drivers: SigningDrivers = {
         [SigningProvider.PARTICIPANT]: new ParticipantSigningDriver(),
         [SigningProvider.WALLET_KERNEL]: new InternalSigningDriver(
+            signingStore
+        ),
+        // Always registered: it holds no credentials of its own, and which
+        // coordinator a party delegates to is per-wallet
+        // (`Wallet.delegatedSigningUrl`), not per-deployment config.
+        [SigningProvider.DECENTRALIZED]: new DecentralizedSigningDriver(
             signingStore
         ),
         [SigningProvider.FIREBLOCKS]: new FireblocksSigningProvider({

@@ -13,6 +13,11 @@ import {
 } from '@canton-network/core-wallet-store'
 import { StoreInternal } from '@canton-network/core-wallet-store-inmemory'
 import { SigningProvider } from '@canton-network/core-signing-lib'
+import type {
+    SigningDriverStore,
+    SigningTransaction,
+} from '@canton-network/core-signing-lib'
+import { DecentralizedSigningDriver } from '@canton-network/core-signing-decentralized'
 import type { KernelInfo } from '../config/Config.js'
 import { NotificationService } from '../notification/NotificationService.js'
 import { dappController, DappControllerDeps } from './controller.js'
@@ -137,6 +142,37 @@ const primaryWallet: Wallet = {
     networkId: 'network1',
     userId: 'user-1',
     rights: [PartyLevelRight.CanActAs],
+}
+
+/**
+ * A `SigningDriverStore` with just the surface the decentralized driver uses:
+ * it parks a request and reads it back. Enough to exercise the real driver
+ * rather than a mock of it, which is the point -- the interesting behaviour
+ * (the coordination URL, the owning-user lookup) lives in the driver.
+ */
+function makeSigningDriverStore(): SigningDriverStore {
+    const txs = new Map<string, SigningTransaction>()
+    const key = (userId: string, txId: string) => `${userId}::${txId}`
+    return {
+        getSigningTransaction: async (userId: string, txId: string) =>
+            txs.get(key(userId, txId)),
+        setSigningTransaction: async (
+            userId: string,
+            transaction: SigningTransaction
+        ) => {
+            txs.set(key(userId, transaction.id), transaction)
+        },
+        listSigningTransactionsByTxIdsAndPublicKeys: async (txIds: string[]) =>
+            [...txs.values()].filter((t) => txIds.includes(t.id)),
+    } as unknown as SigningDriverStore
+}
+
+function makeDelegatedDrivers() {
+    return {
+        [SigningProvider.DECENTRALIZED]: new DecentralizedSigningDriver(
+            makeSigningDriverStore()
+        ),
+    }
 }
 
 async function createStore(
@@ -609,6 +645,28 @@ describe('dappController', () => {
             ).rejects.toThrow('No primary wallet found')
         })
 
+        it('labels an ordinary approve URL as an approval, not a handoff', async () => {
+            mockUuidV4.mockReturnValueOnce('generated-command-id')
+            mockUuidV4.mockReturnValueOnce('transaction-id')
+            ledgerMocks.postWithRetry.mockResolvedValueOnce({
+                preparedTransaction: 'prepared-blob',
+                preparedTransactionHash: 'hash',
+            })
+            const store = await createStore(logger, auth)
+            const controller = createController(
+                store,
+                notificationService,
+                logger,
+                auth
+            )
+
+            const result = await controller.prepareExecute(
+                prepareParams as never
+            )
+
+            expect(result!.userUrlKind).toBe('approval')
+        })
+
         it('prepares a transaction and returns the approve URL', async () => {
             mockUuidV4.mockReturnValueOnce('generated-command-id')
             mockUuidV4.mockReturnValueOnce('transaction-id')
@@ -709,7 +767,7 @@ describe('dappController', () => {
             expect(ledgerMocks.getSynchronizerId).toHaveBeenCalled()
         })
 
-        it('redirects to the Safe App instead of the approve page when the wallet has safeAppUrl set', async () => {
+        it('hands off to the coordinator instead of the approve page when the party delegates signing', async () => {
             mockUuidV4.mockReturnValueOnce('generated-command-id')
             mockUuidV4.mockReturnValueOnce('transaction-id')
             ledgerMocks.postWithRetry.mockResolvedValueOnce({
@@ -721,25 +779,40 @@ describe('dappController', () => {
             })
             await store.addWallet({
                 ...primaryWallet,
-                safeAppUrl: 'https://safe.example',
+                signingProviderId: SigningProvider.DECENTRALIZED,
+                delegatedSigningUrl: 'https://safe.example',
             })
             const controller = createController(
                 store,
                 notificationService,
                 logger,
-                auth
+                auth,
+                origin,
+                { signingDrivers: makeDelegatedDrivers() }
             )
 
             const result = await controller.prepareExecute(
                 prepareParams as never
             )
 
-            expect(result.userUrl).toBe(
-                'https://safe.example/coordinate?preparedTransaction=prepared-blob&preparedTransactionHash=hash&partyId=party%3A%3Anamespace&networkId=network1&commandId=generated-command-id'
+            const url = new URL(result!.userUrl!)
+            expect(url.origin + url.pathname).toBe(
+                'https://safe.example/coordinate'
             )
+            expect(url.searchParams.get('preparedTransaction')).toBe(
+                'prepared-blob'
+            )
+            expect(url.searchParams.get('preparedTransactionHash')).toBe('hash')
+            expect(url.searchParams.get('partyId')).toBe('party::namespace')
+            expect(url.searchParams.get('commandId')).toBe(
+                'generated-command-id'
+            )
+            // The requestId is what lets any owner post the collected
+            // signatures back against this exact request.
+            expect(url.searchParams.get('requestId')).toBe('transaction-id')
         })
 
-        it('throws when an API key tries to act as a Safe-like party', async () => {
+        it('does not leak a browser window-management flag into the response', async () => {
             mockUuidV4.mockReturnValueOnce('generated-command-id')
             mockUuidV4.mockReturnValueOnce('transaction-id')
             ledgerMocks.postWithRetry.mockResolvedValueOnce({
@@ -751,20 +824,55 @@ describe('dappController', () => {
             })
             await store.addWallet({
                 ...primaryWallet,
-                safeAppUrl: 'https://safe.example',
+                signingProviderId: SigningProvider.DECENTRALIZED,
+                delegatedSigningUrl: 'https://safe.example',
             })
             const controller = createController(
                 store,
                 notificationService,
                 logger,
-                { ...auth, isApiKey: true, ledgerUserId: 'ledger-user' }
+                auth,
+                origin,
+                { signingDrivers: makeDelegatedDrivers() }
+            )
+
+            const result = await controller.prepareExecute(
+                prepareParams as never
+            )
+
+            expect(result).not.toHaveProperty('openInNewWindow')
+            // Replaced by a statement about the page rather than about
+            // windows -- the client decides tab vs popup from this.
+            expect(result!.userUrlKind).toBe('handoff')
+        })
+
+        it('throws when an API key tries to act as a party that delegates signing', async () => {
+            mockUuidV4.mockReturnValueOnce('generated-command-id')
+            mockUuidV4.mockReturnValueOnce('transaction-id')
+            ledgerMocks.postWithRetry.mockResolvedValueOnce({
+                preparedTransaction: 'prepared-blob',
+                preparedTransactionHash: 'hash',
+            })
+            const store = await createStore(logger, auth, {
+                withWallet: false,
+            })
+            await store.addWallet({
+                ...primaryWallet,
+                signingProviderId: SigningProvider.DECENTRALIZED,
+                delegatedSigningUrl: 'https://safe.example',
+            })
+            const controller = createController(
+                store,
+                notificationService,
+                logger,
+                { ...auth, isApiKey: true, ledgerUserId: 'ledger-user' },
+                origin,
+                { signingDrivers: makeDelegatedDrivers() }
             )
 
             await expect(
                 controller.prepareExecute(prepareParams as never)
-            ).rejects.toThrow(
-                'Party party::namespace is a Safe-like party coordinated by https://safe.example'
-            )
+            ).rejects.toThrow(/cannot be signed for via an API key/)
         })
     })
 
@@ -864,16 +972,45 @@ describe('dappController', () => {
         })
     })
 
-    describe('executeWithSignatures', () => {
-        const executeWithSignaturesParams = {
-            preparedTransaction: 'prepared-blob',
-            preparedTransactionHash: 'hash-abc',
-            partyId: 'decentralized-party::namespace',
-            commandId: 'command-1',
-            signatures: [
-                { signature: 'sig-owner-1', signedBy: 'owner-1-key' },
-                { signature: 'sig-owner-2', signedBy: 'owner-2-key' },
+    describe('submitDelegatedSignatures', () => {
+        const prepareParams = {
+            commands: [
+                {
+                    CreateCommand: {
+                        templateId: 'pkg:Mod:T',
+                        createArguments: {},
+                    },
+                },
             ],
+        }
+        const signatures = [
+            { signature: 'sig-owner-1', signedBy: 'owner-1-key' },
+            { signature: 'sig-owner-2', signedBy: 'owner-2-key' },
+        ]
+
+        async function parkRequest(store: StoreInternal) {
+            mockUuidV4.mockReturnValueOnce('generated-command-id')
+            mockUuidV4.mockReturnValueOnce('transaction-id')
+            ledgerMocks.postWithRetry.mockResolvedValueOnce({
+                preparedTransaction: 'prepared-blob',
+                preparedTransactionHash: 'hash',
+            })
+            await store.addWallet({
+                ...primaryWallet,
+                signingProviderId: SigningProvider.DECENTRALIZED,
+                delegatedSigningUrl: 'https://safe.example',
+            })
+            const drivers = makeDelegatedDrivers()
+            const controller = createController(
+                store,
+                notificationService,
+                logger,
+                auth,
+                origin,
+                { signingDrivers: drivers }
+            )
+            await controller.prepareExecute(prepareParams as never)
+            return { controller, drivers }
         }
 
         it('throws when auth context is missing', async () => {
@@ -882,65 +1019,61 @@ describe('dappController', () => {
                 store,
                 notificationService,
                 logger,
-                undefined
+                undefined,
+                origin,
+                { signingDrivers: makeDelegatedDrivers() }
             )
 
             await expect(
-                controller.executeWithSignatures(
-                    executeWithSignaturesParams as never
-                )
+                controller.submitDelegatedSignatures({
+                    requestId: 'transaction-id',
+                    signatures,
+                } as never)
             ).rejects.toThrow('Unauthenticated context')
         })
 
-        it('throws when the recomputed hash does not match the supplied hash', async () => {
-            mockHashPreparedTransaction.mockResolvedValueOnce(
-                'a-different-hash'
-            )
+        it('throws when the request is unknown to the gateway', async () => {
             const store = await createStore(logger, auth)
             const controller = createController(
                 store,
                 notificationService,
                 logger,
-                auth
+                auth,
+                origin,
+                { signingDrivers: makeDelegatedDrivers() }
             )
 
             await expect(
-                controller.executeWithSignatures(
-                    executeWithSignaturesParams as never
-                )
-            ).rejects.toThrow('Prepared transaction hash mismatch')
-            expect(ledgerMocks.postWithRetry).not.toHaveBeenCalled()
+                controller.submitDelegatedSignatures({
+                    requestId: 'no-such-request',
+                    signatures,
+                } as never)
+            ).rejects.toThrow(/No pending transaction found/)
         })
 
         it('submits every collected signature in a single executeAndWait call', async () => {
-            ledgerMocks.postWithRetry.mockResolvedValueOnce({
-                updateId: 'multi-sig-update-1',
+            const store = await createStore(logger, auth, {
+                withWallet: false,
             })
-            const store = await createStore(logger, auth)
-            const controller = createController(
-                store,
-                notificationService,
-                logger,
-                auth
-            )
+            const { controller } = await parkRequest(store)
 
-            const result = await controller.executeWithSignatures(
-                executeWithSignaturesParams as never
-            )
+            ledgerMocks.postWithRetry.mockResolvedValueOnce({
+                updateId: 'update-1',
+            })
 
-            expect(mockHashPreparedTransaction).toHaveBeenCalledWith(
-                'prepared-blob'
-            )
-            expect(ledgerMocks.postWithRetry).toHaveBeenCalledWith(
+            await controller.submitDelegatedSignatures({
+                requestId: 'transaction-id',
+                signatures,
+            } as never)
+
+            expect(ledgerMocks.postWithRetry).toHaveBeenLastCalledWith(
                 '/v2/interactive-submission/executeAndWait',
                 expect.objectContaining({
-                    userId: auth.userId,
                     preparedTransaction: 'prepared-blob',
-                    submissionId: 'command-1',
                     partySignatures: {
                         signatures: [
-                            {
-                                party: 'decentralized-party::namespace',
+                            expect.objectContaining({
+                                party: 'party::namespace',
                                 signatures: [
                                     expect.objectContaining({
                                         signature: 'sig-owner-1',
@@ -951,34 +1084,67 @@ describe('dappController', () => {
                                         signedBy: 'owner-2-key',
                                     }),
                                 ],
-                            },
+                            }),
                         ],
                     },
                 })
             )
-            expect(result).toEqual({ updateId: 'multi-sig-update-1' })
         })
 
-        it('uses the ledger user id for an API key/service-account caller', async () => {
-            ledgerMocks.postWithRetry.mockResolvedValueOnce({
-                updateId: 'multi-sig-update-2',
+        it('lets an owner other than the one who prepared it finalize', async () => {
+            const store = await createStore(logger, auth, {
+                withWallet: false,
             })
-            const store = await createStore(logger, auth)
-            const controller = createController(
+            const { drivers } = await parkRequest(store)
+
+            // A different gateway user entirely -- this is the case that used
+            // to fail, because the parked request is keyed by whoever ran
+            // prepareExecute rather than by whoever finalizes.
+            const coSigner: AuthContext = {
+                userId: 'user-2',
+                accessToken: 'access-token-1',
+            }
+            const coSignerController = createController(
                 store,
                 notificationService,
                 logger,
-                { ...auth, isApiKey: true, ledgerUserId: 'ledger-user' }
+                coSigner,
+                origin,
+                { signingDrivers: drivers }
             )
 
-            await controller.executeWithSignatures(
-                executeWithSignaturesParams as never
-            )
+            ledgerMocks.postWithRetry.mockResolvedValueOnce({
+                updateId: 'update-1',
+            })
 
-            expect(ledgerMocks.postWithRetry).toHaveBeenCalledWith(
-                '/v2/interactive-submission/executeAndWait',
-                expect.objectContaining({ userId: 'ledger-user' })
-            )
+            await expect(
+                coSignerController.submitDelegatedSignatures({
+                    requestId: 'transaction-id',
+                    signatures,
+                } as never)
+            ).resolves.toBeDefined()
+        })
+
+        it('refuses to submit the same request twice', async () => {
+            const store = await createStore(logger, auth, {
+                withWallet: false,
+            })
+            const { controller } = await parkRequest(store)
+
+            ledgerMocks.postWithRetry.mockResolvedValueOnce({
+                updateId: 'update-1',
+            })
+            await controller.submitDelegatedSignatures({
+                requestId: 'transaction-id',
+                signatures,
+            } as never)
+
+            await expect(
+                controller.submitDelegatedSignatures({
+                    requestId: 'transaction-id',
+                    signatures,
+                } as never)
+            ).rejects.toThrow(/may already have been submitted/)
         })
     })
 

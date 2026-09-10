@@ -15,6 +15,7 @@ import {
     Wallet,
 } from '@canton-network/core-wallet-store'
 import { StoreInternal } from '@canton-network/core-wallet-store-inmemory'
+import { WALLET_DISABLED_REASON } from '@canton-network/core-types'
 import { SigningProvider } from '@canton-network/core-signing-lib'
 import type { KernelInfo } from '../config/Config.js'
 import { NotificationService } from '../notification/NotificationService.js'
@@ -1864,6 +1865,246 @@ describe('userController', () => {
                     partyId: primaryWallet.partyId,
                 })
             ).rejects.toThrow('Signing provider wallet-kernel not supported')
+        })
+    })
+
+    describe('setDelegatedSigning', () => {
+        it('pins the decentralized provider, stores the URL and re-enables the wallet', async () => {
+            const store = await createStore(logger, auth, {
+                withWallet: false,
+            })
+            // How a decentralized party arrives from wallet sync: no
+            // configured provider owns its threshold namespace, so it is
+            // labelled PARTICIPANT and disabled.
+            await store.addWallet({
+                ...primaryWallet,
+                signingProviderId: SigningProvider.PARTICIPANT,
+                disabled: true,
+                reason: WALLET_DISABLED_REASON.NO_SIGNING_PROVIDER_MATCHED,
+            })
+            const notifier = notificationService.getNotifier('user-1')
+            const emitSpy = vi.spyOn(notifier, 'emit')
+            const controller = createController(
+                store,
+                notificationService,
+                logger,
+                auth
+            )
+
+            const result = await controller.setDelegatedSigning({
+                partyId: primaryWallet.partyId,
+                delegatedSigningUrl: 'https://coordinator.example',
+            })
+
+            expect(result.wallet).toMatchObject({
+                partyId: primaryWallet.partyId,
+                delegatedSigningUrl: 'https://coordinator.example',
+                signingProviderId: SigningProvider.DECENTRALIZED,
+                disabled: false,
+            })
+            expect(emitSpy).toHaveBeenCalledWith(
+                'accountsChanged',
+                expect.any(Array)
+            )
+        })
+
+        it('survives a later wallet sync rather than being relabelled', async () => {
+            // The pin exists because sync resolves a provider by matching the
+            // party namespace against each driver's keys, and a decentralized
+            // namespace is no key's fingerprint. If sync re-resolved this
+            // wallet it would land back on PARTICIPANT/disabled.
+            const store = await createStore(logger, auth, {
+                withWallet: false,
+            })
+            await store.addWallet({
+                ...primaryWallet,
+                signingProviderId: SigningProvider.PARTICIPANT,
+                disabled: true,
+                reason: WALLET_DISABLED_REASON.NO_SIGNING_PROVIDER_MATCHED,
+            })
+            const controller = createController(
+                store,
+                notificationService,
+                logger,
+                auth
+            )
+            await controller.setDelegatedSigning({
+                partyId: primaryWallet.partyId,
+                delegatedSigningUrl: 'https://coordinator.example',
+            })
+
+            walletSyncMocks.syncWallets.mockResolvedValueOnce({
+                added: [],
+                updated: [],
+                disabled: [],
+            })
+            await controller.syncWallets()
+
+            const [wallet] = await store.getWallets()
+            expect(wallet).toMatchObject({
+                signingProviderId: SigningProvider.DECENTRALIZED,
+                delegatedSigningUrl: 'https://coordinator.example',
+                disabled: false,
+            })
+        })
+
+        it('changes an existing coordinator', async () => {
+            const store = await createStore(logger, auth, {
+                withWallet: false,
+            })
+            await store.addWallet({
+                ...primaryWallet,
+                signingProviderId: SigningProvider.DECENTRALIZED,
+                delegatedSigningUrl: 'https://old.example',
+            })
+            const controller = createController(
+                store,
+                notificationService,
+                logger,
+                auth
+            )
+
+            const result = await controller.setDelegatedSigning({
+                partyId: primaryWallet.partyId,
+                delegatedSigningUrl: 'https://new.example',
+            })
+
+            expect(result.wallet.delegatedSigningUrl).toBe(
+                'https://new.example'
+            )
+        })
+
+        it('clears the delegation when given an empty URL', async () => {
+            const store = await createStore(logger, auth, {
+                withWallet: false,
+            })
+            await store.addWallet({
+                ...primaryWallet,
+                signingProviderId: SigningProvider.DECENTRALIZED,
+                delegatedSigningUrl: 'https://coordinator.example',
+            })
+            const controller = createController(
+                store,
+                notificationService,
+                logger,
+                auth
+            )
+
+            const result = await controller.setDelegatedSigning({
+                partyId: primaryWallet.partyId,
+                delegatedSigningUrl: '',
+            })
+
+            expect(result.wallet.delegatedSigningUrl).toBeUndefined()
+        })
+
+        it.each([
+            ['javascript:alert(1)', /must be an http\(s\) URL/],
+            ['data:text/html,<script>', /must be an http\(s\) URL/],
+            ['not a url', /not a valid URL/],
+        ])(
+            'refuses %s, which the gateway would otherwise send a browser to',
+            async (url, expected) => {
+                const store = await createStore(logger, auth)
+                const controller = createController(
+                    store,
+                    notificationService,
+                    logger,
+                    auth
+                )
+
+                await expect(
+                    controller.setDelegatedSigning({
+                        partyId: primaryWallet.partyId,
+                        delegatedSigningUrl: url,
+                    })
+                ).rejects.toThrow(expected)
+            }
+        )
+
+        it('refuses to delegate a party this gateway can already sign for', async () => {
+            // The trap this guards: pinning a working wallet to the
+            // decentralized provider strands its key and parks every
+            // transaction at a coordinator that has no owner set for it.
+            const store = await createStore(logger, auth) // wallet-kernel, enabled
+            const controller = createController(
+                store,
+                notificationService,
+                logger,
+                auth
+            )
+
+            await expect(
+                controller.setDelegatedSigning({
+                    partyId: primaryWallet.partyId,
+                    delegatedSigningUrl: 'https://coordinator.example',
+                })
+            ).rejects.toThrow(/cannot be delegated/)
+        })
+
+        it('refuses for a wallet disabled for some other reason', async () => {
+            const store = await createStore(logger, auth, {
+                withWallet: false,
+            })
+            await store.addWallet({
+                ...primaryWallet,
+                disabled: true,
+                reason: WALLET_DISABLED_REASON.PARTICIPANT_NAMESPACE_CHANGED,
+            })
+            const controller = createController(
+                store,
+                notificationService,
+                logger,
+                auth
+            )
+
+            await expect(
+                controller.setDelegatedSigning({
+                    partyId: primaryWallet.partyId,
+                    delegatedSigningUrl: 'https://coordinator.example',
+                })
+            ).rejects.toThrow(/cannot be delegated/)
+        })
+
+        it('still lets a mistakenly delegated wallet be cleared', async () => {
+            const store = await createStore(logger, auth, {
+                withWallet: false,
+            })
+            await store.addWallet({
+                ...primaryWallet,
+                signingProviderId: SigningProvider.DECENTRALIZED,
+                delegatedSigningUrl: 'https://coordinator.example',
+            })
+            const controller = createController(
+                store,
+                notificationService,
+                logger,
+                auth
+            )
+
+            const result = await controller.setDelegatedSigning({
+                partyId: primaryWallet.partyId,
+                delegatedSigningUrl: '',
+            })
+
+            expect(result.wallet.delegatedSigningUrl).toBeUndefined()
+        })
+
+        it('throws for a party this user has no wallet for', async () => {
+            const store = await createStore(logger, auth)
+            const controller = createController(
+                store,
+                notificationService,
+                logger,
+                auth
+            )
+
+            await expect(
+                controller.setDelegatedSigning({
+                    partyId: 'party::unknown',
+                    delegatedSigningUrl: 'https://coordinator.example',
+                })
+            ).rejects.toThrow(/No wallet found/)
         })
     })
 
