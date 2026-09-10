@@ -163,39 +163,6 @@ export type PreparedTransaction = string
  *
  */
 export type PreparedTransactionHash = string
-/**
- *
- * Id of the delegated signing request, as handed to the coordinator in its URL.
- *
- */
-export type RequestId = string
-/**
- *
- * The signature over the prepared transaction's hash.
- *
- */
-export type Signature = string
-/**
- *
- * The public key that produced the signature.
- *
- */
-export type SignedBy = string
-/**
- *
- * One owner's signature over a prepared transaction, collected off-ledger before combined submission.
- *
- */
-export interface SignatureEntry {
-    signature: Signature
-    signedBy: SignedBy
-}
-/**
- *
- * Every owner's signature over the request's prepared-transaction hash.
- *
- */
-export type Signatures = SignatureEntry[]
 export type RequestMethod = 'get' | 'post' | 'patch' | 'put' | 'delete'
 export type Resource = string
 export interface Body {
@@ -367,10 +334,22 @@ export interface TxChangedExecutedEvent {
 }
 /**
  *
+ * The signature over the prepared transaction's hash.
+ *
+ */
+export type Signature = string
+/**
+ *
  * The wallet-computed multiHash the signature is over, recomputed fresh from the stored raw transaction bytes at sign time -- never a cached or dApp-supplied value. Included so the dApp can cross-check it against its own computation.
  *
  */
 export type MultiHash = string
+/**
+ *
+ * The public key that produced the signature.
+ *
+ */
+export type SignedBy = string
 /**
  *
  * Set as primary wallet for dApp usage.
@@ -652,15 +631,6 @@ export interface SignPreparedTransactionParams {
 }
 /**
  *
- * Signatures collected for one delegated signing request.
- *
- */
-export interface SubmitDelegatedSignaturesRequest {
-    requestId: RequestId
-    signatures: Signatures
-}
-/**
- *
  * Ledger API request structure
  *
  */
@@ -711,14 +681,6 @@ export interface SignTopologyTransactionsResult {
 export interface SignPreparedTransactionResult {
     signature: Signature
     signedBy: SignedBy
-}
-/**
- *
- * The ledger's response to the submitted transaction.
- *
- */
-export interface SubmitDelegatedSignaturesResult {
-    [key: string]: any
 }
 /**
  *
@@ -801,9 +763,6 @@ export type SignTopologyTransactions = (
 export type SignPreparedTransaction = (
     params: SignPreparedTransactionParams
 ) => Promise<SignPreparedTransactionResult>
-export type SubmitDelegatedSignatures = (
-    params: SubmitDelegatedSignaturesRequest
-) => Promise<SubmitDelegatedSignaturesResult>
 export type LedgerApi = (params: LedgerApiParams) => Promise<LedgerApiResult>
 export type AccountsChanged = () => Promise<AccountsChangedEvent>
 export type GetPrimaryAccount = () => Promise<Wallet>
@@ -872,11 +831,6 @@ export type RpcTypes = {
     signPreparedTransaction: {
         params: Params<SignPreparedTransaction>
         result: Result<SignPreparedTransaction>
-    }
-
-    submitDelegatedSignatures: {
-        params: Params<SubmitDelegatedSignatures>
-        result: Result<SubmitDelegatedSignatures>
     }
 
     ledgerApi: {

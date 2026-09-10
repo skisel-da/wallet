@@ -57,7 +57,6 @@ const {
         getActiveNetwork: vi.fn(),
         signMessage: vi.fn(),
         signTopologyTransactions: vi.fn(),
-        submitDelegatedSignatures: vi.fn(),
     }
 
     class DappAsyncProviderMock {
@@ -137,7 +136,6 @@ describe('RemoteAdapter', () => {
             multiHash: 'hash',
         })
         mockController.ledgerApi.mockResolvedValue({ ok: true })
-        mockController.submitDelegatedSignatures.mockResolvedValue({ ok: true })
     })
 
     it('derives providerId from rpcUrl by default', () => {
@@ -240,22 +238,6 @@ describe('RemoteAdapter', () => {
                 params: {
                     requestMethod: 'get',
                     resource: '/v2/state/active-contracts',
-                },
-            })
-        ).resolves.toEqual({ ok: true })
-
-        mockController.submitDelegatedSignatures.mockResolvedValueOnce({
-            ok: true,
-        })
-        await expect(
-            provider.request({
-                method: 'submitDelegatedSignatures',
-                params: {
-                    preparedTransaction: 'prepared-blob',
-                    preparedTransactionHash: 'hash-abc',
-                    partyId: 'decentralized-party::namespace',
-                    commandId: 'command-1',
-                    signatures: [{ signature: 'sig-1', signedBy: 'key-1' }],
                 },
             })
         ).resolves.toEqual({ ok: true })

@@ -5,8 +5,6 @@ import { DappAsyncProvider } from '@canton-network/core-provider-dapp'
 import buildController from './dapp-api/rpc-gen'
 import {
     ConnectResult,
-    SubmitDelegatedSignaturesRequest,
-    SubmitDelegatedSignaturesResult,
     LedgerApiParams,
     MessageSignatureEvent,
     Network,
@@ -344,13 +342,6 @@ export const dappSDKController = (provider: DappAsyncProvider) =>
                 }
             )
         },
-        submitDelegatedSignatures: async (
-            params: SubmitDelegatedSignaturesRequest
-        ): Promise<SubmitDelegatedSignaturesResult> =>
-            provider.request({
-                method: 'submitDelegatedSignatures',
-                params,
-            }),
         getPrimaryAccount: async (): Promise<Wallet> =>
             provider.request({
                 method: 'getPrimaryAccount',

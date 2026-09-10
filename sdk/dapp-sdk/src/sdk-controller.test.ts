@@ -13,7 +13,6 @@ import {
 import type { EventListener } from '@canton-network/core-splice-provider'
 import type { DappAsyncProvider } from '@canton-network/core-provider-dapp'
 import type {
-    SubmitDelegatedSignaturesRequest,
     LedgerApiParams,
     PrepareExecuteParams,
     SignMessageParams,
@@ -85,11 +84,6 @@ const ledgerApiParams: LedgerApiParams = {
     requestMethod: 'get',
     resource: '/v2/state/active-contracts',
 }
-const submitDelegatedSignaturesParams: SubmitDelegatedSignaturesRequest = {
-    requestId: 'request-1',
-    signatures: [{ signature: 'sig-1', signedBy: 'key-1' }],
-}
-
 describe('dappSDKController', () => {
     beforeEach(() => {
         popupOpen.mockReset()
@@ -140,13 +134,6 @@ describe('dappSDKController', () => {
         await expect(controller.ledgerApi(ledgerApiParams)).resolves.toEqual({
             result: 'ok',
         })
-
-        mock.request.mockResolvedValueOnce({ updateId: 'update-1' })
-        await expect(
-            controller.submitDelegatedSignatures(
-                submitDelegatedSignaturesParams
-            )
-        ).resolves.toEqual({ updateId: 'update-1' })
     })
 
     it('opens the popup and resolves connect after statusChanged', async () => {

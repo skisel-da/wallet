@@ -346,23 +346,6 @@ export interface Store {
         options?: ListTransactionsOptions
     ): Promise<{ transactions: Array<Transaction>; nextCursor: string | null }>
     listAllPendingTransactions(): Promise<Array<Transaction>>
-    /**
-     * Moves a transaction's status without scoping the write to the calling
-     * user, leaving its recorded owner intact.
-     *
-     * The scoped {@link Store.setTransactionStatus} is right for a session
-     * acting on its own transaction. It cannot express "this transaction was
-     * completed on someone else's behalf", which is the normal case for a
-     * party whose signing is delegated: whoever finalizes is usually a
-     * different gateway account from whoever prepared it. Pairs with
-     * {@link Store.listAllPendingTransactions}, which is unscoped for the
-     * same reason.
-     */
-    setAnyTransactionStatus(
-        transactionId: string,
-        status: Transaction['status'],
-        updates?: TransactionStatusUpdate
-    ): Promise<void>
     removeTransaction(transactionId: string): Promise<void>
     transactionsCount(): Promise<number>
 

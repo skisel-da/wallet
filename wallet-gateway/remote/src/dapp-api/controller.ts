@@ -9,8 +9,6 @@ import {
 import buildController from './rpc-gen/index.js'
 import {
     ConnectResult,
-    SubmitDelegatedSignaturesRequest,
-    SubmitDelegatedSignaturesResult,
     LedgerApiParams,
     LedgerApiResult,
     MessageSignatureEvent,
@@ -44,7 +42,7 @@ import { networkStatus, ledgerPrepareParams, logDynamically } from '../utils.js'
 import type { Network as StoreNetwork } from '@canton-network/core-wallet-store'
 import { TransactionService } from '../ledger/transaction-service.js'
 import { SigningProvider } from '@canton-network/core-signing-lib'
-import { DecentralizedSigningDriver } from '@canton-network/core-signing-decentralized'
+import { buildDelegatedHandoff } from '../signing/delegated-handoff.js'
 
 import { SigningDrivers } from '../signing/signing-drivers.js'
 import { rpcErrors } from '@canton-network/core-rpc-errors'
@@ -408,17 +406,21 @@ export const dappController = (
                 'prepared transaction traffic estimation'
             )
 
-            await store.setTransaction(transaction)
-
             // A party whose signing is delegated (signingProviderId
-            // 'decentralized') has no key here that can authorize anything, so
-            // the request is parked with its coordinator instead of being sent
-            // to this gateway's own one-signer approve page. Asking the
-            // signing driver for the handoff URL -- rather than branching on a
-            // wallet field here -- keeps this call provider-generic: any
-            // provider that needs a human somewhere else can answer the same
-            // way, and nothing about browser window management leaks into the
-            // dApp-facing response.
+            // 'decentralized') has no key here that can authorize anything.
+            // The gateway builds the handoff URL and then steps out entirely:
+            // the coordinator collects the owners' signatures and submits to
+            // Canton itself.
+            //
+            // Because the gateway is not going to complete this transaction,
+            // it deliberately keeps no record of it. A pending Transaction row
+            // would never be closed by anyone -- the owner who finalizes is
+            // usually a different gateway account from the one who prepared,
+            // and closing a row is a scoped store write they cannot make -- so
+            // every coordinated transaction would leak one. Nothing reads the
+            // row on this path either: unlike the approve page, which fetches
+            // the prepared transaction back by transactionId, the coordination
+            // URL carries it directly.
             const isDelegated =
                 wallet.signingProviderId === SigningProvider.DECENTRALIZED
 
@@ -434,23 +436,22 @@ export const dappController = (
             let userUrlKind: 'approval' | 'handoff' = 'approval'
 
             if (isDelegated) {
-                const transactionService = new TransactionService(
-                    store,
-                    logger,
+                const handoff = await buildDelegatedHandoff(
                     deps!.signingDrivers,
-                    notifier
+                    gatewayUserId,
+                    wallet,
+                    {
+                        requestId: transactionId,
+                        preparedTransaction: prepared.preparedTransaction,
+                        preparedTransactionHash:
+                            prepared.preparedTransactionHash,
+                        commandId,
+                    }
                 )
-                const parked = await transactionService.sign(context, wallet, {
-                    transactionId,
-                    partyId: wallet.partyId,
-                })
-                if (parked.status !== 'pending' || !parked.userUrl) {
-                    throw new Error(
-                        `Delegated signing for party ${wallet.partyId} did not yield a coordination URL (status: ${parked.status})`
-                    )
-                }
-                approveUrl = parked.userUrl
-                userUrlKind = parked.userUrlKind ?? 'handoff'
+                approveUrl = handoff.userUrl
+                userUrlKind = handoff.userUrlKind
+            } else {
+                await store.setTransaction(transaction)
             }
 
             if (context.isApiKey) {
@@ -736,123 +737,6 @@ export const dappController = (
                 requestId,
                 userUrl: `${userUrl}/sign-prepared-transaction/index.html?requestId=${requestId}&closeafteraction`,
             }
-        },
-        submitDelegatedSignatures: async (
-            params: SubmitDelegatedSignaturesRequest
-        ): Promise<SubmitDelegatedSignaturesResult> => {
-            if (context === undefined) {
-                throw new Error('Unauthenticated context')
-            }
-            if (!params?.requestId || !params?.signatures?.length) {
-                throw new Error(
-                    'requestId and at least one signature are required'
-                )
-            }
-
-            const driver = deps.signingDrivers[SigningProvider.DECENTRALIZED]
-            if (!(driver instanceof DecentralizedSigningDriver)) {
-                throw new Error(
-                    'Decentralized signing driver is not configured on this gateway'
-                )
-            }
-
-            // The parked request belongs to the gateway user who ran
-            // prepareExecute, who is generally NOT whoever finalizes -- often
-            // not even the same gateway account, since each owner
-            // authenticates to the coordinator independently as their own
-            // party. So this deliberately looks across users
-            // (listAllPendingTransactions is the same unscoped view the
-            // signing worker uses) rather than through the caller's own
-            // session-scoped store, which is what made only the initiator
-            // able to finalize.
-            //
-            // That is safe because nothing here is taken on trust: the
-            // request id is only known to someone who saw the coordination
-            // contract on the ledger, the signatures are checked against the
-            // hash the request was created for, and Canton enforces the
-            // party's own threshold on submission. Being able to complete a
-            // coordination someone else started is the entire point.
-            const pending = await store.listAllPendingTransactions()
-            const transaction = pending.find((tx) => tx.id === params.requestId)
-            if (!transaction) {
-                throw new Error(
-                    `No pending transaction found for delegated signing request ${params.requestId} -- it may already have been submitted`
-                )
-            }
-            const owningUserId = transaction.userId
-            if (!owningUserId) {
-                throw new Error(
-                    `Transaction ${params.requestId} has no owning user recorded`
-                )
-            }
-
-            const parked = await driver.getRequest(
-                owningUserId,
-                params.requestId
-            )
-            if (!parked?.partyId) {
-                throw new Error(
-                    `Delegated signing request ${params.requestId} is not known to the decentralized signing driver`
-                )
-            }
-
-            await driver.submitSignatures(
-                owningUserId,
-                params.requestId,
-                params.signatures
-            )
-
-            const network = await store.getCurrentNetwork()
-            const ledgerClient = new LedgerClient({
-                baseUrl: new URL(network.ledgerApi.baseUrl),
-                logger,
-                accessTokenProvider: AuthTokenProvider.fromToken(
-                    context.accessToken,
-                    logger
-                ),
-            })
-
-            const session = await store.getSession(context.accessToken)
-            if (!session) {
-                throw new Error('No active session found')
-            }
-            const notifier = notificationService.getNotifier(session.id)
-            const transactionService = new TransactionService(
-                store,
-                logger,
-                deps.signingDrivers,
-                notifier
-            )
-
-            const result = await transactionService.executeDelegated(
-                context.isApiKey ? context.ledgerUserId : context.userId,
-                ledgerClient,
-                {
-                    preparedTransaction: transaction.preparedTransaction,
-                    partyId: parked.partyId,
-                    commandId: transaction.commandId,
-                    signatures: params.signatures,
-                }
-            )
-
-            // Submitted with *this* caller's ledger credentials -- they hold
-            // actAs for the party, which is what Canton checks. The
-            // Transaction row, though, belongs to whoever prepared it, and
-            // the scoped setTransactionStatus both reads and writes under the
-            // calling user (the SQL one would even reassign the row's owner).
-            // The unscoped write keeps the record with its owner and, more
-            // importantly, actually moves it off 'pending' -- otherwise the
-            // signing worker could pick it up and submit a second time.
-            await store.setAnyTransactionStatus(transaction.id, 'executed', {
-                payload: result,
-            })
-            notifier.emit('txChanged', {
-                ...transaction,
-                status: 'executed',
-                payload: result,
-            })
-
-            return result as SubmitDelegatedSignaturesResult
         },
         getPrimaryAccount: async function (): Promise<Wallet> {
             const wallet = await store.getPrimaryWallet()

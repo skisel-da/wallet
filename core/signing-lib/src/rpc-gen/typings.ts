@@ -113,31 +113,10 @@ export interface Error {
 export type SigningStatus = 'pending' | 'signed' | 'rejected' | 'failed'
 /**
  *
- * Base64-encoded Ed25519 signature.
+ * Signature of the transaction if it was signed.
  *
  */
 export type Signature = string
-/**
- *
- * Fingerprint of the key that produced this signature.
- *
- */
-export type SignedBy = string
-/**
- *
- * One owner's signature over the transaction hash, tagged with the fingerprint of the key that produced it.
- *
- */
-export interface SignatureEntry {
-    signature: Signature
-    signedBy: SignedBy
-}
-/**
- *
- * All signatures authorizing this transaction, for parties where more than one key must sign (e.g. a decentralized/threshold namespace). Optional: providers whose transactions are authorized by a single key return `signature` alone.
- *
- */
-export type Signatures = SignatureEntry[]
 /**
  *
  * Additional metadata about the transaction.
@@ -150,7 +129,6 @@ export interface Transaction {
     txId: TxId
     status: SigningStatus
     signature?: Signature
-    signatures?: Signatures
     publicKey?: PublicKey
     metadata?: Metadata
 }
@@ -231,7 +209,6 @@ export interface SubscribeTransactionsResult {
     txId: TxId
     status: SigningStatus
     signature?: Signature
-    signatures?: Signatures
     publicKey?: PublicKey
     metadata?: Metadata
 }

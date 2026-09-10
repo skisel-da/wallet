@@ -47,6 +47,15 @@ Which coordinator a party delegates to is a property of the _wallet_
 serve several independently coordinated parties. The driver is always
 registered and holds no credentials.
 
+**The gateway keeps no record of a delegated transaction.** It builds the
+handoff URL and steps out: no `Transaction` row, nothing parked in the driver.
+That is not an oversight but the point. A record it never completes could only
+be closed by a scoped store write, and the owner who finalizes a coordination
+is usually a _different gateway account_ from the one who prepared it — so any
+record kept here would leak, on every coordinated transaction. Measured
+against the poc's own stack: with a record, two coordinated transactions left
+two permanently-pending rows in each of two stores; without, zero.
+
 Set or change it with the new user-api `setDelegatedSigning`, from a
 **Delegate signing** action on the wallet card, or by supplying it at import.
 Only a party that no signing provider matches may be delegated — pinning a
@@ -74,12 +83,17 @@ approval page, and dapp-sdk client wiring.
   lets one owner clear-sign a prepared transaction independently of the
   original caller's own `Transaction` record — the coordinator is cross-origin
   and usually a different gateway user. Hash mismatch is a hard failure.
-- **`submitDelegatedSignatures`** hands the collected set back to the gateway,
-  which records it against the parked request and submits to Canton exactly
-  once. The gateway already holds the prepared transaction, so nothing
-  security-relevant travels back in from the caller except the signatures —
-  and Canton verifies those against the hash it derives from the transaction
-  being submitted.
+- **Submission is the coordinator's job, not the gateway's.** Once the
+  threshold is met, whichever owner finalizes submits the collected set
+  straight to Canton's `executeAndWait` — through the existing `ledgerApi`
+  passthrough, or any other client. Canton verifies the signatures against
+  the hash it derives from the transaction itself, which is the check that
+  actually matters.
+
+    The gateway deliberately adds nothing here. An earlier iteration had a
+    `submitDelegatedSignatures` RPC that recorded the set and submitted on the
+    caller's behalf; it was removed because the only thing it really bought was
+    closing a record the gateway should not have been keeping (see §1).
 
 ### 4. `userUrlKind`: what a page _is_, not which window to use
 
@@ -108,12 +122,12 @@ session `actAs`, and re-runs a wallet sync. Optionally sets
 
 ## Part 2 — Impact on wallet providers
 
-**The signing-driver interface is unchanged in any way that costs an existing
-driver anything.** The only additions to `openrpc-signing-api.json` are
-optional: `Transaction.signatures[]` alongside the existing singular
-`signature`, and a `SignatureEntry` schema. Every existing driver keeps
-returning `signature` alone. All ten `core/signing-*` packages other than the
-new one have a zero diff.
+**The signing-driver interface is untouched.** `openrpc-signing-api.json` is
+byte-identical to `main` — `git diff ba67e8b4 -- api-specs/openrpc-signing-api.json`
+is empty — and all ten existing `core/signing-*` packages have a zero diff. The
+new driver needed no schema change at all: the per-wallet coordinator travels
+through `SignTransactionParams`, which is already declared
+`additionalProperties: true`.
 
 Everything else lands on providers who implement the RPC surface, the Store,
 and the approval UI. The in-repo proof of the obligation list is
@@ -122,11 +136,10 @@ list _is_ the provider to-do list.
 
 ### 1. dApp-facing RPC
 
-| Method                      | Params                                           | Result                 |
-| --------------------------- | ------------------------------------------------ | ---------------------- |
-| `signTopologyTransactions`  | `transactions[]`, `synchronizerId?`              | `{requestId, userUrl}` |
-| `signPreparedTransaction`   | `preparedTransaction`, `preparedTransactionHash` | `{requestId, userUrl}` |
-| `submitDelegatedSignatures` | `requestId`, `signatures[]`                      | ledger response        |
+| Method                     | Params                                           | Result                 |
+| -------------------------- | ------------------------------------------------ | ---------------------- |
+| `signTopologyTransactions` | `transactions[]`, `synchronizerId?`              | `{requestId, userUrl}` |
+| `signPreparedTransaction`  | `preparedTransaction`, `preparedTransactionHash` | `{requestId, userUrl}` |
 
 Plus two event types, `topologyTransactionsSignature` and
 `preparedTransactionSignature`, each with pending / signed / failed shapes.
@@ -151,19 +164,12 @@ Reusable primitives are exported from `core/tx-visualizer/src/index.ts`:
 
 ### 3. Store interface — breaking for custom `Store` implementations
 
-`core/wallet-store/src/Store.ts` gained **ten required methods**: five for
-`TopologyBundleRaw`, four for `PreparedTransactionToSign`, and
-`setAnyTransactionStatus`. Plus `Wallet.delegatedSigningUrl`, and
-`UpdateWallet.delegatedSigningUrl` / `.signingProviderId`. The in-memory and
+`core/wallet-store/src/Store.ts` gained **nine required methods**: five for
+`TopologyBundleRaw` and four for `PreparedTransactionToSign`. Plus
+`Wallet.delegatedSigningUrl`, and `UpdateWallet.delegatedSigningUrl` /
+`.signingProviderId`. The in-memory and
 SQL implementations are updated in-tree; a provider with its own store must
 add all of them and the equivalent of migrations **016, 017, 018**.
-
-`setAnyTransactionStatus` deserves a note: it moves a transaction's status
-_without_ scoping the write to the calling user, leaving the recorded owner
-intact. The scoped `setTransactionStatus` cannot express "completed on someone
-else's behalf", which is the normal case for a delegated party — whoever
-finalizes is usually a different gateway account from whoever prepared it. It
-pairs with the pre-existing, equally unscoped `listAllPendingTransactions`.
 
 Design point worth preserving: raw bytes are the source of truth; `summaries`
 are display-only and never signed, and `preparedTransactionHash` is stored as
@@ -253,7 +259,7 @@ value.
 ## Verification
 
 `pnpm -r build`, `pnpm exec eslint`, and `pnpm -r test` all pass: 36 packages,
-2419 tests, including every browser-project suite. `migrations:check-lock`
+2399 tests, including every browser-project suite. `migrations:check-lock`
 passes with 18 migrations.
 
 `decentralizer-poc`'s own Playwright suite passes end to end against a real

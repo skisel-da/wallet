@@ -25,7 +25,6 @@ import {
     SignParams,
 } from '../user-api/rpc-gen/typings.js'
 import { UserId } from '../dapp-api/rpc-gen/typings.js'
-import type { DelegatedSignTransactionParams } from '@canton-network/core-signing-decentralized'
 import { Notifier } from '../notification/NotificationService.js'
 import {
     ledgerPrepareParams,
@@ -40,19 +39,6 @@ import { keyLabelFromPublicKey } from '@canton-network/core-signing-securosys'
 import { HASHING_SCHEME_VERSION } from '../env.js'
 
 export type SignAndExecuteResult = SignResult | ExecuteResult
-
-/** One owner's signature over a prepared transaction's hash. */
-export interface DelegatedSignature {
-    signature: string
-    signedBy: string
-}
-
-export interface ExecuteDelegatedParams {
-    preparedTransaction: string
-    partyId: string
-    commandId: string
-    signatures: DelegatedSignature[]
-}
 
 function handleSigningError<T extends object>(result: SigningError | T): T {
     if ('error' in result) {
@@ -170,10 +156,12 @@ export class TransactionService {
                 )
             }
             case SigningProvider.DECENTRALIZED: {
-                return this.signWithDecentralized(
-                    authContext.userId,
-                    wallet,
-                    signParams
+                // Nothing here can sign for such a party, and the gateway is
+                // not the thing that completes its transactions -- its
+                // coordinator collects the owners' signatures and submits
+                // them. Reaching this is a routing mistake, not a fallback.
+                throw new Error(
+                    `Party ${wallet.partyId} delegates its signing to an external coordinator; it cannot be signed for by this gateway.`
                 )
             }
             default:
@@ -538,129 +526,6 @@ export class TransactionService {
                 partyId: wallet.partyId,
             }
         }
-    }
-
-    /**
-     * Parks a signing request with the coordinator this party's signing is
-     * delegated to, then reports its progress.
-     *
-     * Structurally identical to the remote-custody drivers above -- first pass
-     * submits, later passes poll by `externalTxId` -- because it is the same
-     * problem: authority lives somewhere this gateway can only wait on. The
-     * difference is that a decentralized party needs a *set* of signatures, so
-     * a signed result carries `signatures` and the caller submits via
-     * {@link executeDelegated} rather than the single-signature path.
-     */
-    private async signWithDecentralized(
-        userId: UserId,
-        wallet: Wallet,
-        signParams: SignParams
-    ): Promise<SignResult> {
-        const signingProvider =
-            this.signingDrivers[SigningProvider.DECENTRALIZED]
-        if (!signingProvider) {
-            throw new Error('Decentralized signing driver not available')
-        }
-        if (!wallet.delegatedSigningUrl) {
-            throw new Error(
-                `Party ${wallet.partyId} is configured for delegated signing but has no delegatedSigningUrl. Set one before transacting as this party.`
-            )
-        }
-        const driver = signingProvider.controller(userId)
-
-        const tx = await this.loadPreparedTransactionForSigning(
-            signParams.transactionId
-        )
-
-        let signingResult: Exclude<
-            GetTransactionResult | SignTransactionResult,
-            SigningError
-        >
-        if (tx.externalTxId) {
-            signingResult = await driver
-                .getTransaction({ userId, txId: tx.externalTxId })
-                .then(handleSigningError)
-        } else {
-            // The coordinator and every co-signing wallet work from the
-            // base64 Canton hash, so unlike the custody drivers this is
-            // passed through as-is rather than hex-encoded.
-            const params: DelegatedSignTransactionParams = {
-                tx: tx.preparedTransaction,
-                txHash: tx.preparedTransactionHash,
-                keyIdentifier: { publicKey: wallet.publicKey },
-                internalTxId: tx.id,
-                delegatedSigningUrl: wallet.delegatedSigningUrl,
-                partyId: wallet.partyId,
-                commandId: tx.commandId,
-            }
-            signingResult = await driver
-                .signTransaction(params)
-                .then(handleSigningError)
-        }
-
-        const now = new Date()
-
-        logDynamically(this.logger, 'Delegated signing result', {
-            info: {
-                transactionId: tx.id,
-                status: signingResult.status,
-                partyId: wallet.partyId,
-            },
-            debug: { signingResult, tx },
-        })
-
-        if (signingResult.status === 'signed') {
-            if (!signingResult.signature) {
-                throw new Error('No signature returned from signing driver')
-            }
-            await this.store.setTransactionSigned(
-                tx.id,
-                now,
-                signingResult.txId
-            )
-            this.notifier.emit('txChanged', {
-                ...tx,
-                status: 'signed',
-                signedAt: now,
-                externalTxId: signingResult.txId,
-            } satisfies Transaction)
-
-            return {
-                status: 'signed',
-                signature: signingResult.signature,
-                signedBy: wallet.namespace,
-                partyId: wallet.partyId,
-                externalTxId: signingResult.txId,
-            }
-        }
-
-        const status = signingResult.status === 'pending' ? 'pending' : 'failed'
-        await this.store.setTransactionStatus(tx.id, status, {
-            externalTxId: signingResult.txId,
-        })
-        this.notifier.emit('txChanged', {
-            ...tx,
-            status,
-            externalTxId: signingResult.txId,
-        } satisfies Transaction)
-
-        const handoff = signingResult.metadata as
-            | { userUrl?: string; userUrlKind?: 'approval' | 'handoff' }
-            | undefined
-
-        return {
-            status: signingResult.status,
-            externalTxId: signingResult.txId,
-            partyId: wallet.partyId,
-            ...(status === 'pending' && handoff?.userUrl
-                ? {
-                      userUrl: handoff.userUrl,
-                      ...(handoff.userUrlKind
-                          ? { userUrlKind: handoff.userUrlKind }
-                          : {}),
-                  }
-                : {}),
-        } as SignResult
     }
 
     private async signWithDfns(
@@ -1105,68 +970,6 @@ export class TransactionService {
             payload: result,
         })
         this.notifier.emit('txChanged', executedTx)
-
-        return result
-    }
-
-    /**
-     * Submits a delegated party's transaction once, carrying every owner's
-     * signature.
-     *
-     * Internal to the gateway: unlike the old dApp-facing
-     * dApp-facing submit method, a coordinator never submits directly. It hands
-     * the collected signatures to `submitDelegatedSignatures`, which records
-     * them against the parked request and then calls this. The gateway
-     * already holds the prepared transaction, so nothing security-relevant
-     * travels back in from the caller except the signatures themselves --
-     * and Canton verifies those against the hash it derives from the
-     * transaction being submitted.
-     */
-    public async executeDelegated(
-        userId: UserId,
-        ledgerClient: LedgerClient,
-        params: ExecuteDelegatedParams
-    ): Promise<unknown> {
-        const { preparedTransaction, partyId, commandId, signatures } = params
-
-        if (signatures.length === 0) {
-            throw new Error(
-                'At least one signature is required to submit a delegated transaction'
-            )
-        }
-
-        const result = await ledgerClient.postWithRetry(
-            '/v2/interactive-submission/executeAndWait',
-            {
-                userId,
-                preparedTransaction,
-                // Must match what the transaction was prepared with; the
-                // scheme is configured once (config.hashingScheme.version)
-                // and threaded through, exactly as executeWithExternal does.
-                hashingSchemeVersion: this.hashingSchemeVersion,
-                submissionId: commandId,
-                deduplicationPeriod: { Empty: {} },
-                partySignatures: {
-                    signatures: [
-                        {
-                            party: partyId,
-                            signatures: signatures.map((entry) => ({
-                                signature: entry.signature,
-                                signedBy: entry.signedBy,
-                                format: 'SIGNATURE_FORMAT_CONCAT',
-                                signingAlgorithmSpec:
-                                    'SIGNING_ALGORITHM_SPEC_ED25519',
-                            })),
-                        },
-                    ],
-                },
-            } as Types['JsExecuteSubmissionAndWaitRequest']
-        )
-
-        logDynamically(this.logger, 'Delegated multi-signature execution', {
-            info: { partyId, commandId, signatureCount: signatures.length },
-            debug: { result, params, userId },
-        })
 
         return result
     }

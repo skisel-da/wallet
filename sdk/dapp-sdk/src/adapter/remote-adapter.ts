@@ -201,10 +201,6 @@ class RemoteMappedProvider implements Provider<DappRpcTypes> {
                 return controller.signPreparedTransaction(
                     args.params
                 ) as Promise<DappRpcTypes[M]['result']>
-            case 'submitDelegatedSignatures':
-                return controller.submitDelegatedSignatures(
-                    args.params
-                ) as Promise<DappRpcTypes[M]['result']>
             default:
                 throw new Error('Unsupported method')
         }

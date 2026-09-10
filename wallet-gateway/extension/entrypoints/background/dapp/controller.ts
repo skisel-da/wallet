@@ -13,8 +13,6 @@ import { AuthService } from '../auth-service.js'
 import buildController from './rpc-gen'
 import type {
     ConnectResult,
-    SubmitDelegatedSignaturesRequest,
-    SubmitDelegatedSignaturesResult,
     LedgerApiParams,
     Network,
     PrepareExecuteParams,
@@ -262,13 +260,6 @@ export const dappController = (
             params: SignPreparedTransactionParams
         ): Promise<SignPreparedTransactionResult> {
             throw new Error('Function signPreparedTransaction not implemented.')
-        },
-        submitDelegatedSignatures: function (
-            params: SubmitDelegatedSignaturesRequest
-        ): Promise<SubmitDelegatedSignaturesResult> {
-            throw new Error(
-                'Function submitDelegatedSignatures not implemented.'
-            )
         },
         getPrimaryAccount: async function (): Promise<Wallet> {
             throw new Error('Function getPrimaryAccount not implemented.')

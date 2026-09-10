@@ -6,23 +6,16 @@ import {
     CreateKeyResult,
     GetConfigurationResult,
     GetKeysResult,
-    GetTransactionParams,
     GetTransactionResult,
-    GetTransactionsParams,
     GetTransactionsResult,
     PartyMode,
     SetConfigurationResult,
-    SignatureEntry,
     SigningDriverInterface,
-    SigningDriverStore,
     SigningProvider,
-    SigningTransaction,
     SignMessageResult,
     SignTransactionParams,
     SignTransactionResult,
     SubscribeTransactionsResult,
-    Transaction,
-    verifySignedTxHash,
 } from '@canton-network/core-signing-lib'
 import { AuthContext } from '@canton-network/core-wallet-auth'
 import { randomUUID } from 'node:crypto'
@@ -43,20 +36,10 @@ export interface DelegatedSignTransactionParams extends SignTransactionParams {
     commandId?: string
 }
 
-export interface DelegatedRequest {
-    requestId: string
-    partyId?: string
-    commandId?: string
+/** What a delegated party's `signTransaction` reports back. */
+export interface DelegatedHandoff extends Record<string, unknown> {
     delegatedSigningUrl: string
     /** Where a human owner is sent to take part in the coordination. */
-    userUrl: string
-    status: 'pending' | 'signed' | 'rejected' | 'failed'
-    signatures: SignatureEntry[]
-    reason?: string
-}
-
-interface DelegatedMetadata extends Record<string, unknown> {
-    delegatedSigningUrl: string
     userUrl: string
     /**
      * Always 'handoff': this URL is someone else's application, where the
@@ -67,8 +50,6 @@ interface DelegatedMetadata extends Record<string, unknown> {
     userUrlKind: 'handoff'
     partyId?: string
     commandId?: string
-    signatures: SignatureEntry[]
-    reason?: string
 }
 
 /**
@@ -107,152 +88,24 @@ export function buildCoordinationUrl(
  * all -- a decentralized (threshold-namespace) party, where no single key here
  * can authorize anything and several owners must each sign the same hash.
  *
- * It behaves like the remote-custody drivers (Fireblocks, DFNS, ...): the
- * request is parked as `pending` and completed out of band, then picked up by
- * `getTransaction` polling. The difference is only *who* completes it -- a set
- * of human owners coordinating through an external app, rather than a custody
- * service. That is why this needs no new concept in the driver interface: the
- * interface has been asynchronous all along.
+ * Its whole job is to say *where* that coordination happens. It holds no key,
+ * keeps no state, and completes nothing: the coordinator collects the owners'
+ * signatures and submits to Canton itself, so there is no request for this
+ * gateway to track and nothing here to poll.
  *
- * The coordinator is addressed per wallet (`Wallet.delegatedSigningUrl`),
- * not per driver, so one gateway can serve several independently coordinated
+ * That is deliberate rather than incidental. A transaction the gateway records
+ * but never completes can only be closed by a scoped store write, and the
+ * owner who finalizes a coordination is usually a different gateway account
+ * from the one who prepared it -- so any record kept here would leak, on every
+ * coordinated transaction. Keeping none is what makes the handoff clean.
+ *
+ * The coordinator is addressed per wallet (`Wallet.delegatedSigningUrl`), not
+ * per driver, so one gateway can serve several independently coordinated
  * parties.
  */
 export class DecentralizedSigningDriver implements SigningDriverInterface {
     public partyMode = PartyMode.EXTERNAL
     public signingProvider = SigningProvider.DECENTRALIZED
-
-    constructor(private readonly store: SigningDriverStore) {}
-
-    private static toTransaction(tx: SigningTransaction): Transaction {
-        const metadata = (tx.metadata ?? {}) as Partial<DelegatedMetadata>
-        const signatures = metadata.signatures ?? []
-        return {
-            txId: tx.id,
-            status: tx.status,
-            // `signature` stays populated for the single-signature case so the
-            // ordinary execute path keeps working unchanged; `signatures`
-            // carries the full set a threshold party actually needs.
-            ...(signatures.length > 0
-                ? { signature: signatures[0].signature }
-                : {}),
-            ...(signatures.length > 0 ? { signatures } : {}),
-            publicKey: tx.publicKey,
-            metadata,
-        }
-    }
-
-    /**
-     * Records the signatures an external coordinator collected and marks the
-     * request signed. Called by the Wallet Gateway when the coordinator posts
-     * back -- deliberately not part of the RPC `Methods` surface, since no
-     * other driver has an inbound completion path.
-     */
-    public async submitSignatures(
-        userId: string,
-        requestId: string,
-        signatures: Array<SignatureEntry & { publicKey?: string }>
-    ): Promise<void> {
-        const existing = await this.store.getSigningTransaction(
-            userId,
-            requestId
-        )
-        if (!existing) {
-            throw new Error(
-                `No delegated signing request found with id ${requestId}`
-            )
-        }
-        if (existing.status !== 'pending') {
-            throw new Error(
-                `Delegated signing request ${requestId} is already ${existing.status}`
-            )
-        }
-        if (signatures.length === 0) {
-            throw new Error('At least one signature is required')
-        }
-
-        // Verify whatever we can. `signedBy` is a key fingerprint, which is not
-        // enough to check a signature on its own, so a caller that also supplies
-        // the raw public key gets its signature verified against the hash this
-        // request was actually created for. A caller that does not is still
-        // recorded -- Canton rejects a bad set at submission regardless -- but
-        // catching it here names the offending signer instead of failing the
-        // whole submission anonymously.
-        for (const entry of signatures) {
-            if (!entry.publicKey) continue
-            if (
-                !verifySignedTxHash(
-                    existing.hash,
-                    entry.publicKey,
-                    entry.signature
-                )
-            ) {
-                throw new Error(
-                    `Signature from ${entry.signedBy} does not verify against the hash of request ${requestId}`
-                )
-            }
-        }
-
-        const metadata = (existing.metadata ?? {}) as DelegatedMetadata
-        await this.store.setSigningTransaction(userId, {
-            ...existing,
-            status: 'signed',
-            signature: signatures[0].signature,
-            metadata: {
-                ...metadata,
-                signatures: signatures.map(({ signature, signedBy }) => ({
-                    signature,
-                    signedBy,
-                })),
-            },
-            updatedAt: new Date(),
-            signedAt: new Date(),
-        })
-    }
-
-    /** Marks a coordination attempt as abandoned, so the caller stops waiting. */
-    public async rejectRequest(
-        userId: string,
-        requestId: string,
-        reason: string
-    ): Promise<void> {
-        const existing = await this.store.getSigningTransaction(
-            userId,
-            requestId
-        )
-        if (!existing) {
-            throw new Error(
-                `No delegated signing request found with id ${requestId}`
-            )
-        }
-        const metadata = (existing.metadata ?? {}) as DelegatedMetadata
-        await this.store.setSigningTransaction(userId, {
-            ...existing,
-            status: 'rejected',
-            metadata: { ...metadata, reason },
-            updatedAt: new Date(),
-        })
-    }
-
-    /** Reads back a coordination request, for display and for polling. */
-    public async getRequest(
-        userId: string,
-        requestId: string
-    ): Promise<DelegatedRequest | undefined> {
-        const tx = await this.store.getSigningTransaction(userId, requestId)
-        if (!tx) return undefined
-        const metadata = (tx.metadata ?? {}) as Partial<DelegatedMetadata>
-        return {
-            requestId: tx.id,
-            status: tx.status,
-            delegatedSigningUrl: metadata.delegatedSigningUrl ?? '',
-            userUrl: metadata.userUrl ?? '',
-            signatures: metadata.signatures ?? [],
-            ...(metadata.partyId ? { partyId: metadata.partyId } : {}),
-            ...(metadata.commandId ? { commandId: metadata.commandId } : {}),
-            ...(metadata.reason ? { reason: metadata.reason } : {}),
-        }
-    }
 
     public controller = (userId: AuthContext['userId'] | undefined) =>
         buildController({
@@ -291,16 +144,10 @@ export class DecentralizedSigningDriver implements SigningDriverInterface {
                     }
                 )
 
-                const publicKey =
-                    'publicKey' in params.keyIdentifier
-                        ? (params.keyIdentifier.publicKey as string)
-                        : ''
-
-                const metadata: DelegatedMetadata = {
+                const handoff: DelegatedHandoff = {
                     delegatedSigningUrl: delegated.delegatedSigningUrl,
                     userUrl,
                     userUrlKind: 'handoff',
-                    signatures: [],
                     ...(delegated.partyId
                         ? { partyId: delegated.partyId }
                         : {}),
@@ -309,22 +156,12 @@ export class DecentralizedSigningDriver implements SigningDriverInterface {
                         : {}),
                 }
 
-                const now = new Date()
-                await this.store.setSigningTransaction(userId, {
-                    id: requestId,
-                    hash: params.txHash,
-                    publicKey,
-                    status: 'pending',
-                    metadata,
-                    createdAt: now,
-                    updatedAt: now,
-                })
-
+                // `pending` is the honest status: nothing is signed, and this
+                // gateway will not be the thing that changes that.
                 return {
                     txId: requestId,
                     status: 'pending',
-                    ...(publicKey ? { publicKey } : {}),
-                    metadata,
+                    metadata: handoff,
                 }
             },
 
@@ -336,45 +173,18 @@ export class DecentralizedSigningDriver implements SigningDriverInterface {
                 }
             },
 
-            getTransaction: async (
-                params: GetTransactionParams
-            ): Promise<GetTransactionResult> => {
-                if (userId === undefined) {
-                    return {
-                        error: 'transaction_not_found',
-                        error_description:
-                            'A delegated signing request needs a user context.',
-                    }
-                }
-                const tx = await this.store.getSigningTransaction(
-                    userId,
-                    params.txId
-                )
-                if (!tx) {
-                    return {
-                        error: 'transaction_not_found',
-                        error_description:
-                            'The requested transaction does not exist.',
-                    }
-                }
-                return DecentralizedSigningDriver.toTransaction(tx)
-            },
+            // Nothing is tracked, so there is nothing to read back. Owners
+            // learn a coordination's progress from the coordinator, and its
+            // outcome from the ledger.
+            getTransaction: async (): Promise<GetTransactionResult> => ({
+                error: 'transaction_not_found',
+                error_description:
+                    'Delegated signing requests are completed by the coordinator, so this gateway keeps no record of them.',
+            }),
 
-            getTransactions: async (
-                params: GetTransactionsParams
-            ): Promise<GetTransactionsResult> => {
-                if (userId === undefined) return { transactions: [] }
-                const found =
-                    await this.store.listSigningTransactionsByTxIdsAndPublicKeys(
-                        params.txIds ?? [],
-                        params.publicKeys ?? []
-                    )
-                return {
-                    transactions: found.map(
-                        DecentralizedSigningDriver.toTransaction
-                    ),
-                }
-            },
+            getTransactions: async (): Promise<GetTransactionsResult> => ({
+                transactions: [],
+            }),
 
             // Deliberately an empty set rather than an error. The gateway's
             // wallet sync walks every driver's keys to work out which provider

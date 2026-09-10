@@ -5,7 +5,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { WalletEvent } from '@canton-network/core-types'
 import { popup } from '@canton-network/core-wallet-ui-components'
 import type {
-    SubmitDelegatedSignaturesRequest,
     LedgerApiParams,
     PrepareExecuteParams,
     SignMessageParams,
@@ -31,11 +30,6 @@ const ledgerApiParams: LedgerApiParams = {
     requestMethod: 'get',
     resource: '/v2/state/active-contracts',
 }
-const submitDelegatedSignaturesParams: SubmitDelegatedSignaturesRequest = {
-    requestId: 'request-1',
-    signatures: [{ signature: 'sig-1', signedBy: 'key-1' }],
-}
-
 describe('DappClient', () => {
     afterEach(() => {
         vi.clearAllMocks()
@@ -66,8 +60,6 @@ describe('DappClient', () => {
                     return { signature: 'sig' }
                 case 'ledgerApi':
                     return { result: 'ok' }
-                case 'submitDelegatedSignatures':
-                    return { updateId: 'update-1' }
                 case 'isConnected':
                     return { isConnected: true }
                 default:
@@ -94,9 +86,6 @@ describe('DappClient', () => {
         await expect(client.ledgerApi(ledgerApiParams)).resolves.toEqual({
             result: 'ok',
         })
-        await expect(
-            client.submitDelegatedSignatures(submitDelegatedSignaturesParams)
-        ).resolves.toEqual({ updateId: 'update-1' })
         await expect(client.isConnected()).resolves.toEqual({
             isConnected: true,
         })

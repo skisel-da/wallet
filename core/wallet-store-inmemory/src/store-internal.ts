@@ -488,24 +488,6 @@ export class StoreInternal implements Store, AuthAware<StoreInternal> {
         return storage.transactions.get(transactionId)
     }
 
-    async setAnyTransactionStatus(
-        transactionId: string,
-        status: Transaction['status'],
-        updates: TransactionStatusUpdate = {}
-    ): Promise<void> {
-        const storage = this.getStorage()
-        const existing = storage.transactions.get(transactionId)
-        if (!existing) {
-            throw new Error(`Transaction not found with id: ${transactionId}`)
-        }
-
-        storage.transactions.set(
-            transactionId,
-            this.mergeTransactionStatusUpdate(existing, status, updates)
-        )
-        this.updateStorage(storage)
-    }
-
     async listAllPendingTransactions(): Promise<Array<Transaction>> {
         const storage = this.getStorage()
         return Array.from(storage.transactions.values()).filter(

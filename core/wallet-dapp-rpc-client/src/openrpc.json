@@ -168,24 +168,6 @@
             "description": "Signs an already-prepared ordinary (non-topology) ledger transaction with the caller's own key -- e.g. one owner's signature towards a Gnosis-Safe-like decentralized party's threshold, collected off-ledger and combined later. The wallet independently recomputes the transaction hash from the raw bytes and decodes/displays it before signing; it never signs an opaque precomputed hash."
         },
         {
-            "name": "submitDelegatedSignatures",
-            "params": [
-                {
-                    "name": "params",
-                    "schema": {
-                        "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/SubmitDelegatedSignaturesRequest"
-                    }
-                }
-            ],
-            "result": {
-                "name": "result",
-                "schema": {
-                    "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/SubmitDelegatedSignaturesResult"
-                }
-            },
-            "description": "Hands the Wallet Gateway the signature set an external coordinator collected for a delegated signing request (a party whose signingProviderId is 'decentralized'). The gateway verifies them against the hash the request was created for, then submits the transaction once. Any connected owner may call this -- coordination is inherently multi-party, and the signatures themselves are the authorization."
-        },
-        {
             "name": "ledgerApi",
             "params": [
                 {
@@ -1256,34 +1238,6 @@
                     "networkId",
                     "signingProviderId"
                 ]
-            },
-            "SubmitDelegatedSignaturesRequest": {
-                "title": "SubmitDelegatedSignaturesRequest",
-                "type": "object",
-                "additionalProperties": false,
-                "description": "Signatures collected for one delegated signing request.",
-                "properties": {
-                    "requestId": {
-                        "title": "requestId",
-                        "type": "string",
-                        "description": "Id of the delegated signing request, as handed to the coordinator in its URL."
-                    },
-                    "signatures": {
-                        "title": "signatures",
-                        "type": "array",
-                        "description": "Every owner's signature over the request's prepared-transaction hash.",
-                        "items": {
-                            "$ref": "api-specs/openrpc-dapp-api.json#/components/schemas/SignatureEntry"
-                        }
-                    }
-                },
-                "required": ["requestId", "signatures"]
-            },
-            "SubmitDelegatedSignaturesResult": {
-                "title": "SubmitDelegatedSignaturesResult",
-                "type": "object",
-                "additionalProperties": true,
-                "description": "The ledger's response to the submitted transaction."
             }
         }
     }

@@ -12,34 +12,47 @@ set back.
 
 ## Why this needs no new concept in the driver interface
 
-The interface has been asynchronous all along. `signTransaction` may return
-`status: 'pending'`, and `getTransaction` is polled until the request
-completes — which is exactly how the remote-custody drivers (Fireblocks, DFNS,
-Securosys, …) park a request with a human approver elsewhere.
+The interface already allows `signTransaction` to answer `status: 'pending'`,
+which is how the remote-custody drivers (Fireblocks, DFNS, Securosys, …) park
+a request with an approver elsewhere. This driver borrows only that: it says
+"not signed, and not by me", and points at where the signing will happen.
 
-This driver is the same shape, with a set of human owners in place of a custody
-service. The only additions anywhere are optional:
-
-- `Transaction.signatures[]` on the signing API, alongside the existing
-  singular `signature`, because a threshold party is authorized by a set.
-  Every other driver keeps returning `signature` alone and needs no change.
-- Extra fields passed through `SignTransactionParams`, which is already
-  declared `additionalProperties: true`, so no parameter schema changed.
+**The signing OpenRPC document is unchanged** — byte-identical to `main`. The
+per-wallet coordinator and the party/command context travel through
+`SignTransactionParams`, which is already declared
+`additionalProperties: true`, so no schema moved and no other driver is
+affected.
 
 ## How a request flows
 
 1. `prepareExecute` finds the acting wallet's `signingProviderId` is
    `decentralized` and calls into this driver.
-2. `signTransaction` records a pending request and returns the URL an owner
-   must visit, marked `userUrlKind: 'handoff'` — a statement that the page is
-   _another application_, not this wallet's own approve page, so a browser
-   client gives it a real tab rather than a transient popup and a non-browser
-   client can act on the same distinction.
+2. `signTransaction` returns the URL an owner must visit, marked
+   `userUrlKind: 'handoff'` — a statement that the page is _another
+   application_, not this wallet's own approve page, so a browser client
+   gives it a real tab rather than a transient popup and a non-browser client
+   can act on the same distinction. Nothing is recorded.
 3. Owners sign the prepared transaction with their own individual wallets
    (`signPreparedTransaction`), independently of each other.
-4. The coordinator hands the collected set back via
-   `submitDelegatedSignatures`, which calls `submitSignatures` here and then
-   submits to Canton exactly once.
+4. Whichever owner finalizes submits the collected set to Canton themselves.
+   The gateway is not involved and never hears about it.
+
+## Why it keeps no state
+
+The gateway records nothing for a delegated party — no `Transaction` row, no
+parked request here. That is deliberate.
+
+A record the gateway never completes can only be closed by a scoped store
+write, and the owner who finalizes a coordination is usually a _different
+gateway account_ from the one who prepared it. So a kept record would never be
+closed by anyone, on every coordinated transaction — and because such rows
+carry an `externalTxId`, they are exactly the ones the signing worker treats
+as pickup candidates. Keeping none is what makes the handoff clean.
+
+The consequence to be aware of: the gateway has no history of delegated
+transactions, and `txChanged` never reaches `executed` for one. Owners learn a
+coordination's progress from the coordinator and its outcome from the ledger,
+which is what a dApp acting for such a party should be doing anyway.
 
 ## Configuration
 
@@ -60,8 +73,7 @@ strand the key that actually authorizes it.
   decentralized namespace is no key's fingerprint. Matching here would only
   ever be wrong, so the provider is assigned explicitly instead.
 - **`signMessage` and `createKey` are refused.** There is no key here.
-- **Signature verification is best-effort.** `signedBy` is a fingerprint,
-  which is not enough to check a signature on its own; a caller that also
-  supplies the raw public key gets it verified against the hash the request
-  was created for. Canton verifies the whole set at submission regardless —
-  checking here just names the offending signer instead of failing anonymously.
+- **It verifies no signatures and tracks no requests.** `getTransaction`
+  reports not-found by design. Canton verifies the collected set against the
+  hash it derives from the transaction at submission, which is the check that
+  decides the outcome.

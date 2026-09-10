@@ -307,12 +307,10 @@ export async function initialize(opts: CliOptions, logger: Logger) {
         [SigningProvider.WALLET_KERNEL]: new InternalSigningDriver(
             signingStore
         ),
-        // Always registered: it holds no credentials of its own, and which
-        // coordinator a party delegates to is per-wallet
+        // Always registered: it holds no credentials, no keys and no state.
+        // Which coordinator a party delegates to is per-wallet
         // (`Wallet.delegatedSigningUrl`), not per-deployment config.
-        [SigningProvider.DECENTRALIZED]: new DecentralizedSigningDriver(
-            signingStore
-        ),
+        [SigningProvider.DECENTRALIZED]: new DecentralizedSigningDriver(),
         [SigningProvider.FIREBLOCKS]: new FireblocksSigningProvider({
             defaultKeyInfo: keyInfo,
             userApiKeys,

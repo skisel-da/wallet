@@ -162,39 +162,6 @@ export type PreparedTransaction = string
  *
  */
 export type PreparedTransactionHash = string
-/**
- *
- * Id of the delegated signing request, as handed to the coordinator in its URL.
- *
- */
-export type RequestId = string
-/**
- *
- * The signature over the prepared transaction's hash.
- *
- */
-export type Signature = string
-/**
- *
- * The public key that produced the signature.
- *
- */
-export type SignedBy = string
-/**
- *
- * One owner's signature over a prepared transaction, collected off-ledger before combined submission.
- *
- */
-export interface SignatureEntry {
-    signature: Signature
-    signedBy: SignedBy
-}
-/**
- *
- * Every owner's signature over the request's prepared-transaction hash.
- *
- */
-export type Signatures = SignatureEntry[]
 export type RequestMethod = 'get' | 'post' | 'patch' | 'put' | 'delete'
 export type Resource = string
 export interface Body {
@@ -473,6 +440,18 @@ export interface TxChangedPendingEvent {
 export type StatusSigned = 'signed'
 /**
  *
+ * The signature over the prepared transaction's hash.
+ *
+ */
+export type Signature = string
+/**
+ *
+ * The public key that produced the signature.
+ *
+ */
+export type SignedBy = string
+/**
+ *
  * Payload for the TxChangedSignedEvent.
  *
  */
@@ -672,15 +651,6 @@ export interface SignPreparedTransactionParams {
 }
 /**
  *
- * Signatures collected for one delegated signing request.
- *
- */
-export interface SubmitDelegatedSignaturesRequest {
-    requestId: RequestId
-    signatures: Signatures
-}
-/**
- *
  * Ledger API request structure
  *
  */
@@ -718,14 +688,6 @@ export interface SignTopologyTransactionsResult {
 export interface SignPreparedTransactionResult {
     requestId: PreparedTransactionRequestId
     userUrl: UserUrl
-}
-/**
- *
- * The ledger's response to the submitted transaction.
- *
- */
-export interface SubmitDelegatedSignaturesResult {
-    [key: string]: any
 }
 /**
  *
@@ -807,9 +769,6 @@ export type SignTopologyTransactions = (
 export type SignPreparedTransaction = (
     params: SignPreparedTransactionParams
 ) => Promise<SignPreparedTransactionResult>
-export type SubmitDelegatedSignatures = (
-    params: SubmitDelegatedSignaturesRequest
-) => Promise<SubmitDelegatedSignaturesResult>
 export type LedgerApi = (params: LedgerApiParams) => Promise<LedgerApiResult>
 export type Connected = () => Promise<StatusEvent>
 export type OnStatusChanged = () => Promise<StatusEvent>

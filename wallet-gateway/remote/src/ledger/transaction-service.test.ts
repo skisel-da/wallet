@@ -878,59 +878,6 @@ describe('TransactionService', () => {
         })
     })
 
-    describe('executeDelegated', () => {
-        it('submits every collected signature in a single executeAndWait call', async () => {
-            const postWithRetry = vi
-                .fn()
-                .mockResolvedValue({ updateId: 'multi-sig-update-1' })
-            const ledgerClient = {
-                postWithRetry,
-            } as unknown as LedgerClient
-            const service = createService(createStore(), {}, notifier, logger)
-
-            const result = await service.executeDelegated(
-                authContext.userId,
-                ledgerClient,
-                {
-                    preparedTransaction: pendingTransaction.preparedTransaction,
-                    partyId: 'decentralized-party::namespace',
-                    commandId: pendingTransaction.commandId,
-                    signatures: [
-                        { signature: 'sig-owner-1', signedBy: 'owner-1-key' },
-                        { signature: 'sig-owner-2', signedBy: 'owner-2-key' },
-                    ],
-                }
-            )
-
-            expect(postWithRetry).toHaveBeenCalledWith(
-                '/v2/interactive-submission/executeAndWait',
-                expect.objectContaining({
-                    userId: authContext.userId,
-                    preparedTransaction: pendingTransaction.preparedTransaction,
-                    submissionId: pendingTransaction.commandId,
-                    partySignatures: {
-                        signatures: [
-                            {
-                                party: 'decentralized-party::namespace',
-                                signatures: [
-                                    expect.objectContaining({
-                                        signature: 'sig-owner-1',
-                                        signedBy: 'owner-1-key',
-                                    }),
-                                    expect.objectContaining({
-                                        signature: 'sig-owner-2',
-                                        signedBy: 'owner-2-key',
-                                    }),
-                                ],
-                            },
-                        ],
-                    },
-                })
-            )
-            expect(result).toEqual({ updateId: 'multi-sig-update-1' })
-        })
-    })
-
     describe('signAndExecute', () => {
         const participantWallet = walletWithProvider(
             SigningProvider.PARTICIPANT

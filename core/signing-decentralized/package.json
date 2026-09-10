@@ -33,7 +33,6 @@
         "@types/node": "^25.9.4",
         "@vitest/coverage-v8": "^4.1.10",
         "tsdown": "^0.22.9",
-        "tweetnacl": "^1.0.3",
         "tweetnacl-util": "^0.15.1",
         "typescript": "^5.9.3",
         "vitest": "^4.1.10"
