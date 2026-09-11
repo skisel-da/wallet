@@ -243,10 +243,8 @@ export interface PreparedTransactionToSign {
     userId: string
     partyId: PartyId
     publicKey: string
-    /** Base64-encoded prepared transaction bytes -- the source of truth the signature is computed from. */
+    /** Base64-encoded prepared transaction bytes -- the only thing stored, and the source of truth for both the display and the hash that gets signed. */
     preparedTransaction: string
-    /** As supplied by the caller; independently re-verified against `preparedTransaction` at sign time, never trusted outright. */
-    preparedTransactionHash: string
     origin: string | null
     createdAt: Date
     signedAt?: Date

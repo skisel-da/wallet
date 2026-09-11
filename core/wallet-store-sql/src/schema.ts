@@ -143,7 +143,6 @@ interface PreparedTransactionToSignTable {
     partyId: string
     publicKey: string
     preparedTransaction: string
-    preparedTransactionHash: string
     origin: string | null
     userId: UserId
     networkId: string
@@ -556,7 +555,6 @@ export const fromPreparedTransactionToSign = (
         partyId: record.partyId,
         publicKey: record.publicKey,
         preparedTransaction: record.preparedTransaction,
-        preparedTransactionHash: record.preparedTransactionHash,
         origin: record.origin || null,
         networkId,
         createdAt: record.createdAt.toISOString(),
@@ -575,7 +573,6 @@ export const toPreparedTransactionToSign = (
         partyId: table.partyId,
         publicKey: table.publicKey,
         preparedTransaction: table.preparedTransaction,
-        preparedTransactionHash: table.preparedTransactionHash,
         origin: table.origin || null,
         createdAt: new Date(table.createdAt),
     }

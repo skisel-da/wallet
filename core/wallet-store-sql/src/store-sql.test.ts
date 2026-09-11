@@ -1077,7 +1077,6 @@ implementations.forEach(([name, StoreImpl]) => {
                 partyId: 'party-owner',
                 publicKey: 'publicKey',
                 preparedTransaction: 'cHJlcGFyZWQ=',
-                preparedTransactionHash: 'aGFzaA==',
                 origin: 'https://safe-app.example',
                 createdAt: new Date('2026-03-01T10:00:00.000Z'),
             }
@@ -1093,9 +1092,6 @@ implementations.forEach(([name, StoreImpl]) => {
             expect(fetched?.signature).toBe('signature-bytes')
             expect(fetched?.preparedTransaction).toBe(
                 record.preparedTransaction
-            )
-            expect(fetched?.preparedTransactionHash).toBe(
-                record.preparedTransactionHash
             )
 
             await store.removePreparedTransactionToSign('prep-1')
@@ -1123,7 +1119,6 @@ implementations.forEach(([name, StoreImpl]) => {
                     partyId: 'party-owner',
                     publicKey: 'publicKey',
                     preparedTransaction: 'cHJlcGFyZWQ=',
-                    preparedTransactionHash: 'aGFzaA==',
                     origin: null,
                     createdAt: new Date(),
                 })

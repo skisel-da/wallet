@@ -16,12 +16,14 @@ const {
     handleErrorToast,
     setLocationHref,
     parsePreparedTransaction,
+    hashPreparedTransaction,
 } = vi.hoisted(() => ({
     mockCreateUserClient: vi.fn(),
     showToast: vi.fn(),
     handleErrorToast: vi.fn(),
     setLocationHref: vi.fn(),
     parsePreparedTransaction: vi.fn(() => ({ summary: 'parsed' })),
+    hashPreparedTransaction: vi.fn(async () => 'hash-of-blob'),
 }))
 
 vi.mock('../index.js', () => ({}))
@@ -42,6 +44,7 @@ vi.mock('../state-manager.js', () => ({
 vi.mock('../utils.js', () => ({ showToast }))
 vi.mock('@canton-network/core-tx-visualizer', () => ({
     parsePreparedTransaction,
+    hashPreparedTransaction,
 }))
 vi.mock('@canton-network/core-wallet-ui-components', async (importOriginal) => {
     const actual =
@@ -64,7 +67,6 @@ function makePreparedTransactionToSignDto(
         partyId: string
         publicKey: string
         preparedTransaction: string
-        preparedTransactionHash: string
         origin: string
         createdAt: string
         signedAt: string
@@ -76,7 +78,6 @@ function makePreparedTransactionToSignDto(
         partyId: 'alice::1220abc',
         publicKey: 'pk',
         preparedTransaction: 'prepared-tx-blob',
-        preparedTransactionHash: 'hash-abc',
         origin: 'https://dapp.example',
         createdAt: '2024-06-01T12:00:00.000Z',
         ...overrides,
@@ -109,6 +110,7 @@ describe('UserUiSignPreparedTransaction', () => {
         handleErrorToast.mockReset()
         setLocationHref.mockReset()
         parsePreparedTransaction.mockClear()
+        hashPreparedTransaction.mockClear()
         mockCreateUserClient.mockResolvedValue(createMockUserClient())
         history.replaceState({}, '', '?requestId=req-1')
     })
@@ -128,10 +130,14 @@ describe('UserUiSignPreparedTransaction', () => {
 
         it('loads the request from the URL and renders the detail view', () => {
             expect(el.requestId).toBe('req-1')
-            expect(el.preparedTransactionHash).toBe('hash-abc')
             expect(parsePreparedTransaction).toHaveBeenCalledWith(
                 'prepared-tx-blob'
             )
+            // Derived from the blob the page is showing, not served with it.
+            expect(hashPreparedTransaction).toHaveBeenCalledWith(
+                'prepared-tx-blob'
+            )
+            expect(el.preparedTransactionHash).toBe('hash-of-blob')
             expect(
                 el.shadowRoot?.querySelector('wg-transaction-detail')
             ).not.toBeNull()

@@ -12,7 +12,6 @@ export async function up(db: Kysely<DB>): Promise<void> {
         .addColumn('partyId', 'text', (col) => col.notNull())
         .addColumn('publicKey', 'text', (col) => col.notNull())
         .addColumn('preparedTransaction', 'text', (col) => col.notNull())
-        .addColumn('preparedTransactionHash', 'text', (col) => col.notNull())
         .addColumn('origin', 'text')
         .addColumn('userId', 'text', (col) => col.notNull())
         .addColumn('networkId', 'text', (col) => col.notNull())

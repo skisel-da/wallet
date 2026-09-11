@@ -34,7 +34,6 @@ describe('buildCoordinationUrl', () => {
             buildCoordinationUrl('https://coordinator.example', {
                 requestId: 'request-1',
                 preparedTransaction: PREPARED,
-                preparedTransactionHash: TX_HASH,
                 partyId: PARTY,
                 commandId: 'command-1',
             })
@@ -45,16 +44,26 @@ describe('buildCoordinationUrl', () => {
         )
         expect(url.searchParams.get('requestId')).toBe('request-1')
         expect(url.searchParams.get('preparedTransaction')).toBe(PREPARED)
-        expect(url.searchParams.get('preparedTransactionHash')).toBe(TX_HASH)
         expect(url.searchParams.get('partyId')).toBe(PARTY)
         expect(url.searchParams.get('commandId')).toBe('command-1')
+    })
+
+    it('does not carry the hash: each owner derives it from the blob', () => {
+        const url = new URL(
+            buildCoordinationUrl('https://coordinator.example', {
+                requestId: 'request-1',
+                preparedTransaction: PREPARED,
+            })
+        )
+
+        expect(url.searchParams.has('preparedTransactionHash')).toBe(false)
+        expect(url.toString()).not.toContain(TX_HASH)
     })
 
     it('does not double the separator when the configured URL has a trailing slash', () => {
         const url = buildCoordinationUrl('https://coordinator.example/', {
             requestId: 'r',
             preparedTransaction: 'p',
-            preparedTransactionHash: 'h',
         })
         expect(url.startsWith('https://coordinator.example/coordinate?')).toBe(
             true

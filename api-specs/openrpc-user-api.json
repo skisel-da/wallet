@@ -2277,12 +2277,7 @@
                     "preparedTransaction": {
                         "title": "preparedTransaction",
                         "type": "string",
-                        "description": "Base64-encoded prepared transaction bytes -- the source of truth the signature is computed from. The wallet decodes this directly for display; nothing is precomputed/stored."
-                    },
-                    "preparedTransactionHash": {
-                        "title": "preparedTransactionHash",
-                        "type": "string",
-                        "description": "As supplied at receipt time; never trusted outright -- independently re-verified against preparedTransaction at sign time."
+                        "description": "Base64-encoded prepared transaction bytes -- the only thing stored, and the source of truth for both the display and the hash that gets signed."
                     },
                     "origin": {
                         "title": "origin",
@@ -2313,7 +2308,6 @@
                     "partyId",
                     "publicKey",
                     "preparedTransaction",
-                    "preparedTransactionHash",
                     "createdAt"
                 ]
             },

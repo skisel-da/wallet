@@ -43,9 +43,11 @@ export async function buildDelegatedHandoff(
 
     const params: DelegatedSignTransactionParams = {
         tx: request.preparedTransaction,
-        // The coordinator and every co-signing wallet work from the base64
-        // Canton hash, so unlike the custody drivers this is passed through
-        // as-is rather than hex-encoded.
+        // Required by SignTransactionParams and ignored by this driver: the
+        // handoff carries only the prepared transaction, and each owner's
+        // wallet derives the hash it signs from those bytes. Passed as the
+        // base64 Canton hash rather than hex-encoded like the custody drivers
+        // do, since nothing here re-encodes it.
         txHash: request.preparedTransactionHash,
         keyIdentifier: { publicKey: wallet.publicKey },
         internalTxId: request.requestId,

@@ -1067,15 +1067,10 @@
                     "preparedTransaction": {
                         "title": "preparedTransaction",
                         "type": "string",
-                        "description": "Base64-encoded prepared transaction bytes to sign, as returned by the ledger API's interactive-submission prepare endpoint."
-                    },
-                    "preparedTransactionHash": {
-                        "title": "preparedTransactionHash",
-                        "type": "string",
-                        "description": "As supplied by the caller; the wallet independently recomputes this from preparedTransaction and refuses to sign if it doesn't match."
+                        "description": "Base64-encoded prepared transaction bytes to sign, as returned by the ledger API's interactive-submission prepare endpoint. The wallet derives the hash it signs from these bytes; there is no hash for a caller to supply."
                     }
                 },
-                "required": ["preparedTransaction", "preparedTransactionHash"]
+                "required": ["preparedTransaction"]
             },
             "SignPreparedTransactionResult": {
                 "title": "SignPreparedTransactionResult",

@@ -315,7 +315,6 @@ export const userController = (
             partyId: record.partyId,
             publicKey: record.publicKey,
             preparedTransaction: record.preparedTransaction,
-            preparedTransactionHash: record.preparedTransactionHash,
             ...(record.origin !== null && { origin: record.origin }),
             createdAt: record.createdAt.toISOString(),
             ...(record.signedAt && {
@@ -1243,32 +1242,25 @@ export const userController = (
                 )
             }
 
-            // Core security property: the hash is recomputed fresh from the
-            // raw prepared-transaction bytes stored at receipt time -- never
-            // trusted outright from whatever was supplied then, mirroring
-            // signTopologyTransactions's own principle. Unlike topology
-            // (which has no original hash to compare against at all), here
-            // a mismatch against the originally-supplied hash is treated as
-            // a hard failure: this request's preparedTransaction/Hash pair
-            // may have come from another wallet-gateway instance entirely
-            // (a Safe App coordinating other owners), not necessarily this
-            // one's own prepare call, so there's no other party to blame it
-            // on if they disagree.
-            const recomputedHash = await hashPreparedTransaction(
+            // The hash is derived here, from the raw prepared-transaction
+            // bytes stored at receipt time, and never taken from a caller --
+            // mirroring signTopologyTransactions's own principle. A supplied
+            // hash could only ever be checked against these bytes and then
+            // discarded, and for every owner but the first it would have
+            // arrived via a peer rather than from Canton, so it is not asked
+            // for at all. The one comparison worth making -- Canton's hash
+            // against this recompute -- happens where both are authentic, in
+            // dapp-api's prepareExecute.
+            const txHash = await hashPreparedTransaction(
                 pending.preparedTransaction
             )
-            if (recomputedHash !== pending.preparedTransactionHash) {
-                return await emitFailedAndPersist(
-                    `Prepared transaction hash mismatch for request ${pending.id}: the independently recomputed hash does not match the one supplied at receipt time`
-                )
-            }
 
             const result = await driver.signTransaction({
                 // Unused by the WALLET_KERNEL driver's signTransaction
                 // (it only inspects txHash and keyIdentifier), but required
                 // by SignTransactionParams.
                 tx: '',
-                txHash: recomputedHash,
+                txHash,
                 keyIdentifier: { publicKey: wallet.publicKey },
             })
 

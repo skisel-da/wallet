@@ -743,7 +743,7 @@ describe('dappController', () => {
             mockUuidV4.mockReturnValueOnce('transaction-id')
             ledgerMocks.postWithRetry.mockResolvedValueOnce({
                 preparedTransaction: 'prepared-blob',
-                preparedTransactionHash: 'hash',
+                preparedTransactionHash: 'hash-abc',
             })
             const store = await createStore(logger, auth, {
                 withWallet: false,
@@ -773,7 +773,9 @@ describe('dappController', () => {
             expect(url.searchParams.get('preparedTransaction')).toBe(
                 'prepared-blob'
             )
-            expect(url.searchParams.get('preparedTransactionHash')).toBe('hash')
+            // No hash: every wallet that signs derives it from the blob, so
+            // carrying one would only hand an owner a number written by a peer.
+            expect(url.searchParams.has('preparedTransactionHash')).toBe(false)
             expect(url.searchParams.get('partyId')).toBe('party::namespace')
             expect(url.searchParams.get('commandId')).toBe(
                 'generated-command-id'
@@ -783,12 +785,46 @@ describe('dappController', () => {
             expect(url.searchParams.get('requestId')).toBe('transaction-id')
         })
 
+        it('refuses to coordinate when its own hash recompute disagrees with the ledger', async () => {
+            mockUuidV4.mockReturnValueOnce('generated-command-id')
+            mockUuidV4.mockReturnValueOnce('transaction-id')
+            ledgerMocks.postWithRetry.mockResolvedValueOnce({
+                preparedTransaction: 'prepared-blob',
+                preparedTransactionHash: 'what-canton-says',
+            })
+            mockHashPreparedTransaction.mockResolvedValue('what-we-compute')
+            const store = await createStore(logger, auth, {
+                withWallet: false,
+            })
+            await store.addWallet({
+                ...primaryWallet,
+                signingProviderId: SigningProvider.DECENTRALIZED,
+                delegatedSigningUrl: 'https://safe.example',
+            })
+            const controller = createController(
+                store,
+                notificationService,
+                logger,
+                auth,
+                origin,
+                { signingDrivers: makeDelegatedDrivers() }
+            )
+
+            // Every owner would otherwise sign 'what-we-compute' and only find
+            // out at executeAndWait, on another gateway, after the whole round.
+            await expect(
+                controller.prepareExecute(prepareParams as never)
+            ).rejects.toThrow(
+                /recomputes the prepared transaction's hash as what-we-compute, but the ledger returned what-canton-says/
+            )
+        })
+
         it('does not leak a browser window-management flag into the response', async () => {
             mockUuidV4.mockReturnValueOnce('generated-command-id')
             mockUuidV4.mockReturnValueOnce('transaction-id')
             ledgerMocks.postWithRetry.mockResolvedValueOnce({
                 preparedTransaction: 'prepared-blob',
-                preparedTransactionHash: 'hash',
+                preparedTransactionHash: 'hash-abc',
             })
             const store = await createStore(logger, auth, {
                 withWallet: false,
@@ -850,7 +886,6 @@ describe('dappController', () => {
     describe('signPreparedTransaction', () => {
         const signPreparedTransactionParams = {
             preparedTransaction: 'prepared-blob',
-            preparedTransactionHash: 'hash-abc',
         }
 
         it('throws when preparedTransaction is missing', async () => {
@@ -863,12 +898,8 @@ describe('dappController', () => {
             )
 
             await expect(
-                controller.signPreparedTransaction({
-                    preparedTransactionHash: 'hash-abc',
-                } as never)
-            ).rejects.toThrow(
-                'preparedTransaction and preparedTransactionHash are required'
-            )
+                controller.signPreparedTransaction({} as never)
+            ).rejects.toThrow('preparedTransaction is required')
         })
 
         it('throws when auth context is missing', async () => {
@@ -928,9 +959,11 @@ describe('dappController', () => {
                     partyId: primaryWallet.partyId,
                     publicKey: primaryWallet.publicKey,
                     preparedTransaction: 'prepared-blob',
-                    preparedTransactionHash: 'hash-abc',
                     origin,
                 })
+            )
+            expect(setSpy.mock.calls[0][0]).not.toHaveProperty(
+                'preparedTransactionHash'
             )
             expect(emitSpy).toHaveBeenCalledWith(
                 'preparedTransactionSignature',

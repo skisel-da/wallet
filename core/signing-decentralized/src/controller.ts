@@ -61,13 +61,19 @@ export interface DelegatedHandoff extends Record<string, unknown> {
  * whose `prepareExecute` produced it (each owner authenticates to the
  * coordinator independently, as their own party), so there is no
  * same-origin-authenticated way for them to fetch it afterwards.
+ *
+ * Its hash does not travel with it. Every wallet that signs derives the hash
+ * from these bytes itself and would discard a supplied one after checking it,
+ * so carrying it would only hand each owner a number written by a peer. The
+ * one comparison that is worth making -- Canton's hash against this gateway's
+ * own recompute -- is made in dapp-api's `prepareExecute`, before this URL
+ * exists, where both values are authentic.
  */
 export function buildCoordinationUrl(
     delegatedSigningUrl: string,
     request: {
         requestId: string
         preparedTransaction: string
-        preparedTransactionHash: string
         partyId?: string
         commandId?: string
     }
@@ -76,7 +82,6 @@ export function buildCoordinationUrl(
     const query = new URLSearchParams({
         requestId: request.requestId,
         preparedTransaction: request.preparedTransaction,
-        preparedTransactionHash: request.preparedTransactionHash,
         ...(request.partyId ? { partyId: request.partyId } : {}),
         ...(request.commandId ? { commandId: request.commandId } : {}),
     })
@@ -134,7 +139,6 @@ export class DecentralizedSigningDriver implements SigningDriverInterface {
                     {
                         requestId,
                         preparedTransaction: params.tx,
-                        preparedTransactionHash: params.txHash,
                         ...(delegated.partyId
                             ? { partyId: delegated.partyId }
                             : {}),

@@ -153,16 +153,10 @@ export type TopologyTransactionBase64 = string
 export type Transactions = TopologyTransactionBase64[]
 /**
  *
- * Base64-encoded prepared transaction bytes to sign, as returned by the ledger API's interactive-submission prepare endpoint.
+ * Base64-encoded prepared transaction bytes to sign, as returned by the ledger API's interactive-submission prepare endpoint. The wallet derives the hash it signs from these bytes; there is no hash for a caller to supply.
  *
  */
 export type PreparedTransaction = string
-/**
- *
- * As supplied by the caller; the wallet independently recomputes this from preparedTransaction and refuses to sign if it doesn't match.
- *
- */
-export type PreparedTransactionHash = string
 export type RequestMethod = 'get' | 'post' | 'patch' | 'put' | 'delete'
 export type Resource = string
 export interface Body {
@@ -627,7 +621,6 @@ export interface SignTopologyTransactionsParams {
  */
 export interface SignPreparedTransactionParams {
     preparedTransaction: PreparedTransaction
-    preparedTransactionHash: PreparedTransactionHash
 }
 /**
  *

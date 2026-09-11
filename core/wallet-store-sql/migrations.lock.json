@@ -17,7 +17,7 @@
         "014-add-service-account-column": "c0ded6e7f8dfc190871e33773c9783abcabd2c6ff9b8dcd9e547f9a0fd3389e2",
         "015-add-origin-field-session": "5cbaf10e06567a9d88d96bd1fc5df9f9db02c759810f1e445e82582c396ac6e1",
         "016-add-topology-bundles-to-sign": "8f093783438cab6286622a5577bbf884606311fd6ddb3e8069cc92bc0742632a",
-        "017-add-wallet-delegated-signing-url": "b1d442796ca7909acda215f4d84b12bac3e885f32ae4d9d1523bed6327d2b988",
-        "018-add-prepared-transactions-to-sign": "f198a42c7aeef5380c3c6ccc6e69e2007f1126e2bef02b75b719860e0758f91f"
+        "017-add-wallet-delegated-signing-url": "1f753af30fa28fde8c69ce290705b44ec1c4264a7ef0c1b51ffccb3d7f6fd816",
+        "018-add-prepared-transactions-to-sign": "be61dc308c465940ce8e9fe9a5fe668768d6cd11b463fe08f8132280820de121"
     }
 }

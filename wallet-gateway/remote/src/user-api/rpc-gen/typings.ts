@@ -553,19 +553,12 @@ export type Bundles = TopologyBundleRaw[]
  *
  */
 export type PreparedTransaction = string
-/**
- *
- * The hash of the prepared transaction.
- *
- */
-export type PreparedTransactionHash = string
 export interface PreparedTransactionToSign {
     id: PreparedTransactionRequestId
     status: Status
     partyId: PartyId
     publicKey: PublicKey
     preparedTransaction: PreparedTransaction
-    preparedTransactionHash: PreparedTransactionHash
     origin?: Origin
     createdAt: CreatedAt
     signedAt?: SignedAt
@@ -594,6 +587,12 @@ export type Sessions = Session[]
  *
  */
 export type CommandId = string
+/**
+ *
+ * The hash of the prepared transaction.
+ *
+ */
+export type PreparedTransactionHash = string
 /**
  *
  * Optional payload associated with the transaction.

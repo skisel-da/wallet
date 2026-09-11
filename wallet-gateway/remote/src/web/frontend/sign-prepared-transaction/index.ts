@@ -9,6 +9,7 @@ import {
     toRelHref,
 } from '@canton-network/core-wallet-ui-components'
 import {
+    hashPreparedTransaction,
     ParsedTransactionInfo,
     parsePreparedTransaction,
 } from '@canton-network/core-tx-visualizer'
@@ -86,13 +87,18 @@ export class UserUiSignPreparedTransaction extends BaseElement {
             })
             this.status = result.record.status
             this.preparedTransaction = result.record.preparedTransaction
-            this.preparedTransactionHash = result.record.preparedTransactionHash
             this.createdAt = result.record.createdAt ?? null
             this.signedAt = result.record.signedAt ?? null
             this.origin = result.record.origin ?? null
 
             try {
                 this.txParsed = parsePreparedTransaction(
+                    this.preparedTransaction
+                )
+                // Derived from the same bytes shown above, and the same
+                // derivation the gateway signs -- not a string echoed back
+                // from whoever created the request.
+                this.preparedTransactionHash = await hashPreparedTransaction(
                     this.preparedTransaction
                 )
             } catch (error) {

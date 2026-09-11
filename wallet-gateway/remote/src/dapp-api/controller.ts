@@ -49,6 +49,7 @@ import { rpcErrors } from '@canton-network/core-rpc-errors'
 import { HASHING_SCHEME_VERSION } from '../env.js'
 import {
     decodeVersionedTopologyTransaction,
+    hashPreparedTransaction,
     summarizeTopologyTransaction,
 } from '@canton-network/core-tx-visualizer'
 
@@ -436,6 +437,31 @@ export const dappController = (
             let userUrlKind: 'approval' | 'handoff' = 'approval'
 
             if (isDelegated) {
+                // The only place in the system where Canton's own hash and
+                // core-tx-visualizer's independent recompute of it are both
+                // authentic and in hand at once. Everything downstream signs
+                // the recomputed hash -- each owner's wallet derives it from
+                // the prepared transaction itself -- so if the visualizer's
+                // hashing scheme ever drifts from Canton's (it pins V2), every
+                // owner would sign a hash Canton disagrees with, and nothing
+                // would say so until the finalizing owner's executeAndWait is
+                // rejected, on another gateway, after the whole signing round.
+                //
+                // Checked here rather than at sign time: once per transaction
+                // instead of once per owner, before a URL is built or anything
+                // is written to a ledger. Deliberately scoped to this branch --
+                // the ordinary approve path signs the Canton hash stored on the
+                // Transaction row and never consults the visualizer, so a
+                // divergence does not affect it and must not fail it.
+                const recomputedHash = await hashPreparedTransaction(
+                    prepared.preparedTransaction
+                )
+                if (recomputedHash !== prepared.preparedTransactionHash) {
+                    throw new Error(
+                        `Cannot coordinate a signature for party ${wallet.partyId}: this gateway recomputes the prepared transaction's hash as ${recomputedHash}, but the ledger returned ${prepared.preparedTransactionHash}. The hashing scheme used to prepare and the one used to sign have diverged; signatures collected against the recomputed hash would be rejected on submission.`
+                    )
+                }
+
                 const handoff = await buildDelegatedHandoff(
                     deps!.signingDrivers,
                     gatewayUserId,
@@ -684,13 +710,8 @@ export const dappController = (
         signPreparedTransaction: async (
             params: SignPreparedTransactionParams
         ): Promise<SignPreparedTransactionResult> => {
-            if (
-                !params?.preparedTransaction ||
-                !params?.preparedTransactionHash
-            ) {
-                throw new Error(
-                    'preparedTransaction and preparedTransactionHash are required'
-                )
+            if (!params?.preparedTransaction) {
+                throw new Error('preparedTransaction is required')
             }
 
             const wallet = await store.getPrimaryWallet()
@@ -712,10 +733,11 @@ export const dappController = (
             // here -- core-tx-visualizer's parsePreparedTransaction decodes
             // preparedTransaction directly, on demand, the same way the
             // existing approve page already does for an ordinary
-            // single-signer ledger transaction. Only the raw bytes are ever
-            // signed; preparedTransactionHash is independently re-verified
-            // against them at sign time (see user-api's
-            // signPreparedTransaction), never trusted outright.
+            // single-signer ledger transaction. The prepared transaction is
+            // the only thing stored, and the hash that gets signed is derived
+            // from it at sign time (see user-api's signPreparedTransaction):
+            // a caller-supplied hash would be checked against these bytes and
+            // then discarded, so there is no reason to ask for one.
             await store.setPreparedTransactionToSign({
                 id: requestId,
                 status: 'pending',
@@ -723,7 +745,6 @@ export const dappController = (
                 partyId: wallet.partyId,
                 publicKey: wallet.publicKey,
                 preparedTransaction: params.preparedTransaction,
-                preparedTransactionHash: params.preparedTransactionHash,
                 origin: origin || null,
                 createdAt: new Date(),
             })
