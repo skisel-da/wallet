@@ -16,6 +16,21 @@ const repoRoot = getRepoRoot()
 
 const outdir = `${repoRoot}/core/ledger-proto/src/_proto`
 
+// execFileSync spawns the binary directly, with no shell -- so a `$(...)`
+// substitution in an argument is not expanded, it is handed to protoc as a
+// literal path. Resolve the plugin ourselves, and say which path was tried if
+// it is not there (protoc's own failure for a missing plugin is a bare
+// exit 1 with nothing on stderr).
+function tsProtoPluginPath(): string {
+    const pluginPath = `${repoRoot}/node_modules/.bin/protoc-gen-ts_proto`
+    if (!fs.existsSync(pluginPath)) {
+        throw new Error(
+            `protoc-gen-ts_proto not found at ${pluginPath} -- run \`pnpm install\` first.`
+        )
+    }
+    return pluginPath
+}
+
 const roots = [
     `${repoRoot}/.canton/protobuf/community`,
     `${repoRoot}/.canton/protobuf/lib`,
@@ -48,6 +63,12 @@ function generateProtos() {
 function generateProtosWithPlugin() {
     const ledgerApiRoot = `${repoRoot}/.canton/protobuf/ledger-api`
     const libRoot = `${repoRoot}/.canton/protobuf/lib`
+    // com/daml/ledger/api/v2/value.proto is fetched into its own root rather
+    // than alongside the rest of the ledger API, and commands.proto imports
+    // it -- so without this on the include path every ledger-api proto that
+    // reaches commands.proto fails to resolve and protoc compiles none of
+    // them.
+    const ledgerApiValueRoot = `${repoRoot}/.canton/protobuf/ledger-api-value`
 
     const ledgerApiFiles = getAllFilesWithExtension(
         ledgerApiRoot,
@@ -57,10 +78,10 @@ function generateProtosWithPlugin() {
 
     const libFiles = getAllFilesWithExtension(libRoot, '.proto', true)
 
-    const protoRoots = [ledgerApiRoot, libRoot]
+    const protoRoots = [ledgerApiRoot, ledgerApiValueRoot, libRoot]
 
     const protocArgs = [
-        '--plugin=protoc-gen-ts_proto=$(pnpm bin protoc-gen-ts_proto)',
+        `--plugin=protoc-gen-ts_proto=${tsProtoPluginPath()}`,
         `--ts_out=${outdir}`,
         '--ts_opt=generate_dependencies',
         ...protoRoots.map((root) => `-I${root}`),
