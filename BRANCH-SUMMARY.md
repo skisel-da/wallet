@@ -48,7 +48,7 @@ serve several independently coordinated parties. The driver is always
 registered and holds no credentials.
 
 **The gateway keeps no record of a delegated transaction.** It builds the
-handoff URL and steps out: no `Transaction` row, nothing parked in the driver.
+coordination URL and steps out: no `Transaction` row, nothing parked in the driver.
 That is not an oversight but the point. A record it never completes could only
 be closed by a scoped store write, and the owner who finalizes a coordination
 is usually a _different gateway account_ from the one who prepared it — so any
@@ -95,19 +95,25 @@ approval page, and dapp-sdk client wiring.
     caller's behalf; it was removed because the only thing it really bought was
     closing a record the gateway should not have been keeping (see §1).
 
-### 4. `userUrlKind`: what a page _is_, not which window to use
+### 4. Routing stays inside the wallet: no change to `prepareExecute`
 
-`prepareExecute` returns `userUrlKind: 'approval' | 'handoff'`. An approval is
-this wallet's own short-lived approve page; a handoff is a different
-application, where the party's other owners take part and the user may stay a
-while. A browser client gives a handoff a real tab instead of a cramped popup;
-a CLI or mobile client can act on the same distinction.
+For a delegated party `prepareExecute` responds exactly as for any other: the
+ordinary approve page's `userUrl`, which the SDK opens in its usual popup. The
+coordination URL rides in that page's fragment (`#delegate=<url>`), never in
+the query, since there is no `Transaction` row to fetch the prepared
+transaction from and a fragment never reaches the gateway's server. The approve
+page checks the party is a `decentralized` wallet in this account and that the
+URL is that wallet's own `delegatedSigningUrl` + `/coordinate`, shows the decoded transaction and
+its recomputed hash, and offers **Continue in Party Manager** in place of
+Approve. That opens the coordinator in a new tab (`noopener`) from the click,
+so no popup blocker objects, and closes the popup.
 
-This deliberately replaces an earlier `openInNewWindow` boolean, which was a
-browser window-management instruction sitting in a published protocol and
-meaningless to a non-browser client. The bug that flag was working around — a
-wallet page hijacking the very window it was trying to open — was a
-window-_naming_ collision, fixed at its root in `popup.ts` (see Part 3).
+This replaces an earlier `userUrlKind: 'approval' | 'handoff'` field on the
+result, and before that an `openInNewWindow` boolean. Both were routing in the
+dApp API, which every wallet and SDK would have had to adopt. The bug the
+boolean was working around, a wallet page hijacking the window it was trying
+to open, was a window-_naming_ collision, fixed at its root in `popup.ts`
+(see Part 3).
 
 ### 5. Party import
 
@@ -146,7 +152,7 @@ Plus two event types, `topologyTransactionsSignature` and
 **Both must be forwarded over the SSE `/events` endpoint** — a missing
 forwarding there hangs the dApp forever with no error.
 
-`prepareExecute`'s result gains the optional `userUrlKind` described above.
+`prepareExecute`'s result is unchanged (see Part 1, §4).
 
 ### 2. The clear-signing contract
 

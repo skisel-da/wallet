@@ -296,12 +296,6 @@ export interface Session {
 }
 /**
  *
- * What the page at userUrl is, so a client can present it appropriately. 'approval' is this wallet's own short-lived approve/sign page for the calling user. 'handoff' is a different application, where other people take part and the user may stay for a while -- multi-owner coordination for a party whose signing is delegated. A browser client should give a handoff a normal tab rather than a small transient popup; a CLI or mobile client can act on the distinction too, which is why this says what the page IS rather than which window to use. Absent means 'approval'.
- *
- */
-export type UserUrlKind = 'approval' | 'handoff'
-/**
- *
  * The unique identifier of the message associated with the message to be signed.
  *
  */
@@ -669,7 +663,6 @@ export interface StatusEvent {
 export type Null = null
 export interface PrepareExecuteResult {
     userUrl: UserUrl
-    userUrlKind?: UserUrlKind
 }
 export interface SignMessageResult {
     messageId: MessageId

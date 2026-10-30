@@ -9,6 +9,7 @@ import {
     toRelHref,
 } from '@canton-network/core-wallet-ui-components'
 import {
+    hashPreparedTransaction,
     ParsedTransactionInfo,
     parsePreparedTransaction,
 } from '@canton-network/core-tx-visualizer'
@@ -39,12 +40,20 @@ export class ApproveUi extends BaseElement {
     @state() accessor origin: string | null = null
     @state() accessor canSubmit = true
     @state() accessor walletCapabilityMessage: string | null = null
+    // Set when the acting party delegates its signing: the coordinator page
+    // the user is sent on to instead of approving here.
+    @state() accessor coordinationUrl: string | null = null
 
     connectedCallback(): void {
         super.connectedCallback()
         const url = new URL(window.location.href)
         this.transactionId = url.searchParams.get('transactionId') || ''
-        void this.updateState()
+        // dapp-api's prepareExecute puts it in the fragment for a party whose
+        // signing is delegated -- there is no Transaction row to fetch then.
+        const delegate = new URLSearchParams(url.hash.slice(1)).get('delegate')
+        void (delegate
+            ? this.updateDelegatedState(delegate)
+            : this.updateState())
     }
 
     private closeOrGoToList() {
@@ -106,7 +115,78 @@ export class ApproveUi extends BaseElement {
             : 'The selected wallet is read-only for submission (no CanActAs/CanExecuteAs right).'
     }
 
+    /**
+     * A party whose signing is delegated (signingProviderId 'decentralized')
+     * is not approved here: its owners sign in the coordinator. The dApp got
+     * this same approve page, as for any other party, so the routing happens
+     * here rather than in the dApp API.
+     *
+     * The link is only offered if the party really is a delegated wallet in
+     * this account and the URL really is its own coordinator -- the fragment
+     * is input, the wallet's configuration is not.
+     */
+    private async updateDelegatedState(coordinationUrl: string) {
+        const currentOrigin = await detectCurrentOrigin()
+        const userClient = await createUserClient(
+            await stateManager.accessToken.get(currentOrigin)
+        )
+        const wallets = await userClient.request({
+            method: 'listWallets',
+            params: {},
+        })
+
+        let coordination: URL
+        try {
+            coordination = new URL(coordinationUrl)
+        } catch {
+            this.walletCapabilityMessage = 'Malformed coordination link.'
+            return
+        }
+        const partyId = coordination.searchParams.get('partyId') || ''
+        const wallet = wallets.find((w) => w.partyId === partyId)
+        const base = wallet?.delegatedSigningUrl?.replace(/\/+$/, '')
+        const expected = base ? new URL(`${base}/coordinate`) : null
+        if (
+            wallet?.signingProviderId !== 'decentralized' ||
+            !expected ||
+            coordination.origin !== expected.origin ||
+            coordination.pathname !== expected.pathname
+        ) {
+            this.walletCapabilityMessage = `Party ${partyId} does not delegate its signing to ${coordination.origin}.`
+            return
+        }
+
+        this.partyId = partyId
+        this.commandId = coordination.searchParams.get('commandId') || ''
+        this.tx = coordination.searchParams.get('preparedTransaction') || ''
+        this.status = 'pending'
+        this.coordinationUrl = coordination.toString()
+        try {
+            this.txParsed = parsePreparedTransaction(this.tx)
+            // Derived from the bytes shown, the same derivation every owner's
+            // wallet signs -- there is no stored Canton hash to show here.
+            this.txHash = await hashPreparedTransaction(this.tx)
+        } catch (error) {
+            console.error('Error parsing prepared transaction:', error)
+            this.txParsed = null
+        }
+    }
+
+    private continueToCoordinator() {
+        // A tab of its own, not this popup: the coordinator is another
+        // application, where the party's other owners take part and the user
+        // may stay a while. Opened from this click, so it is not blocked.
+        // noopener: it has no business scripting this wallet page.
+        window.open(this.coordinationUrl!, '_blank', 'noopener')
+        this.closeOrGoToList()
+    }
+
     private async handleReject() {
+        if (this.coordinationUrl) {
+            // Nothing was recorded for a delegated party, so nothing to delete.
+            this.closeOrGoToList()
+            return
+        }
         if (!confirm(`Reject pending activity "${this.commandId}"?`)) {
             return
         }
@@ -134,6 +214,10 @@ export class ApproveUi extends BaseElement {
     }
 
     private async handleApprove() {
+        if (this.coordinationUrl) {
+            this.continueToCoordinator()
+            return
+        }
         if (!this.canSubmit) {
             showToast(
                 'Read-only wallet',
@@ -219,6 +303,11 @@ export class ApproveUi extends BaseElement {
                 .isApproving=${this.isApproving}
                 .isDeleting=${this.isDeleting}
                 .disabled=${this.disabled}
+                .approveLabel=${
+                    this.coordinationUrl
+                        ? 'Continue in Party Manager'
+                        : 'Approve'
+                }
                 @transaction-approve=${this.handleApprove}
                 @transaction-delete=${this.handleReject}
             ></wg-transaction-detail>

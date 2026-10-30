@@ -419,9 +419,9 @@ export const dappController = (
             // usually a different gateway account from the one who prepared,
             // and closing a row is a scoped store write they cannot make -- so
             // every coordinated transaction would leak one. Nothing reads the
-            // row on this path either: unlike the approve page, which fetches
-            // the prepared transaction back by transactionId, the coordination
-            // URL carries it directly.
+            // row on this path either: the approve page normally fetches the
+            // prepared transaction back by transactionId, but for a delegated
+            // party it reads it from the coordination URL in its fragment.
             const isDelegated =
                 wallet.signingProviderId === SigningProvider.DECENTRALIZED
 
@@ -434,7 +434,6 @@ export const dappController = (
             }
 
             let approveUrl = `${userUrl}/approve/index.html?transactionId=${transactionId}&commandId=${commandId}&closeafteraction`
-            let userUrlKind: 'approval' | 'handoff' = 'approval'
 
             if (isDelegated) {
                 // The only place in the system where Canton's own hash and
@@ -474,8 +473,17 @@ export const dappController = (
                         commandId,
                     }
                 )
-                approveUrl = handoff.userUrl
-                userUrlKind = handoff.userUrlKind
+                // Same approve page, same response shape as for any other
+                // party: routing to the coordinator is the wallet's business,
+                // not the dApp API's. The approve page sees the fragment,
+                // checks the party really delegates to this coordinator, and
+                // offers "Continue in Party Manager" instead of Approve.
+                //
+                // In the fragment, not the query: there is no Transaction row
+                // for the page to fetch the prepared transaction from, so it
+                // has to travel in the URL, and a fragment is never sent to
+                // the gateway's own server (no request-line limit, no logs).
+                approveUrl += `#delegate=${encodeURIComponent(handoff.userUrl)}`
             } else {
                 await store.setTransaction(transaction)
             }
@@ -522,16 +530,9 @@ export const dappController = (
                 }
             }
 
-            // The closeafteraction flag on the ordinary approve page makes
-            // approving or deleting a tx close the popup. A coordinator URL
-            // carries no such flag: it is a different application, where the
-            // party's other owners take part and the user may stay a while.
-            //
-            // userUrlKind says which of those this is. It is a statement
-            // about the page, not an instruction about windows -- a browser
-            // client gives a handoff a real tab instead of a cramped popup,
-            // and a CLI or mobile client can act on the same distinction.
-            return { userUrl: approveUrl, userUrlKind }
+            // The closeafteraction flag on the approve page makes approving,
+            // rejecting or continuing to the coordinator close the popup.
+            return { userUrl: approveUrl }
         },
         status: async () => {
             const provider = {

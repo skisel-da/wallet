@@ -38,32 +38,6 @@ const withTimeout = (
         })
     }, timeoutMs)
 
-// The wallet says what the page IS; this decides how to show it.
-//
-// An 'approval' is this wallet's own short-lived approve page -- the shared
-// popup is exactly right for it. A 'handoff' is a different application where
-// the party's other owners take part and the user may stay for a long time;
-// the 400x600 popup is the wrong frame for that, so it gets a normal tab.
-//
-// Note this is not the old openInNewWindow flag reinstated. That was a browser
-// instruction in the protocol, and it was also load-bearing for a bug -- a
-// window-name collision that let a wallet page hijack the window it was
-// opening, since fixed in popup.ts. What travels now is a fact about the page,
-// which a non-browser client can act on too.
-const openUserUrl = (response: {
-    userUrl?: string
-    userUrlKind?: 'approval' | 'handoff'
-}) => {
-    if (!response.userUrl) return
-    if (response.userUrlKind === 'handoff') {
-        // No feature string: passing one makes some browsers open a popup
-        // window rather than a tab, which is the very thing being avoided.
-        window.open(response.userUrl, '_blank')
-        return
-    }
-    popup.open(response.userUrl)
-}
-
 export const dappSDKController = (provider: DappAsyncProvider) =>
     buildController({
         connect: async (): Promise<ConnectResult> => {
@@ -113,7 +87,7 @@ export const dappSDKController = (provider: DappAsyncProvider) =>
                 params,
             })
 
-            openUserUrl(response)
+            if (response.userUrl) popup.open(response.userUrl)
 
             return null
         },
@@ -129,7 +103,7 @@ export const dappSDKController = (provider: DappAsyncProvider) =>
                 },
             })
 
-            openUserUrl(response)
+            if (response.userUrl) popup.open(response.userUrl)
 
             const promise = new Promise<PrepareExecuteAndWaitResult>(
                 (resolve, reject) => {

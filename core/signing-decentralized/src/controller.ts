@@ -39,15 +39,13 @@ export interface DelegatedSignTransactionParams extends SignTransactionParams {
 /** What a delegated party's `signTransaction` reports back. */
 export interface DelegatedHandoff extends Record<string, unknown> {
     delegatedSigningUrl: string
-    /** Where a human owner is sent to take part in the coordination. */
-    userUrl: string
     /**
-     * Always 'handoff': this URL is someone else's application, where the
-     * party's other owners take part, not this wallet's own approve page.
-     * Stated as a fact about the page so each client can decide how to
-     * present it -- a browser gives it a real tab, not a transient popup.
+     * Where a human owner is sent to take part in the coordination. Never
+     * returned to the dApp: the gateway hands the dApp its ordinary approve
+     * page, and that page links on to this one (see dapp-api's
+     * `prepareExecute`), so routing stays out of the dApp API.
      */
-    userUrlKind: 'handoff'
+    userUrl: string
     partyId?: string
     commandId?: string
 }
@@ -151,7 +149,6 @@ export class DecentralizedSigningDriver implements SigningDriverInterface {
                 const handoff: DelegatedHandoff = {
                     delegatedSigningUrl: delegated.delegatedSigningUrl,
                     userUrl,
-                    userUrlKind: 'handoff',
                     ...(delegated.partyId
                         ? { partyId: delegated.partyId }
                         : {}),

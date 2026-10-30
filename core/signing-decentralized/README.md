@@ -27,11 +27,10 @@ affected.
 
 1. `prepareExecute` finds the acting wallet's `signingProviderId` is
    `decentralized` and calls into this driver.
-2. `signTransaction` returns the URL an owner must visit, marked
-   `userUrlKind: 'handoff'` — a statement that the page is _another
-   application_, not this wallet's own approve page, so a browser client
-   gives it a real tab rather than a transient popup and a non-browser client
-   can act on the same distinction. Nothing is recorded.
+2. `signTransaction` returns the URL an owner must visit. Nothing is
+   recorded. The dApp never sees this URL: `prepareExecute` returns the
+   gateway's ordinary approve page, exactly as for any other party, and that
+   page offers "Continue in Party Manager", which opens this URL in a new tab.
 3. Owners sign the prepared transaction with their own individual wallets
    (`signPreparedTransaction`), independently of each other.
 4. Whichever owner finalizes submits the collected set to Canton themselves.

@@ -22,12 +22,14 @@ const {
     handleErrorToast,
     setLocationHref,
     parsePreparedTransaction,
+    hashPreparedTransaction,
 } = vi.hoisted(() => ({
     mockCreateUserClient: vi.fn(),
     showToast: vi.fn(),
     handleErrorToast: vi.fn(),
     setLocationHref: vi.fn(),
     parsePreparedTransaction: vi.fn(() => ({ summary: 'parsed' })),
+    hashPreparedTransaction: vi.fn(async () => 'recomputed-hash'),
 }))
 
 vi.mock('../index.js', () => ({}))
@@ -48,6 +50,7 @@ vi.mock('../state-manager.js', () => ({
 vi.mock('../utils.js', () => ({ showToast }))
 vi.mock('@canton-network/core-tx-visualizer', () => ({
     parsePreparedTransaction,
+    hashPreparedTransaction,
 }))
 vi.mock('@canton-network/core-wallet-ui-components', async (importOriginal) => {
     const actual =
@@ -338,5 +341,105 @@ describe('UserUiApprove', () => {
         expect(mockRequest).not.toHaveBeenCalledWith(
             expect.objectContaining({ method: 'deleteTransaction' })
         )
+    })
+
+    describe('for a party that delegates its signing', () => {
+        const coordinationUrl =
+            'https://safe.example/coordinate?requestId=tx-1&preparedTransaction=delegated-blob&partyId=joint%3A%3Ans&commandId=cmd-d'
+        const delegatedWallet = makeWallet({
+            partyId: 'joint::ns',
+            signingProviderId: 'decentralized',
+            delegatedSigningUrl: 'https://safe.example/',
+        })
+
+        const open = async (
+            url = coordinationUrl,
+            wallet = delegatedWallet
+        ) => {
+            history.replaceState(
+                {},
+                '',
+                `?transactionId=tx-1&closeafteraction#delegate=${encodeURIComponent(url)}`
+            )
+            mockApproveState(makeTransaction(), wallet)
+            el = await fixture<ApproveUi>(componentFixture)
+        }
+
+        it('shows the prepared transaction from the fragment and offers to continue instead of approving', async () => {
+            await open()
+            await waitUntil(() => el.coordinationUrl !== null)
+
+            expect(mockRequest).not.toHaveBeenCalledWith(
+                expect.objectContaining({ method: 'getTransaction' })
+            )
+            expect(parsePreparedTransaction).toHaveBeenCalledWith(
+                'delegated-blob'
+            )
+            expect(el.commandId).toBe('cmd-d')
+            expect(el.partyId).toBe('joint::ns')
+            await waitUntil(() => el.txHash === 'recomputed-hash')
+            const detail = el.shadowRoot?.querySelector(
+                'wg-transaction-detail'
+            ) as unknown as { approveLabel: string }
+            expect(detail.approveLabel).toBe('Continue in Party Manager')
+        })
+
+        it('opens the coordinator in a new tab and never signs here', async () => {
+            await open()
+            await waitUntil(() => el.coordinationUrl !== null)
+            const openSpy = vi
+                .spyOn(window, 'open')
+                .mockReturnValue(null as unknown as Window)
+
+            el.shadowRoot
+                ?.querySelector('wg-transaction-detail')
+                ?.dispatchEvent(new TransactionApproveEvent('cmd-d'))
+
+            expect(openSpy).toHaveBeenCalledWith(
+                coordinationUrl,
+                '_blank',
+                'noopener'
+            )
+            expect(mockRequest).not.toHaveBeenCalledWith(
+                expect.objectContaining({ method: 'sign' })
+            )
+            expect(el.disabled).toBe(true)
+            openSpy.mockRestore()
+        })
+
+        it('rejects without deleting anything -- nothing was recorded', async () => {
+            await open()
+            await waitUntil(() => el.coordinationUrl !== null)
+
+            el.shadowRoot
+                ?.querySelector('wg-transaction-detail')
+                ?.dispatchEvent(new TransactionDeleteEvent('cmd-d'))
+
+            expect(mockRequest).not.toHaveBeenCalledWith(
+                expect.objectContaining({ method: 'deleteTransaction' })
+            )
+            expect(el.disabled).toBe(true)
+        })
+
+        it("offers nothing when the link is not the party's own coordinator", async () => {
+            await open(coordinationUrl.replace('safe.example', 'evil.example'))
+            await waitUntil(() => el.walletCapabilityMessage !== null)
+
+            expect(el.coordinationUrl).toBeNull()
+            expect(el.status).toBe('')
+        })
+
+        it('offers nothing when the party does not delegate its signing', async () => {
+            await open(
+                coordinationUrl,
+                makeWallet({
+                    partyId: 'joint::ns',
+                    signingProviderId: 'internal',
+                })
+            )
+            await waitUntil(() => el.walletCapabilityMessage !== null)
+
+            expect(el.coordinationUrl).toBeNull()
+        })
     })
 })

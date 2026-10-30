@@ -99,20 +99,6 @@ describe('DecentralizedSigningDriver', () => {
             expect(metadata?.userUrl).toContain('requestId=request-1')
         })
 
-        it('declares the coordination page a handoff, not an approval', async () => {
-            // A client needs to know this is someone else's application --
-            // a browser gives it a real tab instead of the small popup used
-            // for this wallet's own approve page.
-            const result = await driver
-                .controller(USER)
-                .signTransaction(signParams())
-
-            expect(
-                (result as { metadata?: { userUrlKind?: string } }).metadata
-                    ?.userUrlKind
-            ).toBe('handoff')
-        })
-
         it('refuses when the party has no coordinator configured', async () => {
             const result = await driver
                 .controller(USER)

@@ -656,12 +656,6 @@
                                     "title": "userUrl",
                                     "type": "string",
                                     "description": "Where a human must go to carry this signing request forward, when the provider needs one. Set by providers that delegate signing to an external coordinator (signingProviderId 'decentralized'); absent for providers that complete on their own, such as a custody service."
-                                },
-                                "userUrlKind": {
-                                    "title": "userUrlKind",
-                                    "type": "string",
-                                    "enum": ["approval", "handoff"],
-                                    "description": "What the page at userUrl is, so a client can present it appropriately. 'approval' is this wallet's own short-lived approve/sign page for the calling user. 'handoff' is a different application, where other people take part and the user may stay for a while -- multi-owner coordination for a party whose signing is delegated. A browser client should give a handoff a normal tab rather than a small transient popup; a CLI or mobile client can act on the distinction too, which is why this says what the page IS rather than which window to use. Absent means 'approval'."
                                 }
                             },
                             "required": ["status", "partyId", "externalTxId"]

@@ -58,6 +58,10 @@ export class WgTransactionDetail extends BaseElement {
     // Disables action buttons regardless of status
     @property({ type: Boolean }) disabled = false
 
+    // Label of the primary action. A party whose signing is delegated is not
+    // approved here: the same button sends the user on to its coordinator.
+    @property() approveLabel = 'Approve'
+
     @state() private decodedExpanded = false
 
     static styles = [
@@ -518,7 +522,7 @@ export class WgTransactionDetail extends BaseElement {
                               ></div>`
                             : nothing
                     }
-                    Approve
+                    ${this.approveLabel}
                 </button>
             </div>
         `

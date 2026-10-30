@@ -616,28 +616,6 @@ describe('dappController', () => {
             ).rejects.toThrow('No primary wallet found')
         })
 
-        it('labels an ordinary approve URL as an approval, not a handoff', async () => {
-            mockUuidV4.mockReturnValueOnce('generated-command-id')
-            mockUuidV4.mockReturnValueOnce('transaction-id')
-            ledgerMocks.postWithRetry.mockResolvedValueOnce({
-                preparedTransaction: 'prepared-blob',
-                preparedTransactionHash: 'hash',
-            })
-            const store = await createStore(logger, auth)
-            const controller = createController(
-                store,
-                notificationService,
-                logger,
-                auth
-            )
-
-            const result = await controller.prepareExecute(
-                prepareParams as never
-            )
-
-            expect(result!.userUrlKind).toBe('approval')
-        })
-
         it('prepares a transaction and returns the approve URL', async () => {
             mockUuidV4.mockReturnValueOnce('generated-command-id')
             mockUuidV4.mockReturnValueOnce('transaction-id')
@@ -738,7 +716,7 @@ describe('dappController', () => {
             expect(ledgerMocks.getSynchronizerId).toHaveBeenCalled()
         })
 
-        it('hands off to the coordinator instead of the approve page when the party delegates signing', async () => {
+        it('returns the ordinary approve page, carrying the coordinator URL in its fragment, when the party delegates signing', async () => {
             mockUuidV4.mockReturnValueOnce('generated-command-id')
             mockUuidV4.mockReturnValueOnce('transaction-id')
             ledgerMocks.postWithRetry.mockResolvedValueOnce({
@@ -766,7 +744,22 @@ describe('dappController', () => {
                 prepareParams as never
             )
 
-            const url = new URL(result!.userUrl!)
+            // The same approve page, and the same response shape, as for any
+            // other party -- the dApp cannot tell the difference.
+            expect(result).toEqual({ userUrl: expect.any(String) })
+            const approve = new URL(result!.userUrl!)
+            expect(approve.pathname).toMatch(/\/approve\/index\.html$/)
+            expect(approve.searchParams.get('transactionId')).toBe(
+                'transaction-id'
+            )
+            expect(approve.searchParams.has('closeafteraction')).toBe(true)
+            // The prepared transaction is never in the query: it would reach
+            // the gateway's own server, and its request-line limit.
+            expect(approve.search).not.toContain('prepared-blob')
+            const delegate = new URLSearchParams(approve.hash.slice(1)).get(
+                'delegate'
+            )
+            const url = new URL(delegate!)
             expect(url.origin + url.pathname).toBe(
                 'https://safe.example/coordinate'
             )
@@ -819,7 +812,7 @@ describe('dappController', () => {
             )
         })
 
-        it('does not leak a browser window-management flag into the response', async () => {
+        it('does not leak a routing marker into the response', async () => {
             mockUuidV4.mockReturnValueOnce('generated-command-id')
             mockUuidV4.mockReturnValueOnce('transaction-id')
             ledgerMocks.postWithRetry.mockResolvedValueOnce({
@@ -848,9 +841,8 @@ describe('dappController', () => {
             )
 
             expect(result).not.toHaveProperty('openInNewWindow')
-            // Replaced by a statement about the page rather than about
-            // windows -- the client decides tab vs popup from this.
-            expect(result!.userUrlKind).toBe('handoff')
+            // Nor any other routing marker: the approve page does the routing.
+            expect(result).not.toHaveProperty('userUrlKind')
         })
 
         it('throws when an API key tries to act as a party that delegates signing', async () => {
