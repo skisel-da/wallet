@@ -10,6 +10,17 @@ import { popup } from './popup.js'
 
 let activeWalletPickerWindow: WindowProxy | undefined
 
+/**
+ * The open wallet picker window, if any. Popup windows have unique names per
+ * page (see popup.ts), so an adapter that wants to show something in the
+ * picker -- WalletConnect's pairing link -- can't find it with
+ * window.open('', name) and needs this instead.
+ */
+export const getActiveWalletPickerWindow = (): WindowProxy | undefined =>
+    activeWalletPickerWindow && !activeWalletPickerWindow.closed
+        ? activeWalletPickerWindow
+        : undefined
+
 type WalletPickerConnectStatus = {
     messageType: 'SPLICE_WALLET_PICKER_CONNECT_STATUS'
     status: 'connected' | 'error'

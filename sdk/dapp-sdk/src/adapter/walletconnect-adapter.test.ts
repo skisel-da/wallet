@@ -65,6 +65,18 @@ beforeEach(() => {
     )
 })
 
+const { getActiveWalletPickerWindow } = vi.hoisted(() => ({
+    getActiveWalletPickerWindow: vi.fn(),
+}))
+
+vi.mock(
+    '@canton-network/core-wallet-ui-components',
+    async (importOriginal) => ({
+        ...(await importOriginal<object>()),
+        getActiveWalletPickerWindow,
+    })
+)
+
 const makeAdapter = (
     overrides: Partial<
         Pick<
@@ -263,7 +275,8 @@ describe('WalletConnectAdapter', () => {
             chainId: 'canton:devnet',
             request: {
                 method: 'canton_prepareSignExecute',
-                params: { commands: [] },
+                // A commandId is always sent, so a later txChanged can be matched.
+                params: { commands: [], commandId: 'request-id' },
             },
         })
         expect(txListener).toHaveBeenCalledWith({
@@ -297,14 +310,14 @@ describe('WalletConnectAdapter', () => {
             closed: false,
         }
 
-        const windowSpy = vi
-            .spyOn(window, 'open')
-            .mockReturnValue(mockPopupWindow as unknown as Window)
+        // The picker window comes from the UI components: popup names are
+        // unique per page, so it can't be found with window.open('', name).
+        getActiveWalletPickerWindow.mockReturnValue(mockPopupWindow)
 
         const adapter = makeAdapter()
         await adapter.request({ method: 'connect' })
 
-        expect(windowSpy).toHaveBeenCalledWith('', 'wallet-popup')
+        expect(getActiveWalletPickerWindow).toHaveBeenCalled()
         expect(mockPostMessage).toHaveBeenCalledWith(
             expect.objectContaining({
                 type: 'wc-uri',
@@ -316,8 +329,91 @@ describe('WalletConnectAdapter', () => {
             expect.any(Object),
             '*'
         )
+    })
 
-        // Resets real window.open behavior
-        windowSpy.mockRestore()
+    it('prepareExecute returns a pending answer without waiting', async () => {
+        const adapter = makeAdapter()
+        await adapter.request({ method: 'connect' })
+        mockSignClient.request.mockResolvedValueOnce({
+            commandId: 'cmd-2',
+            status: 'pending',
+        })
+
+        await expect(
+            adapter.request({
+                method: 'prepareExecute',
+                params: { commands: [], commandId: 'cmd-2' },
+            })
+        ).resolves.toEqual({ tx: { commandId: 'cmd-2', status: 'pending' } })
+    })
+
+    it('prepareExecuteAndWait waits past pending for the executed txChanged event', async () => {
+        const adapter = makeAdapter()
+        await adapter.request({ method: 'connect' })
+        mockSignClient.request.mockResolvedValueOnce({
+            commandId: 'cmd-3',
+            status: 'pending',
+        })
+
+        let settled = false
+        const result = adapter
+            .request({
+                method: 'prepareExecuteAndWait',
+                params: { commands: [], commandId: 'cmd-3' },
+            })
+            .finally(() => {
+                settled = true
+            })
+        await new Promise((r) => setTimeout(r, 0))
+        expect(settled).toBe(false)
+
+        const executed = {
+            commandId: 'cmd-3',
+            status: 'executed',
+            payload: { updateId: 'u', completionOffset: 7 },
+        }
+        sessionEventHandler()!({
+            params: { event: { name: 'txChanged', data: executed } },
+        })
+
+        await expect(result).resolves.toEqual({ tx: executed })
+    })
+
+    it('prepareExecuteAndWait rejects on a failed txChanged event', async () => {
+        const adapter = makeAdapter()
+        await adapter.request({ method: 'connect' })
+        mockSignClient.request.mockResolvedValueOnce({
+            commandId: 'cmd-4',
+            status: 'pending',
+        })
+
+        const result = adapter.request({
+            method: 'prepareExecuteAndWait',
+            params: { commands: [], commandId: 'cmd-4' },
+        })
+        await new Promise((r) => setTimeout(r, 0))
+        sessionEventHandler()!({
+            params: {
+                event: {
+                    name: 'txChanged',
+                    data: { commandId: 'cmd-4', status: 'failed' },
+                },
+            },
+        })
+
+        await expect(result).rejects.toThrow('cmd-4 failed to execute')
+    })
+
+    it('requests the txChanged event', async () => {
+        const adapter = makeAdapter()
+        await adapter.request({ method: 'connect' })
+
+        expect(mockSignClient.connect).toHaveBeenCalledWith({
+            requiredNamespaces: {
+                canton: expect.objectContaining({
+                    events: expect.arrayContaining(['txChanged']),
+                }),
+            },
+        })
     })
 })

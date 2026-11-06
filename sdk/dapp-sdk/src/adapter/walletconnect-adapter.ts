@@ -25,9 +25,11 @@ import type {
     ProviderId,
     ProviderType,
     StatusEvent,
+    TxChangedEvent,
 } from '@canton-network/core-wallet-dapp-rpc-client'
 import { WALLETCONNECT_ICON } from '../assets'
 import { composeSIWXMessage } from '../util'
+import { getActiveWalletPickerWindow } from '@canton-network/core-wallet-ui-components'
 
 const CANTON_WC_METHODS = [
     'canton_prepareSignExecute',
@@ -39,7 +41,13 @@ const CANTON_WC_METHODS = [
     'canton_signMessage',
 ]
 
-const CANTON_WC_EVENTS = ['accountsChanged', 'statusChanged']
+// txChanged lets a wallet report a transaction's outcome after answering
+// canton_prepareSignExecute early (pending), as CIP-103's txChanged does --
+// e.g. a wallet whose transactions need several signers.
+const CANTON_WC_EVENTS = ['accountsChanged', 'statusChanged', 'txChanged']
+
+// Same default as the remote transport's prepareExecuteAndWait.
+const EXECUTE_AND_WAIT_TIMEOUT_MS = 5 * 60 * 1000
 
 const PROVIDER_INFO: ProviderInfo = {
     id: 'walletconnect',
@@ -250,19 +258,44 @@ export class WalletConnectAdapter
         }
 
         // Both prepareExecute and prepareExecuteAndWait map to
-        // canton_prepareSignExecute — the wallet does the full
-        // prepare-sign-execute cycle and responds when complete.
+        // canton_prepareSignExecute. A wallet may answer with the executed
+        // transaction, or early with `pending` and report the outcome later
+        // as a txChanged session event (a wallet whose transactions need
+        // several signers). prepareExecute returns either way;
+        // prepareExecuteAndWait waits for executed or failed.
         if (
             args.method === 'prepareExecute' ||
             args.method === 'prepareExecuteAndWait'
         ) {
-            const result = await this.walletConnectRequest(
+            const params = {
+                ...(args.params as unknown as Record<string, unknown>),
+                commandId:
+                    (args.params as { commandId?: string })?.commandId ??
+                    crypto.randomUUID(),
+            }
+            const outcome =
+                args.method === 'prepareExecuteAndWait'
+                    ? this.waitForOutcome(params.commandId)
+                    : undefined
+            const result = await this.walletConnectRequest<TxChangedEvent>(
                 'prepareSignExecute',
-                args.params
+                params
             )
             // Emit locally so useTransactions / onTxChanged picks it up
             this.emit('txChanged', result)
-            return { tx: result } as DappRpcTypes[M]['result']
+            if (!outcome || result.status === 'executed') {
+                outcome?.cancel()
+                return { tx: result } as DappRpcTypes[M]['result']
+            }
+            if (result.status === 'failed') {
+                outcome.cancel()
+                throw new Error(
+                    `Transaction with commandId ${result.commandId} failed to execute.`
+                )
+            }
+            return {
+                tx: await outcome.promise,
+            } as DappRpcTypes[M]['result']
         }
 
         // Everything else is a direct pass-through
@@ -310,6 +343,50 @@ export class WalletConnectAdapter
             )
         }
         return this
+    }
+
+    /**
+     * The executed (or failed) txChanged for commandId, from the wallet's
+     * session events. Listening starts before the request is sent, so an
+     * event that beats the response isn't missed.
+     */
+    private waitForOutcome(commandId: string): {
+        promise: Promise<TxChangedEvent>
+        cancel: () => void
+    } {
+        let cancel = () => {}
+        const promise = new Promise<TxChangedEvent>((resolve, reject) => {
+            const listener = (event: TxChangedEvent) => {
+                if (event?.commandId !== commandId) return
+                if (event.status === 'executed') {
+                    done()
+                    resolve(event)
+                } else if (event.status === 'failed') {
+                    done()
+                    reject(
+                        new Error(
+                            `Transaction with commandId ${commandId} failed to execute.`
+                        )
+                    )
+                }
+            }
+            const timer = setTimeout(() => {
+                done()
+                reject(
+                    new Error(
+                        `Timed out waiting for transaction ${commandId} to execute.`
+                    )
+                )
+            }, EXECUTE_AND_WAIT_TIMEOUT_MS)
+            const done = () => {
+                clearTimeout(timer)
+                this.removeListener('txChanged', listener)
+            }
+            cancel = done
+            this.on('txChanged', listener)
+        })
+        promise.catch(() => {})
+        return { promise, cancel: () => cancel() }
     }
 
     // ── Private: WC request ─────────────────────────────────────────
@@ -472,8 +549,10 @@ export class WalletConnectAdapter
 
     private async showUriInPopup(uri: string): Promise<void> {
         try {
-            const popupWin = window.open('', 'wallet-popup')
-            if (!popupWin || popupWin.closed) return
+            // The picker, which shows the link and a QR code. Popup names are
+            // unique per page, so it can't be looked up by name.
+            const popupWin = getActiveWalletPickerWindow()
+            if (!popupWin) return
 
             let qrDataUrl: string | undefined
             try {
