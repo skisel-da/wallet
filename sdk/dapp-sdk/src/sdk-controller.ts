@@ -45,20 +45,73 @@ export const dappSDKController = (provider: DappAsyncProvider) =>
                 method: 'connect',
             })
 
-            popup.open(response.userUrl ?? '')
+            const win = popup.open(response.userUrl ?? '')
             const promise = new Promise<ConnectResult>((resolve, reject) => {
+                let settled = false
+                const settle = (finish: () => void) => {
+                    if (settled) return
+                    settled = true
+                    clearTimeout(timeout)
+                    clearInterval(closedPoller)
+                    window.removeEventListener('message', onMessage)
+                    finish()
+                }
+                const cancelled = (details: string) =>
+                    settle(() =>
+                        reject({
+                            status: 'error',
+                            error: ErrorCode.UserCancelled,
+                            details,
+                        })
+                    )
+
                 // 5 minutes timeout
                 const timeout = withTimeout(
                     reject,
                     'Timeout waiting for connection',
                     5 * 60 * 1000
                 )
+
+                // CIP-103 has no "connection declined" result. A wallet can
+                // say so explicitly with SPLICE_WALLET_CONNECT_REJECTED from
+                // the window this opened (an extension of the protocol, see
+                // the decentralizer PoC); any other wallet's user declines by
+                // closing the window, so a closed window counts too -- after
+                // one last status check, since a wallet may close its window
+                // right after succeeding.
+                const onMessage = (event: MessageEvent) => {
+                    if (
+                        event.source !== win ||
+                        event.data?.type !== 'SPLICE_WALLET_CONNECT_REJECTED'
+                    )
+                        return
+                    cancelled('The wallet declined the connection.')
+                }
+                window.addEventListener('message', onMessage)
+
+                const closedPoller = setInterval(() => {
+                    if (!win.closed) return
+                    clearInterval(closedPoller)
+                    provider
+                        .request({ method: 'status' })
+                        .then((status) => {
+                            if (!status.connection.isConnected) {
+                                throw new Error('not connected')
+                            }
+                            settle(() => resolve(status.connection))
+                        })
+                        .catch(() =>
+                            cancelled(
+                                'The wallet window was closed before connecting.'
+                            )
+                        )
+                }, 500)
+
                 provider.on<dappAsyncAPI.StatusEvent>(
                     'statusChanged',
                     (event) => {
                         if (event.connection.isConnected) {
-                            clearTimeout(timeout)
-                            resolve(event.connection)
+                            settle(() => resolve(event.connection))
                         }
                     }
                 )

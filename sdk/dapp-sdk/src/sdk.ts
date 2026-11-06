@@ -468,7 +468,19 @@ export class DappSDK {
                         )
                     } catch (retryError) {
                         cleanup()
-                        reject(retryError)
+                        // When no retry is possible -- the picker is closed, or
+                        // it was the window the wallet navigated to its own
+                        // origin, which then can't be read (SecurityError) --
+                        // the dApp gets why the connection failed, not why the
+                        // retry couldn't happen. A user cancelling the retry
+                        // picker is still reported as such.
+                        const pickerUnusable =
+                            (retryError instanceof DOMException &&
+                                retryError.name === 'SecurityError') ||
+                            (retryError instanceof Error &&
+                                retryError.message ===
+                                    'Wallet picker is not open')
+                        reject(pickerUnusable ? error : retryError)
                     }
                 }
             }
