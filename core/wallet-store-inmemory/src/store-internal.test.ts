@@ -1231,6 +1231,31 @@ implementations.forEach(([name, StoreImpl]) => {
             expect(await store.listMessageRaws('regular')).toHaveLength(0)
         })
 
+        test('should keep a typed message set and its messageType', async () => {
+            const message: MessageRaw = {
+                id: 'msg-topology',
+                kind: 'regular',
+                status: 'pending',
+                userId: authContextMock.userId,
+                partyId: 'party1',
+                publicKey: 'pk',
+                message: ['dHgw', 'dHgx'],
+                messageType: 'canton-topology-transactions',
+                origin: null,
+                createdAt: new Date('2026-01-01T00:00:00.000Z'),
+            }
+
+            await store.setMessageRaw(message)
+            await store.setMessageRawStatus('msg-topology', 'signed', {
+                signature: 'sig',
+            })
+
+            const stored = await store.getMessageRaw('msg-topology')
+            expect(stored?.message).toEqual(['dHgw', 'dHgx'])
+            expect(stored?.messageType).toBe('canton-topology-transactions')
+            expect(stored?.signature).toBe('sig')
+        })
+
         test('should list only message signing requests of the requested kind', async () => {
             const base: MessageRaw = {
                 id: 'msg-1',

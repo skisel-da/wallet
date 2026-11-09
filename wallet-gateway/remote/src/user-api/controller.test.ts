@@ -1501,7 +1501,8 @@ describe('userController', () => {
                 expect(SignMessageService).toHaveBeenCalledExactlyOnceWith(
                     store,
                     {},
-                    notificationService.getNotifier(session.id)
+                    notificationService.getNotifier(session.id),
+                    'HASHING_SCHEME_VERSION_V3'
                 )
                 expect(
                     signMessageServiceMocks.deleteMessage
@@ -1554,7 +1555,8 @@ describe('userController', () => {
                 expect(SignMessageService).toHaveBeenCalledExactlyOnceWith(
                     store,
                     drivers,
-                    notificationService.getNotifier(session.id)
+                    notificationService.getNotifier(session.id),
+                    'HASHING_SCHEME_VERSION_V3'
                 )
                 expect(
                     signMessageServiceMocks.sign
@@ -1608,7 +1610,8 @@ describe('userController', () => {
                 expect(SignMessageService).toHaveBeenCalledExactlyOnceWith(
                     store,
                     drivers,
-                    notificationService.getNotifier(session.id)
+                    notificationService.getNotifier(session.id),
+                    'HASHING_SCHEME_VERSION_V3'
                 )
                 expect(
                     signMessageServiceMocks.refreshMessage

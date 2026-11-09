@@ -59,6 +59,15 @@ function detailText(el: UserUiSignMessage) {
         ?.textContent
 }
 
+// Canton bytes as a dApp hands them to signMessage with a messageType:
+// core-tx-visualizer's v3-create-plain prepared transaction and its live
+// topology golden vector (whose multi-hash Canton itself computed).
+const PREPARED_TRANSACTION =
+    'Ct8ECgMyLjESATAasAQKATDCPqkECqYECgMyLjESQjAwOWE3N2MwMDg1YTcxYzk4YzI0YTZjNmVhN2FiOGE3YWU5MGQ3ZmMzMWJjMjFlMGY4NmJhYTgzMThmNjc0YjJjNhoMaGFzaC12ZWN0b3JzIlYKQDdhYzA2NTBlZjRkMzg2YTQyYmNiYzdmZTEyOWY0MTgwNmRhYTA0MDYzZmYwOTcwYTVhM2NkZDZmNGY4MjllNjgSC0hhc2hWZWN0b3JzGgVQbGFpbirAAXK9AQpWCkA3YWMwNjUwZWY0ZDM4NmE0MmJjYmM3ZmUxMjlmNDE4MDZkYWEwNDA2M2ZmMDk3MGE1YTNjZGQ2ZjRmODI5ZTY4EgtIYXNoVmVjdG9ycxoFUGxhaW4SYwoFb3duZXISWjpYaGFzaC12ZWN0b3JzLW93bmVyOjoxMjIwZWQzYjIxNzQ1NGJiNmRmNzE1MzlkODExOWQ2NzkyMTBlZjUyOGNhOGQzNjcxMTc3OWViMDlkNWQ3MzM3YjA5NTJYaGFzaC12ZWN0b3JzLW93bmVyOjoxMjIwZWQzYjIxNzQ1NGJiNmRmNzE1MzlkODExOWQ2NzkyMTBlZjUyOGNhOGQzNjcxMTc3OWViMDlkNWQ3MzM3YjA5NTpYaGFzaC12ZWN0b3JzLW93bmVyOjoxMjIwZWQzYjIxNzQ1NGJiNmRmNzE1MzlkODExOWQ2NzkyMTBlZjUyOGNhOGQzNjcxMTc3OWViMDlkNWQ3MzM3YjA5NSIiEiAgG/aBryCzULzqnIUtSxt6QhqaSPxEPec7P1A5OonL9RKGAhKAAQpYaGFzaC12ZWN0b3JzLW93bmVyOjoxMjIwZWQzYjIxNzQ1NGJiNmRmNzE1MzlkODExOWQ2NzkyMTBlZjUyOGNhOGQzNjcxMTc3OWViMDlkNWQ3MzM3YjA5NRIkMWRiOTE0Y2MtMjU5ZC00NmMwLWExYTAtNDk3YzJlOTcxYjJmGlJ3YWxsZXQ6OjEyMjBlN2IyM2VhNTJlYjVjNjcyZmIwYjFjZGJjOTE2OTIyZmZlZDNkZDc2NzZjMjIzYTYwNTY2NDMxNWUyZDQzZWRkOjozNS0wKiQ4MTY1MzI2NS01NmFhLTQzOGMtYjMxYS0yYzEwYTcwNzVhNmEw7+a/ivrTlwM='
+const TOPOLOGY_TRANSACTION =
+    'CoQCCAEQARr9AUr6AQphZ29sZGVuLXZlY3Rvci0xNzg3OTE3ODM4Mzk2OjoxMjIwMThhZDRlODg4MzM2YzMzNWE1ZTI1MWM1YTY2NmM1Yzg1M2I4ZThmNjY1OTA2NTMyYWNhOWJjMzVhNzAwYzVlMBABGlYKUnBhcnRpY2lwYW50MTo6MTIyMGQ5ZmQwMTgyZjk0MDc0NWU4MDQ4MDljNGZjMDNlYTM2ZWM4NTA5ZTYzOGFiNzY3NzUwN2VmNjliMDlkODUwNGIQAjI7CjcQBBosMCowBQYDK2VwAyEAvW4WzV5napgjv6Gmm3NaWoUKH5p1P3GvTHLaXgwD4iMqAwEFBDABEAEQHg=='
+const TOPOLOGY_MULTI_HASH = 'EiDM77M0c3GUM5jXpQTwaPxunJUaFSAYP5LIsczJO2pspw=='
+
 const signedResult = {
     status: 'signed',
     signature: 'signature',
@@ -134,6 +143,131 @@ describe('UserUiSignMessage', () => {
         expect(detailText(el)).toContain('Hello, Canton')
         expect(detailText(el)).toContain('https://dapp.example')
         expect(approveButton(el)).not.toBeNull()
+    })
+
+    it('decodes and renders a prepared transaction to co-sign', async () => {
+        history.replaceState({}, '', '?messageId=msg-prepared')
+        mockRequest.mockImplementation(async ({ method }) => {
+            if (method === 'getMessageToSign') {
+                return {
+                    message: {
+                        message: PREPARED_TRANSACTION,
+                        messageType: 'canton-prepared-transaction',
+                        origin: 'https://dapp.example',
+                        status: 'pending',
+                        createdAt: '2026-03-01T10:00:00.000Z',
+                    },
+                }
+            }
+            if (method === 'signMessage') return signedResult
+            return undefined
+        })
+
+        el = await fixture<UserUiSignMessage>(componentFixture)
+
+        await waitUntil(() => !el.isLoading && el.txParsed !== null)
+
+        expect(el.shadowRoot?.querySelector('wg-message-detail')).toBeNull()
+        const detail = el.shadowRoot?.querySelector('wg-transaction-detail')
+        expect(detail).not.toBeNull()
+        const text = (el.shadowRoot?.textContent ?? '').replace(/\s+/g, ' ')
+        expect(text).toContain('as one of the owners')
+        expect(text).toContain('not by this wallet')
+
+        detail?.dispatchEvent(new Event('transaction-approve'))
+
+        await waitUntil(() =>
+            mockRequest.mock.calls.some(
+                ([{ method }]) => method === 'signMessage'
+            )
+        )
+        await waitUntil(
+            () => setLocationHref.mock.calls.length > 0,
+            'navigation after sign',
+            { timeout: 3000 }
+        )
+        expect(mockRequest).toHaveBeenCalledWith({
+            method: 'signMessage',
+            params: { messageId: 'msg-prepared' },
+        })
+    })
+
+    it('decodes and renders a topology transaction set with its recomputed multi-hash', async () => {
+        history.replaceState({}, '', '?messageId=msg-topology')
+        mockRequest.mockImplementation(async ({ method }) => {
+            if (method === 'getMessageToSign') {
+                return {
+                    message: {
+                        message: [TOPOLOGY_TRANSACTION],
+                        messageType: 'canton-topology-transactions',
+                        origin: 'https://dapp.example',
+                        status: 'pending',
+                    },
+                }
+            }
+            if (method === 'signMessage') return signedResult
+            return undefined
+        })
+
+        el = await fixture<UserUiSignMessage>(componentFixture)
+
+        await waitUntil(() => !el.isLoading && el.topologyMultiHash !== '')
+
+        expect(el.topologySummaries).toHaveLength(1)
+        expect(el.topologySummaries[0]?.kind).toBe('partyToParticipant')
+        expect(el.topologyMultiHash).toBe(TOPOLOGY_MULTI_HASH)
+        const text = el.shadowRoot?.textContent ?? ''
+        expect(text).toContain('Party-to-participant mapping')
+        expect(text).toContain(
+            'golden-vector-1787917838396::122018ad4e888336c335a5e251c5a666c5c853b8e8f665906532aca9bc35a700c5e0'
+        )
+        expect(text).toContain(TOPOLOGY_MULTI_HASH)
+        expect(el.shadowRoot?.querySelector('wg-message-detail')).toBeNull()
+
+        el.shadowRoot
+            ?.querySelector<HTMLButtonElement>('.actions .btn-primary')
+            ?.click()
+
+        await waitUntil(() =>
+            mockRequest.mock.calls.some(
+                ([{ method }]) => method === 'signMessage'
+            )
+        )
+        await waitUntil(
+            () => setLocationHref.mock.calls.length > 0,
+            'navigation after sign',
+            { timeout: 3000 }
+        )
+        expect(showToast).toHaveBeenCalledWith(
+            '',
+            'Message signed successfully',
+            'success'
+        )
+    })
+
+    it('shows an error when a typed message does not decode', async () => {
+        history.replaceState({}, '', '?messageId=msg-bad')
+        mockRequest.mockImplementation(async ({ method }) => {
+            if (method === 'getMessageToSign') {
+                return {
+                    message: {
+                        message: 'not a prepared transaction',
+                        messageType: 'canton-prepared-transaction',
+                        status: 'pending',
+                    },
+                }
+            }
+            return undefined
+        })
+
+        el = await fixture<UserUiSignMessage>(componentFixture)
+
+        await waitUntil(() => el.loadError !== null)
+
+        expect(el.shadowRoot?.textContent).toContain(
+            'does not decode as canton-prepared-transaction'
+        )
+        expect(approveButton(el)).toBeUndefined()
     })
 
     it('calls signMessage when approve is clicked', async () => {

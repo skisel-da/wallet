@@ -155,15 +155,8 @@ export const dappSDKController = (provider: DappAsyncProvider) =>
                 method: 'signMessage',
                 params,
             })
-            const { userUrl } = response
+            const { messageId, userUrl } = response
             popup.open(userUrl)
-
-            const messageId = new URL(userUrl).searchParams.get('messageId')
-            if (!messageId) {
-                throw new Error(
-                    'Remote signMessage userUrl is missing messageId query param'
-                )
-            }
 
             return await new Promise<SignMessageResult>((resolve, reject) => {
                 const timeout = withTimeout(

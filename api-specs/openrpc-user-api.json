@@ -2489,8 +2489,30 @@
                     },
                     "message": {
                         "title": "message",
+                        "description": "The message to sign: a UTF-8 string, one base64 prepared transaction, or the base64 topology transactions of one set, depending on messageType.",
+                        "oneOf": [
+                            {
+                                "title": "messageText",
+                                "type": "string"
+                            },
+                            {
+                                "title": "messageSet",
+                                "type": "array",
+                                "items": {
+                                    "title": "messageEntry",
+                                    "type": "string"
+                                }
+                            }
+                        ]
+                    },
+                    "messageType": {
+                        "title": "messageType",
                         "type": "string",
-                        "description": "The message to sign."
+                        "enum": [
+                            "canton-prepared-transaction",
+                            "canton-topology-transactions"
+                        ],
+                        "description": "Present when the message carries Canton bytes rather than UTF-8 text; see the dApp API's MessageType."
                     },
                     "origin": {
                         "title": "origin",

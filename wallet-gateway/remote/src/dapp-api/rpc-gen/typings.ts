@@ -139,12 +139,23 @@ export type PackageId = string
  *
  */
 export type PackageIdSelectionPreference = PackageId[]
+export type MessageText = string
+export type MessageEntry = string
+export type MessageSet = MessageEntry[]
 /**
  *
- * The message to sign.
+ * What to sign. A UTF-8 string without a messageType; one base64-encoded PreparedTransaction for canton-prepared-transaction; the base64-encoded, UntypedVersionedMessage-wrapped topology transactions of one set for canton-topology-transactions.
  *
  */
-export type Message = string
+export type Message = MessageText | MessageSet
+/**
+ *
+ * Declares that the message carries Canton bytes rather than UTF-8 text, and which hash is signed. canton-prepared-transaction: the message is one prepared transaction and the signature is over Canton's prepared-transaction hash, so an owner of a multi-owner party can co-sign without submitting. canton-topology-transactions: the message is an array of topology transactions and the signature is over their combined multi-hash. The wallet refuses a message that does not decode as the declared type.
+ *
+ */
+export type MessageType =
+    | 'canton-prepared-transaction'
+    | 'canton-topology-transactions'
 export type RequestMethod = 'get' | 'post' | 'patch' | 'put' | 'delete'
 export type Resource = string
 export interface Body {
@@ -526,11 +537,12 @@ export interface PrepareExecuteParams {
 }
 /**
  *
- * Request to sign a message.
+ * Request to sign a message. Without a messageType the message is an arbitrary UTF-8 string, signed as-is. With a messageType the message carries base64-encoded Canton bytes the wallet decodes, displays and hashes itself before signing; nothing is submitted to the ledger.
  *
  */
 export interface SignMessageParams {
     message: Message
+    messageType?: MessageType
 }
 /**
  *

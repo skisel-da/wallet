@@ -87,6 +87,15 @@ const kernelInfo: KernelInfo = {
 }
 
 const dappUrl = 'https://dapp.api.example'
+
+// A prepared transaction as Canton's prepare returns it (core-tx-visualizer's
+// v3-create-plain fixture) and one UntypedVersionedMessage-wrapped topology
+// transaction as Canton's generate-topology returns it (the live golden
+// vector there).
+const PREPARED_TRANSACTION =
+    'Ct8ECgMyLjESATAasAQKATDCPqkECqYECgMyLjESQjAwOWE3N2MwMDg1YTcxYzk4YzI0YTZjNmVhN2FiOGE3YWU5MGQ3ZmMzMWJjMjFlMGY4NmJhYTgzMThmNjc0YjJjNhoMaGFzaC12ZWN0b3JzIlYKQDdhYzA2NTBlZjRkMzg2YTQyYmNiYzdmZTEyOWY0MTgwNmRhYTA0MDYzZmYwOTcwYTVhM2NkZDZmNGY4MjllNjgSC0hhc2hWZWN0b3JzGgVQbGFpbirAAXK9AQpWCkA3YWMwNjUwZWY0ZDM4NmE0MmJjYmM3ZmUxMjlmNDE4MDZkYWEwNDA2M2ZmMDk3MGE1YTNjZGQ2ZjRmODI5ZTY4EgtIYXNoVmVjdG9ycxoFUGxhaW4SYwoFb3duZXISWjpYaGFzaC12ZWN0b3JzLW93bmVyOjoxMjIwZWQzYjIxNzQ1NGJiNmRmNzE1MzlkODExOWQ2NzkyMTBlZjUyOGNhOGQzNjcxMTc3OWViMDlkNWQ3MzM3YjA5NTJYaGFzaC12ZWN0b3JzLW93bmVyOjoxMjIwZWQzYjIxNzQ1NGJiNmRmNzE1MzlkODExOWQ2NzkyMTBlZjUyOGNhOGQzNjcxMTc3OWViMDlkNWQ3MzM3YjA5NTpYaGFzaC12ZWN0b3JzLW93bmVyOjoxMjIwZWQzYjIxNzQ1NGJiNmRmNzE1MzlkODExOWQ2NzkyMTBlZjUyOGNhOGQzNjcxMTc3OWViMDlkNWQ3MzM3YjA5NSIiEiAgG/aBryCzULzqnIUtSxt6QhqaSPxEPec7P1A5OonL9RKGAhKAAQpYaGFzaC12ZWN0b3JzLW93bmVyOjoxMjIwZWQzYjIxNzQ1NGJiNmRmNzE1MzlkODExOWQ2NzkyMTBlZjUyOGNhOGQzNjcxMTc3OWViMDlkNWQ3MzM3YjA5NRIkMWRiOTE0Y2MtMjU5ZC00NmMwLWExYTAtNDk3YzJlOTcxYjJmGlJ3YWxsZXQ6OjEyMjBlN2IyM2VhNTJlYjVjNjcyZmIwYjFjZGJjOTE2OTIyZmZlZDNkZDc2NzZjMjIzYTYwNTY2NDMxNWUyZDQzZWRkOjozNS0wKiQ4MTY1MzI2NS01NmFhLTQzOGMtYjMxYS0yYzEwYTcwNzVhNmEw7+a/ivrTlwM='
+const TOPOLOGY_TRANSACTION =
+    'CoQCCAEQARr9AUr6AQphZ29sZGVuLXZlY3Rvci0xNzg3OTE3ODM4Mzk2OjoxMjIwMThhZDRlODg4MzM2YzMzNWE1ZTI1MWM1YTY2NmM1Yzg1M2I4ZThmNjY1OTA2NTMyYWNhOWJjMzVhNzAwYzVlMBABGlYKUnBhcnRpY2lwYW50MTo6MTIyMGQ5ZmQwMTgyZjk0MDc0NWU4MDQ4MDljNGZjMDNlYTM2ZWM4NTA5ZTYzOGFiNzY3NzUwN2VmNjliMDlkODUwNGIQAjI7CjcQBBosMCowBQYDK2VwAyEAvW4WzV5napgjv6Gmm3NaWoUKH5p1P3GvTHLaXgwD4iMqAwEFBDABEAEQHg=='
 const userUrl = 'https://user.api.example'
 const origin = 'https://dapp.example'
 
@@ -806,6 +815,168 @@ describe('dappController', () => {
             expect(result).toEqual({
                 messageId: 'message-id',
                 userUrl: `${userUrl}/sign-message/index.html?messageId=message-id&closeafteraction`,
+            })
+        })
+
+        it('rejects an array message without a messageType', async () => {
+            const store = await createStore(logger, auth)
+            const controller = createController(
+                store,
+                notificationService,
+                logger,
+                auth
+            )
+
+            await expect(
+                controller.signMessage({ message: ['hello'] })
+            ).rejects.toThrow('must be a single string')
+        })
+
+        describe('with messageType canton-prepared-transaction', () => {
+            it('stores the prepared transaction with its messageType', async () => {
+                mockRandomUUID.mockReturnValueOnce(uuid('message-id'))
+                const store = await createStore(logger, auth)
+                const setMessageSpy = vi.spyOn(store, 'setMessageRaw')
+                const controller = createController(
+                    store,
+                    notificationService,
+                    logger,
+                    auth
+                )
+
+                const result = await controller.signMessage({
+                    message: PREPARED_TRANSACTION,
+                    messageType: 'canton-prepared-transaction',
+                })
+
+                expect(setMessageSpy).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        id: 'message-id',
+                        status: 'pending',
+                        message: PREPARED_TRANSACTION,
+                        messageType: 'canton-prepared-transaction',
+                    })
+                )
+                expect(result.userUrl).toBe(
+                    `${userUrl}/sign-message/index.html?messageId=message-id&closeafteraction`
+                )
+            })
+
+            it('rejects an array message', async () => {
+                const store = await createStore(logger, auth)
+                const controller = createController(
+                    store,
+                    notificationService,
+                    logger,
+                    auth
+                )
+
+                await expect(
+                    controller.signMessage({
+                        message: [PREPARED_TRANSACTION],
+                        messageType: 'canton-prepared-transaction',
+                    })
+                ).rejects.toThrow('expects message to be one base64-encoded')
+            })
+
+            it('rejects bytes that do not decode as a prepared transaction', async () => {
+                const store = await createStore(logger, auth)
+                const setMessageSpy = vi.spyOn(store, 'setMessageRaw')
+                const controller = createController(
+                    store,
+                    notificationService,
+                    logger,
+                    auth
+                )
+
+                await expect(
+                    controller.signMessage({
+                        message: 'not a prepared transaction',
+                        messageType: 'canton-prepared-transaction',
+                    })
+                ).rejects.toThrow('does not decode as a prepared transaction')
+                expect(setMessageSpy).not.toHaveBeenCalled()
+            })
+        })
+
+        describe('with messageType canton-topology-transactions', () => {
+            it('stores the topology transactions with their messageType', async () => {
+                mockRandomUUID.mockReturnValueOnce(uuid('message-id'))
+                const store = await createStore(logger, auth)
+                const setMessageSpy = vi.spyOn(store, 'setMessageRaw')
+                const controller = createController(
+                    store,
+                    notificationService,
+                    logger,
+                    auth
+                )
+
+                await controller.signMessage({
+                    message: [TOPOLOGY_TRANSACTION],
+                    messageType: 'canton-topology-transactions',
+                })
+
+                expect(setMessageSpy).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        message: [TOPOLOGY_TRANSACTION],
+                        messageType: 'canton-topology-transactions',
+                    })
+                )
+            })
+
+            it('rejects a single-string message', async () => {
+                const store = await createStore(logger, auth)
+                const controller = createController(
+                    store,
+                    notificationService,
+                    logger,
+                    auth
+                )
+
+                await expect(
+                    controller.signMessage({
+                        message: TOPOLOGY_TRANSACTION,
+                        messageType: 'canton-topology-transactions',
+                    })
+                ).rejects.toThrow('expects message to be an array')
+            })
+
+            it('rejects an empty set', async () => {
+                const store = await createStore(logger, auth)
+                const controller = createController(
+                    store,
+                    notificationService,
+                    logger,
+                    auth
+                )
+
+                await expect(
+                    controller.signMessage({
+                        message: [],
+                        messageType: 'canton-topology-transactions',
+                    })
+                ).rejects.toThrow('Message is required')
+            })
+
+            it('rejects an entry that does not decode as a topology transaction', async () => {
+                const store = await createStore(logger, auth)
+                const setMessageSpy = vi.spyOn(store, 'setMessageRaw')
+                const controller = createController(
+                    store,
+                    notificationService,
+                    logger,
+                    auth
+                )
+
+                await expect(
+                    controller.signMessage({
+                        message: [TOPOLOGY_TRANSACTION, PREPARED_TRANSACTION],
+                        messageType: 'canton-topology-transactions',
+                    })
+                ).rejects.toThrow(
+                    'Message entry 1 does not decode as a topology transaction'
+                )
+                expect(setMessageSpy).not.toHaveBeenCalled()
             })
         })
     })

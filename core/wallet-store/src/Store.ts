@@ -128,6 +128,16 @@ export interface ListTransactionsOptions {
 
 export type MessageRawKind = 'regular' | 'self-issued-token'
 
+/**
+ * What a message to sign carries, when it is not UTF-8 text. Mirrors the
+ * dApp API's `MessageType`: the wallet decodes the base64 Canton bytes,
+ * shows them, computes the hash itself and signs that hash without
+ * submitting anything.
+ */
+export type MessageType =
+    | 'canton-prepared-transaction'
+    | 'canton-topology-transactions'
+
 export interface MessageRaw {
     id: string
     kind: MessageRawKind
@@ -135,7 +145,14 @@ export interface MessageRaw {
     userId: string
     partyId: PartyId
     publicKey: string
-    message: string
+    /**
+     * UTF-8 text without a `messageType`; one base64 prepared transaction
+     * for `canton-prepared-transaction`; the base64 topology transactions
+     * of one set for `canton-topology-transactions`. The raw bytes are the
+     * source of truth: whatever is signed is derived from them at sign time.
+     */
+    message: string | string[]
+    messageType?: MessageType
     origin: string | null
     createdAt: Date
     signedAt?: Date

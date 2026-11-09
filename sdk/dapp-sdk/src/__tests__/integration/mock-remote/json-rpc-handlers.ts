@@ -125,6 +125,7 @@ export function handleMockJsonRpc(
             return {
                 status: 200,
                 json: jsonRpcResult(id, {
+                    messageId: SIGN_MESSAGE_ID,
                     userUrl: `${rpcBase}${SIGN_MESSAGE_URL}`,
                 }),
             }

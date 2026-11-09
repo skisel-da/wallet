@@ -243,6 +243,7 @@ describe('dappSDKController', () => {
     it('resolves signMessage after a matching signature event', async () => {
         const mock = makeProvider()
         mock.request.mockResolvedValue({
+            messageId: 'message-1',
             userUrl: 'https://wallet.example.com/sign?messageId=message-1',
         })
 

@@ -14,6 +14,15 @@ import {
 } from '@canton-network/core-signing-lib'
 import type { Notifier } from './notification/index.js'
 import { SignMessageService } from './sign-message-service.js'
+import {
+    computeTopologyMultiHash,
+    hashPreparedTransaction,
+} from '@canton-network/core-tx-visualizer'
+
+vi.mock('@canton-network/core-tx-visualizer', () => ({
+    hashPreparedTransaction: vi.fn(),
+    computeTopologyMultiHash: vi.fn(),
+}))
 
 const authContext: AuthContext = {
     userId: 'user-1',
@@ -50,6 +59,20 @@ const pendingMessage: MessageRaw = {
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
 }
 
+const pendingPreparedTransaction: MessageRaw = {
+    ...pendingMessage,
+    id: 'msg-prepared',
+    message: 'cHJlcGFyZWQ=',
+    messageType: 'canton-prepared-transaction',
+}
+
+const pendingTopologyTransactions: MessageRaw = {
+    ...pendingMessage,
+    id: 'msg-topology',
+    message: ['dHgw', 'dHgx'],
+    messageType: 'canton-topology-transactions',
+}
+
 const awaitingMessage: MessageRaw = {
     ...pendingMessage,
     status: 'awaiting-signature',
@@ -65,11 +88,13 @@ const pendingTokenMessage: MessageRaw = {
 
 function createDriver(options: {
     signMessage?: ReturnType<typeof vi.fn>
+    signTransaction?: ReturnType<typeof vi.fn>
     getTransaction?: ReturnType<typeof vi.fn>
 }): SigningDriverInterface & { controller: ReturnType<typeof vi.fn> } {
     return {
         controller: vi.fn().mockReturnValue({
             signMessage: options.signMessage ?? vi.fn(),
+            signTransaction: options.signTransaction ?? vi.fn(),
             getTransaction: options.getTransaction ?? vi.fn(),
         }),
     } as unknown as SigningDriverInterface & {
@@ -513,6 +538,228 @@ describe('SignMessageService', () => {
             expect(emit).toHaveBeenCalledWith('messageSignature', {
                 status: 'failed',
                 messageId: 'msg-1',
+            })
+        })
+
+        describe('with a messageType', () => {
+            beforeEach(() => {
+                vi.mocked(hashPreparedTransaction).mockReset()
+                vi.mocked(computeTopologyMultiHash).mockReset()
+            })
+
+            it('signs the hash of a prepared transaction, computed from the stored bytes, without submitting', async () => {
+                vi.mocked(hashPreparedTransaction).mockResolvedValue(
+                    'prepared-hash'
+                )
+                const signMessage = vi.fn()
+                const signTransaction = vi.fn().mockResolvedValue({
+                    txId: 'local-1',
+                    status: 'signed',
+                    signature: 'prepared-signature',
+                })
+                const store = createStore(pendingPreparedTransaction)
+                const service = new SignMessageService(
+                    store,
+                    {
+                        [SigningProvider.WALLET_KERNEL]: createDriver({
+                            signMessage,
+                            signTransaction,
+                        }),
+                    },
+                    notifier,
+                    'HASHING_SCHEME_VERSION_V3'
+                )
+
+                const result = await service.sign(
+                    authContext,
+                    'msg-prepared',
+                    'regular'
+                )
+
+                expect(hashPreparedTransaction).toHaveBeenCalledWith(
+                    'cHJlcGFyZWQ=',
+                    'base64',
+                    { hashingScheme: 'HASHING_SCHEME_VERSION_V3' }
+                )
+                expect(signTransaction).toHaveBeenCalledWith({
+                    tx: 'cHJlcGFyZWQ=',
+                    txHash: 'prepared-hash',
+                    keyIdentifier: { publicKey: wallet.publicKey },
+                    internalTxId: 'msg-prepared',
+                })
+                expect(signMessage).not.toHaveBeenCalled()
+                expect(result).toEqual({
+                    signature: 'prepared-signature',
+                    publicKey: wallet.publicKey,
+                    status: 'signed',
+                    externalTxId: 'local-1',
+                })
+                expect(store.setMessageRawStatus).toHaveBeenCalledWith(
+                    'msg-prepared',
+                    'signed',
+                    {
+                        signedAt: expect.any(Date),
+                        signature: 'prepared-signature',
+                        externalTxId: 'local-1',
+                    }
+                )
+                expect(emit).toHaveBeenCalledExactlyOnceWith(
+                    'messageSignature',
+                    {
+                        status: 'signed',
+                        messageId: 'msg-prepared',
+                        signature: 'prepared-signature',
+                    }
+                )
+            })
+
+            it('signs the multi-hash of a topology transaction set, computed from the stored bytes', async () => {
+                vi.mocked(computeTopologyMultiHash).mockResolvedValue(
+                    'multi-hash'
+                )
+                const signTransaction = vi.fn().mockResolvedValue({
+                    txId: 'local-2',
+                    status: 'signed',
+                    signature: 'topology-signature',
+                })
+                const store = createStore(pendingTopologyTransactions)
+                const service = new SignMessageService(
+                    store,
+                    {
+                        [SigningProvider.WALLET_KERNEL]: createDriver({
+                            signTransaction,
+                        }),
+                    },
+                    notifier
+                )
+
+                const result = await service.sign(
+                    authContext,
+                    'msg-topology',
+                    'regular'
+                )
+
+                expect(computeTopologyMultiHash).toHaveBeenCalledWith([
+                    'dHgw',
+                    'dHgx',
+                ])
+                expect(signTransaction).toHaveBeenCalledWith({
+                    tx: '',
+                    txHash: 'multi-hash',
+                    keyIdentifier: { publicKey: wallet.publicKey },
+                    internalTxId: 'msg-topology',
+                })
+                expect(result.status).toBe('signed')
+                expect(result.signature).toBe('topology-signature')
+            })
+
+            it('lets a provider that cannot sign text sign a typed message through signTransaction', async () => {
+                vi.mocked(hashPreparedTransaction).mockResolvedValue(
+                    'prepared-hash'
+                )
+                const signTransaction = vi.fn().mockResolvedValue({
+                    txId: 'fireblocks-1',
+                    status: 'pending',
+                })
+                const store = createStore(pendingPreparedTransaction, [
+                    {
+                        ...wallet,
+                        signingProviderId: SigningProvider.FIREBLOCKS,
+                    },
+                ])
+                const service = new SignMessageService(
+                    store,
+                    {
+                        [SigningProvider.FIREBLOCKS]: createDriver({
+                            signTransaction,
+                        }),
+                    },
+                    notifier
+                )
+
+                const result = await service.sign(
+                    authContext,
+                    'msg-prepared',
+                    'regular'
+                )
+
+                expect(result).toEqual({
+                    publicKey: wallet.publicKey,
+                    status: 'awaiting-signature',
+                    externalTxId: 'fireblocks-1',
+                })
+                expect(store.setMessageRawStatus).toHaveBeenCalledWith(
+                    'msg-prepared',
+                    'awaiting-signature',
+                    { externalTxId: 'fireblocks-1' }
+                )
+            })
+
+            it('fails the message and does not sign when the bytes cannot be hashed', async () => {
+                vi.mocked(hashPreparedTransaction).mockRejectedValue(
+                    new Error('not a prepared transaction')
+                )
+                const signTransaction = vi.fn()
+                const store = createStore(pendingPreparedTransaction)
+                const service = new SignMessageService(
+                    store,
+                    {
+                        [SigningProvider.WALLET_KERNEL]: createDriver({
+                            signTransaction,
+                        }),
+                    },
+                    notifier
+                )
+
+                await expect(
+                    service.sign(authContext, 'msg-prepared', 'regular')
+                ).rejects.toThrow('not a prepared transaction')
+
+                expect(signTransaction).not.toHaveBeenCalled()
+                expect(store.setMessageRawStatus).toHaveBeenCalledWith(
+                    'msg-prepared',
+                    'failed',
+                    { failureReason: 'not a prepared transaction' }
+                )
+                expect(emit).toHaveBeenCalledExactlyOnceWith(
+                    'messageSignature',
+                    { status: 'failed', messageId: 'msg-prepared' }
+                )
+            })
+
+            it('refuses an empty topology transaction set without calling the driver', async () => {
+                const signTransaction = vi.fn()
+                const store = createStore({
+                    ...pendingTopologyTransactions,
+                    message: [],
+                })
+                const service = new SignMessageService(
+                    store,
+                    {
+                        [SigningProvider.WALLET_KERNEL]: createDriver({
+                            signTransaction,
+                        }),
+                    },
+                    notifier
+                )
+
+                await expect(
+                    service.sign(authContext, 'msg-topology', 'regular')
+                ).rejects.toThrow('has an empty message')
+                expect(signTransaction).not.toHaveBeenCalled()
+            })
+
+            it('returns the messageType with the message details', async () => {
+                const store = createStore(pendingTopologyTransactions)
+                const service = new SignMessageService(store, {}, notifier)
+
+                const { message } = await service.getMessage(
+                    'msg-topology',
+                    'regular'
+                )
+
+                expect(message.message).toEqual(['dHgw', 'dHgx'])
+                expect(message.messageType).toBe('canton-topology-transactions')
             })
         })
 

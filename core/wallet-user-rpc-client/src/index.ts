@@ -506,12 +506,23 @@ export interface SignResultFailed {
  *
  */
 export type Status = string
+export type MessageText = string
+export type MessageEntry = string
+export type MessageSet = MessageEntry[]
 /**
  *
- * The message to sign.
+ * The message to sign: a UTF-8 string, one base64 prepared transaction, or the base64 topology transactions of one set, depending on messageType.
  *
  */
-export type Message = string
+export type Message = MessageText | MessageSet
+/**
+ *
+ * Present when the message carries Canton bytes rather than UTF-8 text; see the dApp API's MessageType.
+ *
+ */
+export type MessageType =
+    | 'canton-prepared-transaction'
+    | 'canton-topology-transactions'
 /**
  *
  * The timestamp when the API key was created.
@@ -530,6 +541,7 @@ export interface MessageRaw {
     partyId: PartyId
     publicKey: PublicKey
     message: Message
+    messageType?: MessageType
     origin?: Origin
     createdAt: CreatedAt
     signedAt?: SignedAt

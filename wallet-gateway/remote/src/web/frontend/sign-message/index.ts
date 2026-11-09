@@ -1,28 +1,50 @@
 // Copyright (c) 2025-2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { html, nothing } from 'lit'
+import { css, html, nothing, type TemplateResult } from 'lit'
 import { customElement, state } from 'lit/decorators.js'
 import {
     BaseElement,
     handleErrorToast,
     toRelHref,
 } from '@canton-network/core-wallet-ui-components'
+import {
+    computeTopologyMultiHash,
+    decodeVersionedTopologyTransaction,
+    parsePreparedTransaction,
+    summarizeTopologyTransaction,
+    type ParsedTransactionInfo,
+    type TopologyTransactionSummary,
+} from '@canton-network/core-tx-visualizer'
 import { createUserClient } from '../rpc-client'
 import { setLocationHref } from '../navigation.js'
 import { stateManager } from '../state-manager'
 import '../index'
 import { ACTIVITIES_PAGE_REDIRECT } from '../constants'
 import { showToast } from '../utils'
-import type { GetSignMessageStatusResult } from '@canton-network/core-wallet-user-rpc-client'
+import type {
+    GetSignMessageStatusResult,
+    MessageType,
+} from '@canton-network/core-wallet-user-rpc-client'
 import { detectCurrentOrigin } from '../listeners.js'
 
 const POLL_INTERVAL_MS = 3000
 
+// One page for every kind of message a dApp can ask the wallet to sign:
+// UTF-8 text, or -- with a messageType -- Canton bytes the wallet decodes
+// and shows before signing their hash. Nothing is submitted either way.
 @customElement('user-ui-sign-message')
 export class UserUiSignMessage extends BaseElement {
     @state() accessor messageId = ''
     @state() accessor message = ''
+    @state() accessor messageType: MessageType | null = null
+    /** The decoded prepared transaction, for `canton-prepared-transaction`. */
+    @state() accessor txParsed: ParsedTransactionInfo | null = null
+    /** One summary per transaction, for `canton-topology-transactions`. */
+    @state() accessor topologySummaries: TopologyTransactionSummary[] = []
+    /** The combined hash the signature will be over, recomputed here for display. */
+    @state() accessor topologyMultiHash = ''
+    @state() accessor createdAt: string | null = null
     @state() accessor origin: string | null = null
     @state() accessor status = ''
     @state() accessor externalTxId: string | null = null
@@ -36,6 +58,36 @@ export class UserUiSignMessage extends BaseElement {
     private pollTimer: ReturnType<typeof setTimeout> | null = null
     private pollDelay = POLL_INTERVAL_MS
     private polling = false
+
+    static styles = [
+        BaseElement.styles,
+        css`
+            .tx-summary {
+                border: 1px solid var(--wg-border);
+                border-radius: var(--wg-radius-lg);
+                padding: var(--wg-space-3);
+                margin-bottom: var(--wg-space-3);
+                text-align: left;
+            }
+            .tx-summary-title {
+                font-weight: var(--wg-font-weight-semibold);
+                margin-bottom: var(--wg-space-1);
+            }
+            .tx-summary-detail {
+                font-size: var(--wg-font-size-sm);
+                word-break: break-all;
+            }
+            .tx-summary ul {
+                margin: var(--wg-space-1) 0 0 0;
+                padding-left: 20px;
+            }
+            .actions {
+                margin-top: var(--wg-space-4);
+                display: flex;
+                gap: var(--wg-space-3);
+            }
+        `,
+    ]
 
     connectedCallback(): void {
         super.connectedCallback()
@@ -95,11 +147,19 @@ export class UserUiSignMessage extends BaseElement {
                 method: 'getMessageToSign',
                 params: { messageId: this.messageId },
             })
-            this.message = result.message.message
+            this.messageType = result.message.messageType ?? null
+            this.createdAt = result.message.createdAt ?? null
             this.origin = result.message.origin ?? null
             this.status = result.message.status
             this.externalTxId = result.message.externalTxId ?? null
             this.failureReason = result.message.failureReason ?? null
+            try {
+                await this.decodeMessage(result.message.message)
+            } catch (err) {
+                console.error(err)
+                this.loadError = `This message does not decode as ${this.messageType ?? 'text'} and cannot be signed.`
+                return
+            }
         } catch (err) {
             console.error(err)
             // Most common case: messageId doesn't exist anymore / was deleted
@@ -107,6 +167,39 @@ export class UserUiSignMessage extends BaseElement {
         }
 
         this.syncPolling()
+    }
+
+    // Decodes the message for display from the same bytes the gateway will
+    // hash at sign time; a message that does not decode is shown as such
+    // and cannot be approved.
+    private async decodeMessage(message: string | string[]) {
+        switch (this.messageType) {
+            case 'canton-prepared-transaction': {
+                if (typeof message !== 'string') {
+                    throw new Error('Expected one prepared transaction')
+                }
+                this.message = message
+                this.txParsed = parsePreparedTransaction(message)
+                return
+            }
+            case 'canton-topology-transactions': {
+                if (!Array.isArray(message)) {
+                    throw new Error('Expected a set of topology transactions')
+                }
+                this.topologySummaries = message.map((transaction) =>
+                    summarizeTopologyTransaction(
+                        decodeVersionedTopologyTransaction(transaction)
+                    )
+                )
+                this.topologyMultiHash = await computeTopologyMultiHash(message)
+                return
+            }
+            default:
+                if (typeof message !== 'string') {
+                    throw new Error('Expected a text message')
+                }
+                this.message = message
+        }
     }
 
     private onVisibilityChange = () => {
@@ -267,14 +360,24 @@ export class UserUiSignMessage extends BaseElement {
             `
         }
 
+        const failure = this.failureReason
+            ? html`<div class="alert alert-warning" role="alert">
+                  ${this.failureReason}
+              </div>`
+            : nothing
+
+        switch (this.messageType) {
+            case 'canton-prepared-transaction':
+                return html`${failure}${this.renderPreparedTransaction()}`
+            case 'canton-topology-transactions':
+                return html`${failure}${this.renderTopologyTransactions()}`
+            default:
+                return html`${failure}${this.renderText()}`
+        }
+    }
+
+    private renderText() {
         return html`
-            ${
-                this.failureReason
-                    ? html`<div class="alert alert-warning" role="alert">
-                          ${this.failureReason}
-                      </div>`
-                    : nothing
-            }
             <wg-message-detail
                 .messageId=${this.messageId}
                 .message=${this.message}
@@ -290,5 +393,180 @@ export class UserUiSignMessage extends BaseElement {
                 @message-delete=${this.handleReject}
             ></wg-message-detail>
         `
+    }
+
+    private renderPreparedTransaction() {
+        return html`
+            <div class="alert alert-info" role="alert">
+                You are signing this prepared transaction as one of the owners
+                of
+                <strong
+                    >${this.txParsed?.actAs?.join(', ') ?? 'the acting party'}</strong
+                >. Only your signature is produced; the transaction is submitted
+                by whoever collects the owners' signatures, not by this wallet.
+            </div>
+            <wg-transaction-detail
+                .status=${this.status}
+                .tx=${this.message}
+                .parsed=${this.txParsed}
+                .createdAt=${this.createdAt}
+                .origin=${this.origin}
+                .externalTxId=${this.externalTxId}
+                .backHref=${toRelHref(ACTIVITIES_PAGE_REDIRECT)}
+                .isApproving=${this.isApproving}
+                .isDeleting=${this.isDeleting}
+                .isSigning=${this.isSigning}
+                .disabled=${this.disabled}
+                @transaction-approve=${this.handleApproveAction}
+                @transaction-delete=${this.handleReject}
+            ></wg-transaction-detail>
+        `
+    }
+
+    private renderTopologyTransactions() {
+        return html`
+            <h1 class="h5 fw-semibold mb-2 text-body">
+                Sign topology transactions
+            </h1>
+            ${
+                this.origin
+                    ? html`<p class="mb-2 text-body-secondary">
+                          Requested by: <strong>${this.origin}</strong>
+                      </p>`
+                    : nothing
+            }
+            <p class="mb-2 text-body-secondary">
+                Review the decoded topology transactions below. Signing produces
+                one signature over all of them, computed by this wallet from
+                their bytes. Nothing is submitted.
+            </p>
+            ${this.topologySummaries.map((summary, index) =>
+                this.renderTopologySummary(summary, index)
+            )}
+            <p class="mb-2 text-body-secondary small">
+                Combined hash: <code>${this.topologyMultiHash}</code>
+            </p>
+            ${
+                this.status === 'pending'
+                    ? html`
+                          <div class="actions">
+                              <button
+                                  class="btn btn-outline-danger rounded-pill"
+                                  ?disabled=${this.disabled || this.isDeleting}
+                                  @click=${this.handleReject}
+                              >
+                                  Reject
+                              </button>
+                              <button
+                                  class="btn btn-primary rounded-pill"
+                                  ?disabled=${this.disabled || this.isSigning}
+                                  @click=${this.handleApproveAction}
+                              >
+                                  ${this.isSigning ? 'Signing…' : 'Approve'}
+                              </button>
+                          </div>
+                      `
+                    : nothing
+            }
+        `
+    }
+
+    private renderTopologySummary(
+        summary: TopologyTransactionSummary,
+        index: number
+    ): TemplateResult {
+        const title = (label: string) =>
+            html`<div class="tx-summary-title">#${index + 1}: ${label}</div>`
+
+        switch (summary.kind) {
+            case 'namespaceDelegation':
+                return html`
+                    <div class="tx-summary">
+                        ${title(
+                            summary.isRootDelegation
+                                ? 'Namespace delegation (root)'
+                                : 'Namespace delegation'
+                        )}
+                        <div class="tx-summary-detail">
+                            Namespace: <code>${summary.namespace}</code>
+                        </div>
+                    </div>
+                `
+            case 'decentralizedNamespaceDefinition':
+                return html`
+                    <div class="tx-summary">
+                        ${title('Decentralized namespace definition')}
+                        <div class="tx-summary-detail">
+                            Namespace:
+                            <code>${summary.decentralizedNamespace}</code>
+                        </div>
+                        <div class="tx-summary-detail">
+                            Threshold: ${summary.threshold} of
+                            ${summary.owners.length} owners
+                        </div>
+                        <div class="tx-summary-detail">
+                            Owners: ${summary.owners.join(', ')}
+                        </div>
+                    </div>
+                `
+            case 'partyToParticipant':
+                return html`
+                    <div class="tx-summary">
+                        ${title('Party-to-participant mapping')}
+                        <div class="tx-summary-detail">
+                            Party: <code>${summary.party}</code>
+                        </div>
+                        <div class="tx-summary-detail">
+                            Threshold: ${summary.threshold}
+                        </div>
+                        ${
+                            summary.partySigningKeys
+                                ? html`<div class="tx-summary-detail">
+                                      Party signing keys:
+                                      ${summary.partySigningKeys.threshold} of
+                                      ${
+                                          summary.partySigningKeys
+                                              .signingKeyCount
+                                      }
+                                  </div>`
+                                : nothing
+                        }
+                        <div class="tx-summary-detail">
+                            Hosting participants:
+                        </div>
+                        <ul>
+                            ${summary.participants.map(
+                                (p) =>
+                                    html`<li>
+                                        ${p.participantUid} (permission
+                                        ${p.permission})
+                                    </li>`
+                            )}
+                        </ul>
+                    </div>
+                `
+            case 'partyToKeyMapping':
+                return html`
+                    <div class="tx-summary">
+                        ${title('Party-to-key mapping')}
+                        <div class="tx-summary-detail">
+                            Party: <code>${summary.party}</code>
+                        </div>
+                        <div class="tx-summary-detail">
+                            Threshold: ${summary.threshold} of
+                            ${summary.signingKeyCount} signing keys
+                        </div>
+                    </div>
+                `
+            default:
+                return html`
+                    <div class="tx-summary">
+                        ${title('Unknown mapping')}
+                        <div class="tx-summary-detail">
+                            Type: ${summary.mappingKind}
+                        </div>
+                    </div>
+                `
+        }
     }
 }

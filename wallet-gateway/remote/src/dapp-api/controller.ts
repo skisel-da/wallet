@@ -34,6 +34,10 @@ import type { Network as StoreNetwork } from '@canton-network/core-wallet-store'
 
 import { providerErrors, rpcErrors } from '@canton-network/core-rpc-errors'
 import {
+    decodePreparedTransaction,
+    decodeVersionedTopologyTransaction,
+} from '@canton-network/core-tx-visualizer'
+import {
     networkStatus,
     TransactionService,
     ledgerPrepareParams,
@@ -42,6 +46,69 @@ import {
     type NotificationService,
     type SigningDrivers,
 } from '@canton-network/core-wallet-services'
+
+/**
+ * Checks that `message` has the shape its `messageType` declares, and that
+ * typed bytes decode as that type. The decode is a refusal, not a
+ * classification: the dApp declares what it is sending, and a payload that
+ * does not decode as declared is rejected rather than shown as unknown or
+ * signed blind. What is signed is derived from these bytes at sign time.
+ */
+const validateMessageToSign = (
+    params: SignMessageParams
+): string | string[] => {
+    const { message, messageType } = params ?? {}
+    const isEmpty = Array.isArray(message)
+        ? message.length === 0 || message.some((entry) => !entry)
+        : !message
+    if (message === undefined || isEmpty) {
+        throw new Error('Message is required')
+    }
+
+    switch (messageType) {
+        case undefined:
+            if (Array.isArray(message)) {
+                throw new Error(
+                    'A message without a messageType must be a single string'
+                )
+            }
+            return message
+        case 'canton-prepared-transaction':
+            if (Array.isArray(message)) {
+                throw new Error(
+                    'canton-prepared-transaction expects message to be one base64-encoded prepared transaction'
+                )
+            }
+            try {
+                decodePreparedTransaction(message)
+            } catch (error) {
+                throw new Error(
+                    `Message does not decode as a prepared transaction: ${error instanceof Error ? error.message : String(error)}`
+                )
+            }
+            return message
+        case 'canton-topology-transactions':
+            if (!Array.isArray(message)) {
+                throw new Error(
+                    'canton-topology-transactions expects message to be an array of base64-encoded topology transactions'
+                )
+            }
+            message.forEach((transaction, index) => {
+                try {
+                    decodeVersionedTopologyTransaction(transaction)
+                } catch (error) {
+                    throw new Error(
+                        `Message entry ${index} does not decode as a topology transaction: ${error instanceof Error ? error.message : String(error)}`
+                    )
+                }
+            })
+            return message
+        default:
+            throw new Error(
+                `Unsupported messageType: ${String(messageType satisfies never)}`
+            )
+    }
+}
 
 export interface DappControllerDeps {
     signingDrivers: SigningDrivers
@@ -484,7 +551,7 @@ export const dappController = (
         ): Promise<SignMessageResult> => {
             assertIsConnected(context)
 
-            if (!params?.message) throw new Error('Message is required')
+            const message = validateMessageToSign(params)
 
             const wallet = await store.getPrimaryWallet()
 
@@ -502,7 +569,10 @@ export const dappController = (
                 userId: context.userId,
                 partyId: wallet.partyId,
                 publicKey: wallet.publicKey,
-                message: params.message,
+                message,
+                ...(params.messageType && {
+                    messageType: params.messageType,
+                }),
                 origin: origin || null,
                 createdAt: new Date(),
             })

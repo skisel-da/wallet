@@ -332,7 +332,8 @@ export const userController = (
         return new SignMessageService(
             store,
             drivers,
-            notificationService.getNotifier(session.id)
+            notificationService.getNotifier(session.id),
+            hashingSchemeVersion
         )
     }
 

@@ -5,12 +5,20 @@ import type {
     MessageRaw,
     MessageRawKind,
     Store,
+    Wallet,
 } from '@canton-network/core-wallet-store'
 import {
     isRpcError,
     SIGN_MESSAGE_CAPABLE_SIGNING_PROVIDERS,
     SigningProvider,
+    type SignMessageResult as DriverSignMessageResult,
+    type SignTransactionResult as DriverSignTransactionResult,
+    type SigningDriverInterface,
 } from '@canton-network/core-signing-lib'
+import {
+    computeTopologyMultiHash,
+    hashPreparedTransaction,
+} from '@canton-network/core-tx-visualizer'
 import type { AuthContext } from '@canton-network/core-wallet-auth'
 import type {
     GetMessageToSignResult,
@@ -20,14 +28,22 @@ import type {
     SignMessageResult,
 } from '@canton-network/core-wallet-user-rpc-client'
 import type { MessageSignatureEvent } from '@canton-network/core-wallet-dapp-rpc-client'
-import type { SigningDrivers } from './types.js'
+import type { HASHING_SCHEME_VERSION, SigningDrivers } from './types.js'
 import type { Notifier } from './notification/index.js'
+
+type SigningDriverController = ReturnType<SigningDriverInterface['controller']>
+
+const isEmptyMessage = (message: MessageRaw['message']): boolean =>
+    Array.isArray(message)
+        ? message.length === 0 || message.some((entry) => !entry)
+        : !message
 
 export class SignMessageService {
     constructor(
         private store: Store,
         private signingDrivers: SigningDrivers = {},
-        private notifier: Notifier
+        private notifier: Notifier,
+        private hashingSchemeVersion: HASHING_SCHEME_VERSION = 'HASHING_SCHEME_VERSION_V2'
     ) {}
 
     private async requireMessage(
@@ -58,6 +74,7 @@ export class SignMessageService {
             publicKey: message.publicKey,
             createdAt: message.createdAt.toISOString(),
             message: message.message,
+            ...(message.messageType && { messageType: message.messageType }),
             ...(message.origin !== null && { origin: message.origin }),
             ...(message.signedAt && {
                 signedAt: message.signedAt.toISOString(),
@@ -149,7 +166,7 @@ export class SignMessageService {
             throw new Error(details)
         }
 
-        if (!pending.message) {
+        if (isEmptyMessage(pending.message)) {
             return await emitFailedAndPersist(
                 `Message request ${pending.id} has an empty message.`
             )
@@ -167,6 +184,7 @@ export class SignMessageService {
             )
         }
         if (
+            !pending.messageType &&
             !SIGN_MESSAGE_CAPABLE_SIGNING_PROVIDERS.includes(
                 wallet.signingProviderId as SigningProvider
             )
@@ -186,11 +204,20 @@ export class SignMessageService {
             )
         }
 
-        const result = await driver.signMessage({
-            message: pending.message,
-            keyIdentifier: { publicKey: wallet.publicKey },
-            internalTxId: pending.id,
-        })
+        let result: DriverSignMessageResult | DriverSignTransactionResult
+        try {
+            result = pending.messageType
+                ? await this.signHash(pending, wallet, driver)
+                : await driver.signMessage({
+                      message: pending.message as string,
+                      keyIdentifier: { publicKey: wallet.publicKey },
+                      internalTxId: pending.id,
+                  })
+        } catch (error) {
+            return await emitFailedAndPersist(
+                error instanceof Error ? error.message : String(error)
+            )
+        }
 
         if (isRpcError(result)) {
             return await emitFailedAndPersist(result.error_description)
@@ -254,6 +281,47 @@ export class SignMessageService {
         return await emitFailedAndPersist(
             `Signing provider returned status: ${result.status} without a txId`
         )
+    }
+
+    /**
+     * Signs a typed message: the hash is computed here, fresh, from the
+     * bytes the dApp supplied -- never taken from the dApp -- and handed to
+     * the driver's `signTransaction`, the same raw-hash signing every
+     * prepared transaction already goes through. Nothing is submitted.
+     */
+    private async signHash(
+        pending: MessageRaw,
+        wallet: Wallet,
+        driver: SigningDriverController
+    ): Promise<DriverSignTransactionResult> {
+        switch (pending.messageType) {
+            case 'canton-prepared-transaction': {
+                const preparedTransaction = pending.message as string
+                return driver.signTransaction({
+                    tx: preparedTransaction,
+                    txHash: await hashPreparedTransaction(
+                        preparedTransaction,
+                        'base64',
+                        { hashingScheme: this.hashingSchemeVersion }
+                    ),
+                    keyIdentifier: { publicKey: wallet.publicKey },
+                    internalTxId: pending.id,
+                })
+            }
+            case 'canton-topology-transactions':
+                return driver.signTransaction({
+                    tx: '',
+                    txHash: await computeTopologyMultiHash(
+                        pending.message as string[]
+                    ),
+                    keyIdentifier: { publicKey: wallet.publicKey },
+                    internalTxId: pending.id,
+                })
+            default:
+                throw new Error(
+                    `Unsupported message type: ${String(pending.messageType)}`
+                )
+        }
     }
 
     public async refreshMessage(
