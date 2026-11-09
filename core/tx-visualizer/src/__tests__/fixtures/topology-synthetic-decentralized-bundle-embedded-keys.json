@@ -1,0 +1,21 @@
+{
+    "partyId": "synthetic-golden-vector-embedded-keys::1220e2715c2ec39ae4fd912da4ec32da2d0156691f0ca6304d9b763caa64bc489431",
+    "decentralizedNamespace": "1220e2715c2ec39ae4fd912da4ec32da2d0156691f0ca6304d9b763caa64bc489431",
+    "ownerFingerprints": [
+        "122027f6398f81f547dd8d39687e3ff21808e7a01a3d3fd67009e0a7c2c7ff121926",
+        "12206167b5ccc4cf34815dd642148e000951afc83024170124b51202680fa0553dfa"
+    ],
+    "ownerParticipantUids": [
+        "participant1::aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "participant2::bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    ],
+    "partySigningKeysThreshold": 2,
+    "partySigningKeysCount": 2,
+    "transactionsBase64": [
+        "CnsIARABGnUKcwpEMTIyMDI3ZjYzOThmODFmNTQ3ZGQ4ZDM5Njg3ZTNmZjIxODA4ZTdhMDFhM2QzZmQ2NzAwOWUwYTdjMmM3ZmYxMjE5MjYSKRADGiAzgD+WeSnPLIonsNS4gzMP/NWVhnW2ThpjBv45Vg4T/CoBATABGAEQHg==",
+        "CnsIARABGnUKcwpEMTIyMDYxNjdiNWNjYzRjZjM0ODE1ZGQ2NDIxNDhlMDAwOTUxYWZjODMwMjQxNzAxMjRiNTEyMDI2ODBmYTA1NTNkZmESKRADGiAH6eY6TkW8GyL9QFglCL4TYl2UyF8bAeJ90urH7L1FJSoBATABGAEQHg==",
+        "Ct4BCAEQARrXARrUAQpEMTIyMGUyNzE1YzJlYzM5YWU0ZmQ5MTJkYTRlYzMyZGEyZDAxNTY2OTFmMGNhNjMwNGQ5Yjc2M2NhYTY0YmM0ODk0MzEQAhpEMTIyMDI3ZjYzOThmODFmNTQ3ZGQ4ZDM5Njg3ZTNmZjIxODA4ZTdhMDFhM2QzZmQ2NzAwOWUwYTdjMmM3ZmYxMjE5MjYaRDEyMjA2MTY3YjVjY2M0Y2YzNDgxNWRkNjQyMTQ4ZTAwMDk1MWFmYzgzMDI0MTcwMTI0YjUxMjAyNjgwZmEwNTUzZGZhEB4=",
+        "CoMDCAEQARr8Akr5Agprc3ludGhldGljLWdvbGRlbi12ZWN0b3ItZW1iZWRkZWQta2V5czo6MTIyMGUyNzE1YzJlYzM5YWU0ZmQ5MTJkYTRlYzMyZGEyZDAxNTY2OTFmMGNhNjMwNGQ5Yjc2M2NhYTY0YmM0ODk0MzEQARpWClJwYXJ0aWNpcGFudDE6OmFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhEAIaVgpScGFydGljaXBhbnQyOjpiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYhACMlgKKRADGiAzgD+WeSnPLIonsNS4gzMP/NWVhnW2ThpjBv45Vg4T/CoBBDABCikQAxogB+nmOk5FvBsi/UBYJQi+E2JdlMhfGwHifdLqx+y9RSUqAQQwARACEB4="
+    ],
+    "multiHashBase64": "EiActj+9fz7zMwbFV2xM/ZZY1yWuAvRBcVWtEY+7cxsD6g=="
+}

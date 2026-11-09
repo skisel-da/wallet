@@ -374,3 +374,13 @@ export function parsePreparedTransaction(
 
     return result
 }
+
+export {
+    type UnwrappedVersionedMessage,
+    type TopologyHostingParticipant,
+    type TopologyTransactionSummary,
+    unwrapVersionedMessage,
+    decodeVersionedTopologyTransaction,
+    summarizeTopologyTransaction,
+    computeTopologyMultiHash,
+} from './topology.js'
