@@ -39,12 +39,30 @@ describe('popup', () => {
 
         expect(openSpy).toHaveBeenCalledWith(
             '',
-            'wallet-popup',
+            // Namespaced but unique per page -- a fixed name self-targets,
+            // see the window-name test below.
+            expect.stringMatching(/^wallet-popup-.+/),
             expect.stringContaining('width=400')
         )
         expect(mockWin.location.href).toBe('https://example.com/wallet')
         expect(mockWin.focus).toHaveBeenCalled()
         expect(result).toBe(mockWin)
+    })
+
+    it('does not use a fixed window name that a wallet page could self-target', () => {
+        // window.open(url, name) resolves `name` against the whole family of
+        // related browsing contexts, the calling window included. With a
+        // fixed 'wallet-popup', a page that IS the wallet popup renavigates
+        // itself instead of opening beside it -- so a page handing off to
+        // another app hijacks the very window it meant to open.
+        const mockWin = createMockPopupWindow()
+        const openSpy = vi
+            .spyOn(window, 'open')
+            .mockReturnValue(mockWin as unknown as Window)
+
+        popup.open('https://example.com/wallet')
+
+        expect(openSpy.mock.calls[0][1]).not.toBe('wallet-popup')
     })
 
     it('renders a custom element into a blob URL', () => {
