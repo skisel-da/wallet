@@ -62,8 +62,8 @@ forEachDialect('migration 023 - message type', ({ getDb }) => {
             status: 'pending',
             partyId: 'party::2',
             publicKey: 'pk-2',
-            message: 'cHJlcGFyZWQ=',
-            messageType: 'canton-prepared-transaction',
+            message: '["dHgw","dHgx"]',
+            messageType: 'canton-topology-transactions',
             userId: 'user1',
             networkId: 'net1',
             createdAt: '2026-05-08T13:00:00.000Z',
@@ -79,7 +79,7 @@ forEachDialect('migration 023 - message type', ({ getDb }) => {
         expect(rows.rows).toHaveLength(1)
         expect(rows.rows[0]).toMatchObject({
             id: 'msg-2',
-            message: 'cHJlcGFyZWQ=',
+            message: '["dHgw","dHgx"]',
         })
         expect(rows.rows[0]).not.toHaveProperty('messageType')
     })

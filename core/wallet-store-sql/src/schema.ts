@@ -445,7 +445,9 @@ export const fromMessageRaw = (
         userId: message.userId,
         partyId: message.partyId,
         publicKey: message.publicKey,
-        message: message.message,
+        message: Array.isArray(message.message)
+            ? JSON.stringify(message.message)
+            : message.message,
         messageType: message.messageType ?? null,
         origin: message.origin || null,
         networkId,
@@ -465,7 +467,10 @@ export const toMessageRaw = (table: MessageRawTable): MessageRaw => {
         userId: table.userId,
         partyId: table.partyId,
         publicKey: table.publicKey,
-        message: table.message,
+        message:
+            table.messageType === 'canton-topology-transactions'
+                ? (JSON.parse(table.message) as string[])
+                : table.message,
         origin: table.origin || null,
         createdAt: new Date(table.createdAt),
     }

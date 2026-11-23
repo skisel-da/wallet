@@ -156,7 +156,7 @@ export interface MessageRaw {
     userId: string
     partyId: PartyId
     publicKey: string
-    message: string
+    message: string | string[]
     messageType?: MessageType
     origin: string | null
     createdAt: Date

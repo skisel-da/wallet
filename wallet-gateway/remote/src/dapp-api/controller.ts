@@ -10,7 +10,10 @@ import {
     isValidPostEndpoint,
 } from '@canton-network/core-ledger-client'
 import { providerErrors, rpcErrors } from '@canton-network/core-rpc-errors'
-import { decodePreparedTransaction } from '@canton-network/core-tx-visualizer'
+import {
+    decodePreparedTransaction,
+    decodeTopologyTransaction,
+} from '@canton-network/core-tx-visualizer'
 import {
     assertIsConnected,
     type AuthContext,
@@ -92,7 +95,14 @@ export const dappController = ({
     function validateSignMessageParams(params: SignMessageParams | undefined) {
         const message = params?.message
         const messageType = params?.messageType
-        if (!message) throw new Error('Message is required')
+        const entries = Array.isArray(message) ? message : [message]
+        if (
+            !message ||
+            entries.length === 0 ||
+            entries.some((entry) => !entry)
+        ) {
+            throw new Error('Message is required')
+        }
 
         switch (messageType) {
             case undefined:
@@ -113,9 +123,22 @@ export const dappController = ({
                     'a prepared transaction'
                 )
                 return message
+            case 'canton-topology-transactions':
+                if (!Array.isArray(message)) {
+                    throw rpcErrors.invalidParams(
+                        'canton-topology-transactions expects an array of topology transactions'
+                    )
+                }
+                message.forEach((topologyTx, index) =>
+                    assertDecodes(
+                        () => decodeTopologyTransaction(topologyTx),
+                        `topology transaction ${index}`
+                    )
+                )
+                return message
             default:
                 throw rpcErrors.invalidParams(
-                    `Unsupported messageType: ${messageType}`
+                    `Unsupported messageType: ${String(messageType satisfies never)}`
                 )
         }
     }

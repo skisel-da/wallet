@@ -91,6 +91,8 @@ const kernelInfo: KernelInfo = {
 const dappUrl = 'https://dapp.api.example'
 const preparedTransaction =
     'Ct8ECgMyLjESATAasAQKATDCPqkECqYECgMyLjESQjAwOWE3N2MwMDg1YTcxYzk4YzI0YTZjNmVhN2FiOGE3YWU5MGQ3ZmMzMWJjMjFlMGY4NmJhYTgzMThmNjc0YjJjNhoMaGFzaC12ZWN0b3JzIlYKQDdhYzA2NTBlZjRkMzg2YTQyYmNiYzdmZTEyOWY0MTgwNmRhYTA0MDYzZmYwOTcwYTVhM2NkZDZmNGY4MjllNjgSC0hhc2hWZWN0b3JzGgVQbGFpbirAAXK9AQpWCkA3YWMwNjUwZWY0ZDM4NmE0MmJjYmM3ZmUxMjlmNDE4MDZkYWEwNDA2M2ZmMDk3MGE1YTNjZGQ2ZjRmODI5ZTY4EgtIYXNoVmVjdG9ycxoFUGxhaW4SYwoFb3duZXISWjpYaGFzaC12ZWN0b3JzLW93bmVyOjoxMjIwZWQzYjIxNzQ1NGJiNmRmNzE1MzlkODExOWQ2NzkyMTBlZjUyOGNhOGQzNjcxMTc3OWViMDlkNWQ3MzM3YjA5NTJYaGFzaC12ZWN0b3JzLW93bmVyOjoxMjIwZWQzYjIxNzQ1NGJiNmRmNzE1MzlkODExOWQ2NzkyMTBlZjUyOGNhOGQzNjcxMTc3OWViMDlkNWQ3MzM3YjA5NTpYaGFzaC12ZWN0b3JzLW93bmVyOjoxMjIwZWQzYjIxNzQ1NGJiNmRmNzE1MzlkODExOWQ2NzkyMTBlZjUyOGNhOGQzNjcxMTc3OWViMDlkNWQ3MzM3YjA5NSIiEiAgG/aBryCzULzqnIUtSxt6QhqaSPxEPec7P1A5OonL9RKGAhKAAQpYaGFzaC12ZWN0b3JzLW93bmVyOjoxMjIwZWQzYjIxNzQ1NGJiNmRmNzE1MzlkODExOWQ2NzkyMTBlZjUyOGNhOGQzNjcxMTc3OWViMDlkNWQ3MzM3YjA5NRIkMWRiOTE0Y2MtMjU5ZC00NmMwLWExYTAtNDk3YzJlOTcxYjJmGlJ3YWxsZXQ6OjEyMjBlN2IyM2VhNTJlYjVjNjcyZmIwYjFjZGJjOTE2OTIyZmZlZDNkZDc2NzZjMjIzYTYwNTY2NDMxNWUyZDQzZWRkOjozNS0wKiQ4MTY1MzI2NS01NmFhLTQzOGMtYjMxYS0yYzEwYTcwNzVhNmEw7+a/ivrTlwM='
+const topologyTransaction =
+    'CoQCCAEQARr9AUr6AQphZ29sZGVuLXZlY3Rvci0xNzg3OTE3ODM4Mzk2OjoxMjIwMThhZDRlODg4MzM2YzMzNWE1ZTI1MWM1YTY2NmM1Yzg1M2I4ZThmNjY1OTA2NTMyYWNhOWJjMzVhNzAwYzVlMBABGlYKUnBhcnRpY2lwYW50MTo6MTIyMGQ5ZmQwMTgyZjk0MDc0NWU4MDQ4MDljNGZjMDNlYTM2ZWM4NTA5ZTYzOGFiNzY3NzUwN2VmNjliMDlkODUwNGIQAjI7CjcQBBosMCowBQYDK2VwAyEAvW4WzV5napgjv6Gmm3NaWoUKH5p1P3GvTHLaXgwD4iMqAwEFBDABEAEQHg=='
 const userUrl = 'https://user.api.example'
 const origin = 'https://dapp.example'
 
@@ -751,13 +753,6 @@ describe('dappController', () => {
 
         it.each<[string, unknown]>([
             [
-                'a messageType with an array',
-                {
-                    message: ['hello'],
-                    messageType: 'canton-topology-transactions',
-                },
-            ],
-            [
                 'an unknown messageType',
                 { message: 'hello', messageType: 'unknown' },
             ],
@@ -779,7 +774,7 @@ describe('dappController', () => {
             })
         })
 
-        it.each([[['hello']], [[]]])(
+        it.each([[['hello']]])(
             'rejects the array %j without a messageType',
             async (message) => {
                 const store = await createStore(logger, auth)
@@ -877,6 +872,16 @@ describe('dappController', () => {
             return { controller, setMessageSpy }
         }
 
+        it('rejects an array without a messageType', async () => {
+            const { controller, setMessageSpy } =
+                await createSignMessageController()
+
+            await expect(
+                controller.signMessage({ message: ['hello'] })
+            ).rejects.toThrow('must be a single string')
+            expect(setMessageSpy).not.toHaveBeenCalled()
+        })
+
         it('stores a prepared transaction with its messageType', async () => {
             mockRandomUUID.mockReturnValueOnce(uuid('message-id'))
             const { controller, setMessageSpy } =
@@ -901,6 +906,19 @@ describe('dappController', () => {
             })
         })
 
+        it('rejects an array of prepared transactions', async () => {
+            const { controller, setMessageSpy } =
+                await createSignMessageController()
+
+            await expect(
+                controller.signMessage({
+                    message: [preparedTransaction],
+                    messageType: 'canton-prepared-transaction',
+                })
+            ).rejects.toThrow('expects a single prepared transaction')
+            expect(setMessageSpy).not.toHaveBeenCalled()
+        })
+
         it('rejects bytes that do not decode as a prepared transaction', async () => {
             const { controller, setMessageSpy } =
                 await createSignMessageController()
@@ -911,6 +929,63 @@ describe('dappController', () => {
                     messageType: 'canton-prepared-transaction',
                 })
             ).rejects.toThrow('does not decode as a prepared transaction')
+            expect(setMessageSpy).not.toHaveBeenCalled()
+        })
+
+        it('stores topology transactions with their messageType', async () => {
+            mockRandomUUID.mockReturnValueOnce(uuid('message-id'))
+            const { controller, setMessageSpy } =
+                await createSignMessageController()
+
+            await controller.signMessage({
+                message: [topologyTransaction],
+                messageType: 'canton-topology-transactions',
+            })
+
+            expect(setMessageSpy).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    message: [topologyTransaction],
+                    messageType: 'canton-topology-transactions',
+                })
+            )
+        })
+
+        it('rejects a single string of topology transactions', async () => {
+            const { controller, setMessageSpy } =
+                await createSignMessageController()
+
+            await expect(
+                controller.signMessage({
+                    message: topologyTransaction,
+                    messageType: 'canton-topology-transactions',
+                })
+            ).rejects.toThrow('expects an array of topology transactions')
+            expect(setMessageSpy).not.toHaveBeenCalled()
+        })
+
+        it('rejects an empty set of topology transactions', async () => {
+            const { controller, setMessageSpy } =
+                await createSignMessageController()
+
+            await expect(
+                controller.signMessage({
+                    message: [],
+                    messageType: 'canton-topology-transactions',
+                })
+            ).rejects.toThrow('Message is required')
+            expect(setMessageSpy).not.toHaveBeenCalled()
+        })
+
+        it('rejects a topology transaction that is not wrapped', async () => {
+            const { controller, setMessageSpy } =
+                await createSignMessageController()
+
+            await expect(
+                controller.signMessage({
+                    message: [topologyTransaction, preparedTransaction],
+                    messageType: 'canton-topology-transactions',
+                })
+            ).rejects.toThrow('does not decode as topology transaction 1')
             expect(setMessageSpy).not.toHaveBeenCalled()
         })
     })

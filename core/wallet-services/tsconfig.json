@@ -18,6 +18,9 @@
             "path": "../tx-visualizer"
         },
         {
+            "path": "../tx-hashing"
+        },
+        {
             "path": "../signing-lib"
         },
         {

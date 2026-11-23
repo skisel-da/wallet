@@ -598,7 +598,10 @@ describe('SelfIssuedAuthService', () => {
             )
             const payload = JSON.parse(
                 new TextDecoder().decode(
-                    decodeBase64(message.message.split('.')[1], 'base64url')
+                    decodeBase64(
+                        (message.message as string).split('.')[1],
+                        'base64url'
+                    )
                 )
             )
             expect(payload).toMatchObject({

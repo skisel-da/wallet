@@ -1566,7 +1566,7 @@ implementations.forEach(([name, StoreImpl]) => {
             expect(await store.getMessageRaw('msg-1')).toBeUndefined()
         })
 
-        test('should round-trip a typed message and its messageType', async () => {
+        test('should round-trip a typed message set and its messageType', async () => {
             const store = new StoreImpl(db, authContextMock)
             await store.addIdp(idp)
             await store.addNetwork(network)
@@ -1577,6 +1577,18 @@ implementations.forEach(([name, StoreImpl]) => {
                 accessToken: 'test-access-token',
             })
 
+            await store.setMessageRaw({
+                id: 'msg-topology',
+                kind: 'regular',
+                status: 'pending',
+                userId: authContextMock.userId,
+                partyId: 'party-msg',
+                publicKey: 'publicKey',
+                message: ['dHgw', 'dHgx'],
+                messageType: 'canton-topology-transactions',
+                origin: null,
+                createdAt: new Date('2026-03-01T10:00:00.000Z'),
+            })
             await store.setMessageRaw({
                 id: 'msg-prepared',
                 kind: 'regular',
@@ -1589,14 +1601,18 @@ implementations.forEach(([name, StoreImpl]) => {
                 origin: null,
                 createdAt: new Date('2026-03-01T10:00:00.000Z'),
             })
-            await store.setMessageRawStatus('msg-prepared', 'signed', {
+            await store.setMessageRawStatus('msg-topology', 'signed', {
                 signature: 'signature-bytes',
             })
+
+            const topology = await store.getMessageRaw('msg-topology')
+            expect(topology?.message).toEqual(['dHgw', 'dHgx'])
+            expect(topology?.messageType).toBe('canton-topology-transactions')
+            expect(topology?.signature).toBe('signature-bytes')
 
             const prepared = await store.getMessageRaw('msg-prepared')
             expect(prepared?.message).toBe('cHJlcGFyZWQ=')
             expect(prepared?.messageType).toBe('canton-prepared-transaction')
-            expect(prepared?.signature).toBe('signature-bytes')
         })
 
         test('should keep externalTxId across status updates and persist failureReason', async () => {

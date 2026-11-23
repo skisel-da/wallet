@@ -1,9 +1,14 @@
 // Copyright (c) 2025-2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import type { ParsedTransactionInfo } from '@canton-network/core-tx-visualizer'
+import type {
+    ParsedTransactionInfo,
+    TopologyTransactionSummary,
+} from '@canton-network/core-tx-visualizer'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import {
+    findAllByShadowRole,
+    findAllByShadowText,
     findByShadowRole,
     findByShadowText,
     queryByShadowRole,
@@ -23,6 +28,32 @@ const parsed: ParsedTransactionInfo = {
     signatories: ['alice::1220aa', 'bob::1220bb'],
     jsonString: '{"a":1}',
 }
+
+const topologySummaries: TopologyTransactionSummary[] = [
+    {
+        operation: 'ADD_REPLACE',
+        serial: 1,
+        kind: 'decentralizedNamespaceDefinition',
+        decentralizedNamespace: '1220dd',
+        threshold: 2,
+        owners: ['1220aa', '1220bb'],
+    },
+    {
+        operation: 'ADD_REPLACE',
+        serial: 1,
+        kind: 'partyToParticipant',
+        party: 'joint::1220dd',
+        threshold: 1,
+        participants: [
+            {
+                participantUid: 'participant1::1220ee',
+                permission: 'CONFIRMATION',
+                state: 'ACTIVE',
+            },
+        ],
+        partySigningKeys: { threshold: 2, keyCount: 2 },
+    },
+]
 
 const meta = {
     title: 'MessageDetail',
@@ -279,5 +310,41 @@ export const PreparedTransaction: Story = {
             })
         )
         await expect(args.onMessageApprove).toHaveBeenCalledOnce()
+    },
+}
+
+export const TopologyTransactions: Story = {
+    args: {
+        messageType: 'canton-topology-transactions',
+        topologySummaries,
+    },
+    play: async ({ canvasElement }) => {
+        await expect(
+            await findByShadowText(canvasElement, (content) =>
+                content.includes('together with your own key')
+            )
+        ).toBeInTheDocument()
+        for (const text of [
+            '1. Decentralized namespace definition (ADD_REPLACE)',
+            '2. Party to participant (ADD_REPLACE)',
+            '2 of 2',
+            'joint::1220dd',
+            'participant1::1220ee',
+            'Hosted by (CONFIRMATION, ACTIVE)',
+        ]) {
+            await expect(
+                (await findAllByShadowText(canvasElement, text)).length
+            ).toBeGreaterThan(0)
+        }
+        for (const owner of ['1220aa', '1220bb']) {
+            await expect(
+                await findByShadowText(canvasElement, owner)
+            ).toBeInTheDocument()
+        }
+        await expect(
+            await findAllByShadowRole(canvasElement, 'button', {
+                name: 'Copy owner',
+            })
+        ).toHaveLength(2)
     },
 }

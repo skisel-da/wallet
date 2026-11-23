@@ -1,7 +1,10 @@
 // Copyright (c) 2025-2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import type { ParsedTransactionInfo } from '@canton-network/core-tx-visualizer'
+import type {
+    ParsedTransactionInfo,
+    TopologyTransactionSummary,
+} from '@canton-network/core-tx-visualizer'
 import { html, css, nothing } from 'lit'
 import { customElement, property } from 'lit/decorators.js'
 
@@ -14,6 +17,14 @@ import {
     getActivityType,
 } from '../internal/activity-utils.ts'
 import { BaseElement } from '../internal/base-element.ts'
+
+const topologyKindLabels = {
+    namespaceDelegation: 'Namespace delegation',
+    decentralizedNamespaceDefinition: 'Decentralized namespace definition',
+    partyToParticipant: 'Party to participant',
+    partyToKeyMapping: 'Party to key mapping',
+    unknown: 'Unknown mapping',
+} satisfies Record<TopologyTransactionSummary['kind'], string>
 
 /** Emitted when the user clicks the "Approve" button */
 export class MessageApproveEvent extends Event {
@@ -40,6 +51,9 @@ class WgMessageDetail extends BaseElement {
 
     @property({ type: Object }) accessor parsed: ParsedTransactionInfo | null =
         null
+
+    @property({ type: Array })
+    accessor topologySummaries: TopologyTransactionSummary[] = []
 
     @property() accessor status = ''
 
@@ -159,6 +173,20 @@ class WgMessageDetail extends BaseElement {
                 text-align: left;
             }
 
+            .mapping {
+                display: flex;
+                flex-direction: column;
+                gap: var(--wg-space-3);
+                padding: var(--wg-space-4);
+                border: 1px solid var(--wg-border);
+                border-radius: var(--wg-radius-lg);
+            }
+
+            .mapping-title {
+                margin: 0;
+                color: var(--wg-text);
+            }
+
             .actions {
                 margin-top: var(--wg-space-6);
                 display: flex;
@@ -210,6 +238,91 @@ class WgMessageDetail extends BaseElement {
         `
     }
 
+    private renderTopologySummary(summary: TopologyTransactionSummary) {
+        switch (summary.kind) {
+            case 'namespaceDelegation':
+                return html`
+                    ${renderCopyableValue(
+                        'Namespace',
+                        summary.namespace,
+                        'Copy namespace'
+                    )}
+                    ${this.renderInlineField(
+                        'Root delegation',
+                        summary.isRootDelegation ? 'Yes' : 'No'
+                    )}
+                `
+            case 'decentralizedNamespaceDefinition':
+                return html`
+                    ${renderCopyableValue(
+                        'Decentralized namespace',
+                        summary.decentralizedNamespace,
+                        'Copy decentralized namespace'
+                    )}
+                    ${this.renderInlineField(
+                        'Threshold',
+                        `${summary.threshold} of ${summary.owners.length}`
+                    )}
+                    ${summary.owners.map((owner) =>
+                        renderCopyableValue('Owner', owner, 'Copy owner')
+                    )}
+                `
+            case 'partyToParticipant':
+                return html`
+                    ${renderCopyableValue('Party', summary.party, 'Copy party')}
+                    ${this.renderInlineField(
+                        'Confirmation threshold',
+                        summary.threshold
+                    )}
+                    ${summary.participants.map((participant) =>
+                        renderCopyableValue(
+                            `Hosted by (${participant.permission}, ${participant.state})`,
+                            participant.participantUid,
+                            'Copy participant'
+                        )
+                    )}
+                    ${
+                        summary.partySigningKeys
+                            ? this.renderInlineField(
+                                  'Party signing keys',
+                                  `${summary.partySigningKeys.threshold} of ${summary.partySigningKeys.keyCount}`
+                              )
+                            : nothing
+                    }
+                `
+            case 'partyToKeyMapping':
+                return html`
+                    ${renderCopyableValue('Party', summary.party, 'Copy party')}
+                    ${this.renderInlineField(
+                        'Signing keys',
+                        `${summary.threshold} of ${summary.signingKeyCount}`
+                    )}
+                `
+            case 'unknown':
+                return this.renderInlineField('Mapping', summary.mappingKind)
+        }
+    }
+
+    private renderTopologyTransactions() {
+        return html`
+            <div class="alert alert-info mb-0" role="alert">
+                You sign these topology transactions together with your own key.
+                Nothing is submitted by this wallet.
+            </div>
+            ${this.topologySummaries.map(
+                (summary, index) => html`
+                    <section class="mapping">
+                        <h2 class="mapping-title h6 fw-semibold mb-0">
+                            ${index + 1}. ${topologyKindLabels[summary.kind]}
+                            (${summary.operation})
+                        </h2>
+                        ${this.renderTopologySummary(summary)}
+                    </section>
+                `
+            )}
+        `
+    }
+
     private renderPreparedTransaction() {
         return html`
             <div class="alert alert-info mb-0" role="alert">
@@ -237,6 +350,8 @@ ${this.parsed?.jsonString || 'N/A'}</pre>
 
     private renderMessage() {
         switch (this.messageType) {
+            case 'canton-topology-transactions':
+                return this.renderTopologyTransactions()
             case 'canton-prepared-transaction':
                 return this.renderPreparedTransaction()
             default:

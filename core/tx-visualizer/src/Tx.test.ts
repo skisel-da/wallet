@@ -28,6 +28,7 @@ import {
     hashPreparedTransaction,
     type ParsedTransactionInfo,
     parsePreparedTransaction,
+    summarizeTopologyTransaction,
     validateAuthorizedPartyIds,
 } from './index.ts'
 import { fromBase64, fromHex, toBase64, toHex } from './utils.ts'
@@ -384,6 +385,218 @@ describe('decodeTopologyTransaction', () => {
         )
 
         expect(() => decodeTopologyTransaction(unwrapped)).toThrow()
+    })
+})
+
+const wrapTopologyTransaction = (version: 30 | 31, data: Uint8Array) =>
+    toBase64(
+        UntypedVersionedMessage.toBinary({
+            wrapper: { oneofKind: 'data', data },
+            version,
+        })
+    )
+
+const decentralizedNamespaceDefinition = {
+    oneofKind: 'decentralizedNamespaceDefinition' as const,
+    decentralizedNamespaceDefinition: {
+        decentralizedNamespace: '1220dd',
+        threshold: 2,
+        owners: ['1220aa', '1220bb'],
+    },
+}
+
+describe('summarizeTopologyTransaction', () => {
+    const summarize = (topologyTx: string) =>
+        summarizeTopologyTransaction(decodeTopologyTransaction(topologyTx))
+
+    it('summarizes a namespace delegation', () => {
+        expect(summarize(namespaceDelegationBase64)).toEqual({
+            operation: 'ADD_REPLACE',
+            serial: 1,
+            kind: 'namespaceDelegation',
+            namespace:
+                '1220123087e6bf66d225d047e6af8b0944bc50cc470cb46afd9515a558bf55605441',
+            isRootDelegation: false,
+        })
+    })
+
+    it('summarizes a party to key mapping', () => {
+        expect(summarize(partyToKeyMappingBase64)).toEqual({
+            operation: 'ADD_REPLACE',
+            serial: 1,
+            kind: 'partyToKeyMapping',
+            party: generateTopology372.partyId,
+            threshold: 1,
+            signingKeyCount: 1,
+        })
+    })
+
+    it('summarizes a party to participant', () => {
+        expect(summarize(partyToParticipantMappingBase64)).toMatchObject({
+            kind: 'partyToParticipant',
+            party: generateTopology372.partyId,
+            threshold: 1,
+            participants: [{ permission: 'CONFIRMATION', state: 'ACTIVE' }],
+        })
+    })
+
+    it.each([
+        ['v30', generateTopology372.v30],
+        ['v31', generateTopology372.v31],
+    ])(
+        'summarizes the %s party to participant a participant generates',
+        (_, { topologyTransactions }) => {
+            expect(summarize(topologyTransactions[0])).toMatchObject({
+                kind: 'partyToParticipant',
+                party: generateTopology372.partyId,
+                participants: [{ permission: 'CONFIRMATION', state: 'ACTIVE' }],
+                partySigningKeys: { threshold: 1, keyCount: 1 },
+            })
+        }
+    )
+
+    it('summarizes a v31 hosting state', () => {
+        const topologyTx = wrapTopologyTransaction(
+            31,
+            v31_topology.TopologyTransaction.toBinary({
+                operation: v30_topology.Enums_TopologyChangeOp.ADD_REPLACE,
+                serial: 2,
+                mapping: {
+                    mapping: {
+                        oneofKind: 'partyToParticipant',
+                        partyToParticipant: {
+                            party: generateTopology372.partyId,
+                            threshold: 1,
+                            participants: [
+                                {
+                                    participantUid: 'participant1::1220aa',
+                                    permission:
+                                        v30_topology.Enums_ParticipantPermission
+                                            .OBSERVATION,
+                                    state: v31_topology
+                                        .PartyToParticipant_HostingParticipant_HostingState
+                                        .ONBOARDING,
+                                },
+                            ],
+                        },
+                    },
+                },
+            })
+        )
+
+        expect(summarize(topologyTx)).toEqual({
+            operation: 'ADD_REPLACE',
+            serial: 2,
+            kind: 'partyToParticipant',
+            party: generateTopology372.partyId,
+            threshold: 1,
+            participants: [
+                {
+                    participantUid: 'participant1::1220aa',
+                    permission: 'OBSERVATION',
+                    state: 'ONBOARDING',
+                },
+            ],
+        })
+    })
+
+    it('summarizes a v30 onboarding participant', () => {
+        const topologyTx = wrapTopologyTransaction(
+            30,
+            v30_topology.TopologyTransaction.toBinary({
+                operation: v30_topology.Enums_TopologyChangeOp.ADD_REPLACE,
+                serial: 1,
+                mapping: {
+                    mapping: {
+                        oneofKind: 'partyToParticipant',
+                        partyToParticipant: {
+                            party: generateTopology372.partyId,
+                            threshold: 1,
+                            participants: [
+                                {
+                                    participantUid: 'participant1::1220aa',
+                                    permission:
+                                        v30_topology.Enums_ParticipantPermission
+                                            .SUBMISSION,
+                                    onboarding: {},
+                                },
+                            ],
+                        },
+                    },
+                },
+            })
+        )
+
+        expect(summarize(topologyTx)).toMatchObject({
+            participants: [{ permission: 'SUBMISSION', state: 'ONBOARDING' }],
+        })
+    })
+
+    it.each([30, 31] as const)(
+        'summarizes a v%i decentralized namespace definition',
+        (version) => {
+            const transaction = {
+                operation: v30_topology.Enums_TopologyChangeOp.ADD_REPLACE,
+                serial: 1,
+                mapping: { mapping: decentralizedNamespaceDefinition },
+            }
+            const topologyTx = wrapTopologyTransaction(
+                version,
+                version === 30
+                    ? v30_topology.TopologyTransaction.toBinary(transaction)
+                    : v31_topology.TopologyTransaction.toBinary(transaction)
+            )
+
+            expect(summarize(topologyTx)).toEqual({
+                operation: 'ADD_REPLACE',
+                serial: 1,
+                kind: 'decentralizedNamespaceDefinition',
+                decentralizedNamespace: '1220dd',
+                threshold: 2,
+                owners: ['1220aa', '1220bb'],
+            })
+        }
+    )
+
+    it('summarizes a mapping it does not know as unknown', () => {
+        const topologyTx = wrapTopologyTransaction(
+            30,
+            v30_topology.TopologyTransaction.toBinary({
+                operation: v30_topology.Enums_TopologyChangeOp.REMOVE,
+                serial: 3,
+                mapping: {
+                    mapping: {
+                        oneofKind: 'partyHostingLimits',
+                        partyHostingLimits: {
+                            synchronizerId: 'sync',
+                            party: generateTopology372.partyId,
+                        },
+                    },
+                },
+            })
+        )
+
+        expect(summarize(topologyTx)).toEqual({
+            operation: 'REMOVE',
+            serial: 3,
+            kind: 'unknown',
+            mappingKind: 'partyHostingLimits',
+        })
+    })
+
+    it('summarizes a transaction without a mapping as unknown', () => {
+        const topologyTx = wrapTopologyTransaction(
+            30,
+            v30_topology.TopologyTransaction.toBinary({
+                operation: v30_topology.Enums_TopologyChangeOp.ADD_REPLACE,
+                serial: 1,
+            })
+        )
+
+        expect(summarize(topologyTx)).toMatchObject({
+            kind: 'unknown',
+            mappingKind: 'undefined',
+        })
     })
 })
 

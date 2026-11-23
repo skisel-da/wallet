@@ -2,8 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
+    decodeTopologyTransaction,
     type ParsedTransactionInfo,
     parsePreparedTransaction,
+    summarizeTopologyTransaction,
+    type TopologyTransactionSummary,
 } from '@canton-network/core-tx-visualizer'
 import {
     BaseElement,
@@ -30,6 +33,7 @@ export class UserUiSignMessage extends BaseElement {
     @state() accessor message = ''
     @state() accessor messageType: string | null = null
     @state() accessor parsed: ParsedTransactionInfo | null = null
+    @state() accessor topologySummaries: TopologyTransactionSummary[] = []
     @state() accessor origin: string | null = null
     @state() accessor status = ''
     @state() accessor externalTxId: string | null = null
@@ -103,17 +107,13 @@ export class UserUiSignMessage extends BaseElement {
                 params: { messageId: this.messageId },
             })
             const { message, messageType } = result.message
-            if (typeof message === 'string') {
-                this.messageType = messageType ?? null
-                this.message = message
-                this.decodeMessage(message, messageType)
-                this.origin = result.message.origin ?? null
-                this.status = result.message.status
-                this.externalTxId = result.message.externalTxId ?? null
-                this.failureReason = result.message.failureReason ?? null
-            } else {
-                this.loadError = 'Message type is not supported.'
-            }
+            this.messageType = messageType ?? null
+            this.message = typeof message === 'string' ? message : ''
+            this.decodeMessage(message, messageType)
+            this.origin = result.message.origin ?? null
+            this.status = result.message.status
+            this.externalTxId = result.message.externalTxId ?? null
+            this.failureReason = result.message.failureReason ?? null
         } catch (err) {
             console.error(err)
             // Most common case: messageId doesn't exist anymore / was deleted
@@ -123,11 +123,23 @@ export class UserUiSignMessage extends BaseElement {
         this.syncPolling()
     }
 
-    private decodeMessage(message: string, messageType: string | undefined) {
+    private decodeMessage(
+        message: string | string[],
+        messageType: string | undefined
+    ) {
         this.parsed = null
-        if (messageType !== 'canton-prepared-transaction') return
+        this.topologySummaries = []
         try {
-            this.parsed = parsePreparedTransaction(message)
+            if (messageType === 'canton-prepared-transaction') {
+                this.parsed = parsePreparedTransaction(message as string)
+            } else if (messageType === 'canton-topology-transactions') {
+                this.topologySummaries = (message as string[]).map(
+                    (topologyTx) =>
+                        summarizeTopologyTransaction(
+                            decodeTopologyTransaction(topologyTx)
+                        )
+                )
+            }
         } catch (err) {
             console.error(err)
             this.loadError = 'Message could not be decoded.'
@@ -305,6 +317,7 @@ export class UserUiSignMessage extends BaseElement {
                 .message=${this.message}
                 .messageType=${this.messageType}
                 .parsed=${this.parsed}
+                .topologySummaries=${this.topologySummaries}
                 .status=${this.status}
                 .origin=${this.origin}
                 .externalTxId=${this.externalTxId}

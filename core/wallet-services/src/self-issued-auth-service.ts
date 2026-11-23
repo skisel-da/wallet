@@ -399,11 +399,17 @@ export class SelfIssuedAuthService {
         }
     }
 
-    private async requireTokenMessage(
-        messageId: string
-    ): Promise<{ message: MessageRaw; wallet: Wallet }> {
+    private async requireTokenMessage(messageId: string): Promise<{
+        message: MessageRaw & { message: string }
+        wallet: Wallet
+    }> {
         const message = await this.store.getMessageRaw(messageId)
-        if (!message || message.kind !== 'self-issued-token') {
+        const signingInput = message?.message
+        if (
+            !message ||
+            message.kind !== 'self-issued-token' ||
+            typeof signingInput !== 'string'
+        ) {
             throw new Error(
                 `Self-issued login request not found with id: ${messageId}`
             )
@@ -415,7 +421,7 @@ export class SelfIssuedAuthService {
                 `Wallet public key ${wallet.partyId} doesn't match public key used for signing access token. Refusing to complete login.`
             )
         }
-        return { message, wallet }
+        return { message: { ...message, message: signingInput }, wallet }
     }
 
     private async requireLoginWallet(partyId: string): Promise<Wallet> {

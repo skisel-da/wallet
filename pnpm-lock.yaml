@@ -1956,6 +1956,9 @@ importers:
       '@canton-network/core-signing-lib':
         specifier: 'workspace:'
         version: link:../signing-lib
+      '@canton-network/core-tx-hashing':
+        specifier: 'workspace:'
+        version: link:../tx-hashing
       '@canton-network/core-tx-visualizer':
         specifier: 'workspace:'
         version: link:../tx-visualizer

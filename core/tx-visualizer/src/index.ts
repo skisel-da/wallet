@@ -17,6 +17,11 @@ import {
 
 import { fromBase64, toBase64, toHex } from './utils.ts'
 export {
+    summarizeTopologyTransaction,
+    type TopologyHostingParticipant,
+    type TopologyTransactionSummary,
+} from './topology.ts'
+export {
     decodeUnknownFields,
     type RawFields,
     type RawValue,

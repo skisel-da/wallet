@@ -7,6 +7,7 @@ import {
     SIGN_MESSAGE_CAPABLE_SIGNING_PROVIDERS,
     SigningProvider,
 } from '@canton-network/core-signing-lib'
+import { computeTopologyMultiHash } from '@canton-network/core-tx-hashing'
 import { hashPreparedTransaction } from '@canton-network/core-tx-visualizer'
 import type { AuthContext } from '@canton-network/core-wallet-auth'
 import type { MessageSignatureEvent } from '@canton-network/core-wallet-dapp-rpc-client'
@@ -166,7 +167,11 @@ export class SignMessageService {
             throw new Error(details)
         }
 
-        if (!pending.message) {
+        if (
+            Array.isArray(pending.message)
+                ? pending.message.length === 0
+                : !pending.message
+        ) {
             return await emitFailedAndPersist(
                 errorCodes.rpc.invalidParams,
                 `Message request ${pending.id} has an empty message.`
@@ -219,14 +224,17 @@ export class SignMessageService {
                     )
             )
             result = await driver.signTransaction({
-                tx: pending.message,
+                tx:
+                    pending.messageType === 'canton-prepared-transaction'
+                        ? (pending.message as string)
+                        : '',
                 txHash,
                 keyIdentifier: { publicKey: wallet.publicKey },
                 internalTxId: pending.id,
             })
         } else {
             result = await driver.signMessage({
-                message: pending.message,
+                message: pending.message as string,
                 keyIdentifier: { publicKey: wallet.publicKey },
                 internalTxId: pending.id,
             })
@@ -313,9 +321,13 @@ export class SignMessageService {
     private async hashTypedMessage(pending: MessageRaw): Promise<string> {
         switch (pending.messageType) {
             case 'canton-prepared-transaction':
-                return hashPreparedTransaction(pending.message, 'base64', {
-                    hashingScheme: this.hashingSchemeVersion,
-                })
+                return hashPreparedTransaction(
+                    pending.message as string,
+                    'base64',
+                    { hashingScheme: this.hashingSchemeVersion }
+                )
+            case 'canton-topology-transactions':
+                return computeTopologyMultiHash(pending.message as string[])
             default:
                 throw new Error(
                     `Unsupported message type: ${pending.messageType}`
