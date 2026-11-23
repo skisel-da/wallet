@@ -17,6 +17,7 @@ import {
     UserLevelRight,
     type MessageRaw,
     type MessageRawKind,
+    type MessageType,
     type ApiKey,
 } from '@canton-network/core-wallet-store'
 
@@ -113,6 +114,7 @@ interface MessageRawTable {
     partyId: string
     publicKey: string
     message: string
+    messageType: string | null
     origin: string | null
     userId: UserId
     networkId: string
@@ -444,6 +446,7 @@ export const fromMessageRaw = (
         partyId: message.partyId,
         publicKey: message.publicKey,
         message: message.message,
+        messageType: message.messageType ?? null,
         origin: message.origin || null,
         networkId,
         createdAt: message.createdAt.toISOString(),
@@ -465,6 +468,10 @@ export const toMessageRaw = (table: MessageRawTable): MessageRaw => {
         message: table.message,
         origin: table.origin || null,
         createdAt: new Date(table.createdAt),
+    }
+
+    if (table.messageType) {
+        result.messageType = table.messageType as MessageType
     }
 
     if (table.signedAt) {

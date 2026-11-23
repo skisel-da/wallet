@@ -89,6 +89,8 @@ const kernelInfo: KernelInfo = {
 }
 
 const dappUrl = 'https://dapp.api.example'
+const preparedTransaction =
+    'Ct8ECgMyLjESATAasAQKATDCPqkECqYECgMyLjESQjAwOWE3N2MwMDg1YTcxYzk4YzI0YTZjNmVhN2FiOGE3YWU5MGQ3ZmMzMWJjMjFlMGY4NmJhYTgzMThmNjc0YjJjNhoMaGFzaC12ZWN0b3JzIlYKQDdhYzA2NTBlZjRkMzg2YTQyYmNiYzdmZTEyOWY0MTgwNmRhYTA0MDYzZmYwOTcwYTVhM2NkZDZmNGY4MjllNjgSC0hhc2hWZWN0b3JzGgVQbGFpbirAAXK9AQpWCkA3YWMwNjUwZWY0ZDM4NmE0MmJjYmM3ZmUxMjlmNDE4MDZkYWEwNDA2M2ZmMDk3MGE1YTNjZGQ2ZjRmODI5ZTY4EgtIYXNoVmVjdG9ycxoFUGxhaW4SYwoFb3duZXISWjpYaGFzaC12ZWN0b3JzLW93bmVyOjoxMjIwZWQzYjIxNzQ1NGJiNmRmNzE1MzlkODExOWQ2NzkyMTBlZjUyOGNhOGQzNjcxMTc3OWViMDlkNWQ3MzM3YjA5NTJYaGFzaC12ZWN0b3JzLW93bmVyOjoxMjIwZWQzYjIxNzQ1NGJiNmRmNzE1MzlkODExOWQ2NzkyMTBlZjUyOGNhOGQzNjcxMTc3OWViMDlkNWQ3MzM3YjA5NTpYaGFzaC12ZWN0b3JzLW93bmVyOjoxMjIwZWQzYjIxNzQ1NGJiNmRmNzE1MzlkODExOWQ2NzkyMTBlZjUyOGNhOGQzNjcxMTc3OWViMDlkNWQ3MzM3YjA5NSIiEiAgG/aBryCzULzqnIUtSxt6QhqaSPxEPec7P1A5OonL9RKGAhKAAQpYaGFzaC12ZWN0b3JzLW93bmVyOjoxMjIwZWQzYjIxNzQ1NGJiNmRmNzE1MzlkODExOWQ2NzkyMTBlZjUyOGNhOGQzNjcxMTc3OWViMDlkNWQ3MzM3YjA5NRIkMWRiOTE0Y2MtMjU5ZC00NmMwLWExYTAtNDk3YzJlOTcxYjJmGlJ3YWxsZXQ6OjEyMjBlN2IyM2VhNTJlYjVjNjcyZmIwYjFjZGJjOTE2OTIyZmZlZDNkZDc2NzZjMjIzYTYwNTY2NDMxNWUyZDQzZWRkOjozNS0wKiQ4MTY1MzI2NS01NmFhLTQzOGMtYjMxYS0yYzEwYTcwNzVhNmEw7+a/ivrTlwM='
 const userUrl = 'https://user.api.example'
 const origin = 'https://dapp.example'
 
@@ -749,13 +751,6 @@ describe('dappController', () => {
 
         it.each<[string, unknown]>([
             [
-                'a messageType',
-                {
-                    message: 'hello',
-                    messageType: 'canton-prepared-transaction',
-                },
-            ],
-            [
                 'a messageType with an array',
                 {
                     message: ['hello'],
@@ -866,6 +861,57 @@ describe('dappController', () => {
                 messageId: 'message-id',
                 userUrl: `${userUrl}/sign-message/index.html?messageId=message-id&closeafteraction`,
             })
+        })
+    })
+
+    describe('signMessage with a messageType', () => {
+        async function createSignMessageController() {
+            const store = await createStore(logger, auth)
+            const setMessageSpy = vi.spyOn(store, 'setMessageRaw')
+            const controller = createController(
+                store,
+                notificationService,
+                logger,
+                auth
+            )
+            return { controller, setMessageSpy }
+        }
+
+        it('stores a prepared transaction with its messageType', async () => {
+            mockRandomUUID.mockReturnValueOnce(uuid('message-id'))
+            const { controller, setMessageSpy } =
+                await createSignMessageController()
+
+            const result = await controller.signMessage({
+                message: preparedTransaction,
+                messageType: 'canton-prepared-transaction',
+            })
+
+            expect(setMessageSpy).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    id: 'message-id',
+                    status: 'pending',
+                    message: preparedTransaction,
+                    messageType: 'canton-prepared-transaction',
+                })
+            )
+            expect(result).toEqual({
+                messageId: 'message-id',
+                userUrl: `${userUrl}/sign-message/index.html?messageId=message-id&closeafteraction`,
+            })
+        })
+
+        it('rejects bytes that do not decode as a prepared transaction', async () => {
+            const { controller, setMessageSpy } =
+                await createSignMessageController()
+
+            await expect(
+                controller.signMessage({
+                    message: 'bm90IGEgdHg=',
+                    messageType: 'canton-prepared-transaction',
+                })
+            ).rejects.toThrow('does not decode as a prepared transaction')
+            expect(setMessageSpy).not.toHaveBeenCalled()
         })
     })
 

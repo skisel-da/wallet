@@ -1,6 +1,7 @@
 // Copyright (c) 2025-2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+import type { ParsedTransactionInfo } from '@canton-network/core-tx-visualizer'
 import { html, css, nothing } from 'lit'
 import { customElement, property } from 'lit/decorators.js'
 
@@ -10,6 +11,7 @@ import { renderCopyableValue } from '../internal/activity-render.ts'
 import {
     getActivityStatusBadgeClass,
     getActivityStatusLabel,
+    getActivityType,
 } from '../internal/activity-utils.ts'
 import { BaseElement } from '../internal/base-element.ts'
 
@@ -33,6 +35,11 @@ class WgMessageDetail extends BaseElement {
     @property() accessor messageId = ''
 
     @property() accessor message = ''
+
+    @property() accessor messageType: string | null = null
+
+    @property({ type: Object }) accessor parsed: ParsedTransactionInfo | null =
+        null
 
     @property() accessor status = ''
 
@@ -203,6 +210,49 @@ class WgMessageDetail extends BaseElement {
         `
     }
 
+    private renderPreparedTransaction() {
+        return html`
+            <div class="alert alert-info mb-0" role="alert">
+                You sign as an owner of the acting party. Nothing is submitted
+                by this wallet.
+            </div>
+            ${this.renderInlineField('Action type', getActivityType(this.parsed))}
+            ${(this.parsed?.signatories ?? []).map((signatory) =>
+                renderCopyableValue('Signatory', signatory, 'Copy signatory')
+            )}
+            ${renderCopyableValue(
+                'Template',
+                this.parsed?.templateId,
+                'Copy template'
+            )}
+            <section class="field field--stacked">
+                <h2 class="label small fw-semibold text-body-secondary mb-0">
+                    Transaction JSON Object
+                </h2>
+                <pre class="message-box small">
+${this.parsed?.jsonString || 'N/A'}</pre>
+            </section>
+        `
+    }
+
+    private renderMessage() {
+        switch (this.messageType) {
+            case 'canton-prepared-transaction':
+                return this.renderPreparedTransaction()
+            default:
+                return html`
+                    <section class="field field--stacked">
+                        <h2
+                            class="label small fw-semibold text-body-secondary mb-0"
+                        >
+                            Message
+                        </h2>
+                        <pre class="message-box small">${this.message}</pre>
+                    </section>
+                `
+        }
+    }
+
     protected render() {
         return html`
             <div class="page-header">
@@ -241,15 +291,7 @@ class WgMessageDetail extends BaseElement {
                           )
                         : nothing
                 }
-
-                <section class="field field--stacked">
-                    <h2
-                        class="label small fw-semibold text-body-secondary mb-0"
-                    >
-                        Message
-                    </h2>
-                    <pre class="message-box small">${this.message}</pre>
-                </section>
+                ${this.renderMessage()}
             </div>
 
             ${this.renderActionButtons()}

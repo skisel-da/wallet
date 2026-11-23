@@ -2,6 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
+    type ParsedTransactionInfo,
+    parsePreparedTransaction,
+} from '@canton-network/core-tx-visualizer'
+import {
     BaseElement,
     handleErrorToast,
     toRelHref,
@@ -24,6 +28,8 @@ const POLL_INTERVAL_MS = 3000
 export class UserUiSignMessage extends BaseElement {
     @state() accessor messageId = ''
     @state() accessor message = ''
+    @state() accessor messageType: string | null = null
+    @state() accessor parsed: ParsedTransactionInfo | null = null
     @state() accessor origin: string | null = null
     @state() accessor status = ''
     @state() accessor externalTxId: string | null = null
@@ -96,8 +102,11 @@ export class UserUiSignMessage extends BaseElement {
                 method: 'getMessageToSign',
                 params: { messageId: this.messageId },
             })
-            if (typeof result.message.message === 'string') {
-                this.message = result.message.message
+            const { message, messageType } = result.message
+            if (typeof message === 'string') {
+                this.messageType = messageType ?? null
+                this.message = message
+                this.decodeMessage(message, messageType)
                 this.origin = result.message.origin ?? null
                 this.status = result.message.status
                 this.externalTxId = result.message.externalTxId ?? null
@@ -112,6 +121,17 @@ export class UserUiSignMessage extends BaseElement {
         }
 
         this.syncPolling()
+    }
+
+    private decodeMessage(message: string, messageType: string | undefined) {
+        this.parsed = null
+        if (messageType !== 'canton-prepared-transaction') return
+        try {
+            this.parsed = parsePreparedTransaction(message)
+        } catch (err) {
+            console.error(err)
+            this.loadError = 'Message could not be decoded.'
+        }
     }
 
     private onVisibilityChange = () => {
@@ -283,6 +303,8 @@ export class UserUiSignMessage extends BaseElement {
             <wg-message-detail
                 .messageId=${this.messageId}
                 .message=${this.message}
+                .messageType=${this.messageType}
+                .parsed=${this.parsed}
                 .status=${this.status}
                 .origin=${this.origin}
                 .externalTxId=${this.externalTxId}

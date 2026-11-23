@@ -60,6 +60,8 @@ function detailText(el: UserUiSignMessage) {
         ?.textContent
 }
 
+const preparedTransaction =
+    'Ct8ECgMyLjESATAasAQKATDCPqkECqYECgMyLjESQjAwOWE3N2MwMDg1YTcxYzk4YzI0YTZjNmVhN2FiOGE3YWU5MGQ3ZmMzMWJjMjFlMGY4NmJhYTgzMThmNjc0YjJjNhoMaGFzaC12ZWN0b3JzIlYKQDdhYzA2NTBlZjRkMzg2YTQyYmNiYzdmZTEyOWY0MTgwNmRhYTA0MDYzZmYwOTcwYTVhM2NkZDZmNGY4MjllNjgSC0hhc2hWZWN0b3JzGgVQbGFpbirAAXK9AQpWCkA3YWMwNjUwZWY0ZDM4NmE0MmJjYmM3ZmUxMjlmNDE4MDZkYWEwNDA2M2ZmMDk3MGE1YTNjZGQ2ZjRmODI5ZTY4EgtIYXNoVmVjdG9ycxoFUGxhaW4SYwoFb3duZXISWjpYaGFzaC12ZWN0b3JzLW93bmVyOjoxMjIwZWQzYjIxNzQ1NGJiNmRmNzE1MzlkODExOWQ2NzkyMTBlZjUyOGNhOGQzNjcxMTc3OWViMDlkNWQ3MzM3YjA5NTJYaGFzaC12ZWN0b3JzLW93bmVyOjoxMjIwZWQzYjIxNzQ1NGJiNmRmNzE1MzlkODExOWQ2NzkyMTBlZjUyOGNhOGQzNjcxMTc3OWViMDlkNWQ3MzM3YjA5NTpYaGFzaC12ZWN0b3JzLW93bmVyOjoxMjIwZWQzYjIxNzQ1NGJiNmRmNzE1MzlkODExOWQ2NzkyMTBlZjUyOGNhOGQzNjcxMTc3OWViMDlkNWQ3MzM3YjA5NSIiEiAgG/aBryCzULzqnIUtSxt6QhqaSPxEPec7P1A5OonL9RKGAhKAAQpYaGFzaC12ZWN0b3JzLW93bmVyOjoxMjIwZWQzYjIxNzQ1NGJiNmRmNzE1MzlkODExOWQ2NzkyMTBlZjUyOGNhOGQzNjcxMTc3OWViMDlkNWQ3MzM3YjA5NRIkMWRiOTE0Y2MtMjU5ZC00NmMwLWExYTAtNDk3YzJlOTcxYjJmGlJ3YWxsZXQ6OjEyMjBlN2IyM2VhNTJlYjVjNjcyZmIwYjFjZGJjOTE2OTIyZmZlZDNkZDc2NzZjMjIzYTYwNTY2NDMxNWUyZDQzZWRkOjozNS0wKiQ4MTY1MzI2NS01NmFhLTQzOGMtYjMxYS0yYzEwYTcwNzVhNmEw7+a/ivrTlwM='
 const signedResult = {
     status: 'signed',
     signature: 'signature',
@@ -159,6 +161,72 @@ describe('UserUiSignMessage', () => {
         expect(detailText(el)).toContain('Hello, Canton')
         expect(detailText(el)).toContain('https://dapp.example')
         expect(approveButton(el)).not.toBeNull()
+    })
+
+    it('renders a prepared transaction to co-sign', async () => {
+        history.replaceState({}, '', '?messageId=msg-prepared')
+        mockRequest.mockImplementation(async ({ method }) => {
+            if (method === 'getMessageToSign') {
+                return {
+                    message: {
+                        message: preparedTransaction,
+                        messageType: 'canton-prepared-transaction',
+                        origin: 'https://dapp.example',
+                        status: 'pending',
+                    },
+                }
+            }
+            if (method === 'signMessage') {
+                return signedResult
+            }
+            return undefined
+        })
+
+        el = await fixture<UserUiSignMessage>(componentFixture)
+        await waitUntil(() => !el.isLoading && el.parsed !== null)
+
+        expect(detailText(el)).toContain('You sign as an owner')
+        expect(detailText(el)).toContain('Transaction JSON Object')
+        expect(detailText(el)).toContain('HashVectors')
+
+        approveButton(el)?.click()
+
+        await waitUntil(() =>
+            mockRequest.mock.calls.some((c) => c[0]?.method === 'signMessage')
+        )
+        await waitUntil(
+            () => setLocationHref.mock.calls.length > 0,
+            'navigation after sign',
+            { timeout: 3000 }
+        )
+        expect(mockRequest).toHaveBeenCalledWith({
+            method: 'signMessage',
+            params: { messageId: 'msg-prepared' },
+        })
+    })
+
+    it('shows an error when a typed message does not decode', async () => {
+        history.replaceState({}, '', '?messageId=msg-bad')
+        mockRequest.mockImplementation(async ({ method }) => {
+            if (method === 'getMessageToSign') {
+                return {
+                    message: {
+                        message: 'bm90IGEgdHg=',
+                        messageType: 'canton-prepared-transaction',
+                        status: 'pending',
+                    },
+                }
+            }
+            return undefined
+        })
+
+        el = await fixture<UserUiSignMessage>(componentFixture)
+        await waitUntil(() => el.loadError !== null)
+
+        expect(el.shadowRoot?.textContent).toContain(
+            'Message could not be decoded.'
+        )
+        expect(approveButton(el)).toBeUndefined()
     })
 
     it('calls signMessage when approve is clicked', async () => {

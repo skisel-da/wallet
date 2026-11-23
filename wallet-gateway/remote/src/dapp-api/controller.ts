@@ -10,6 +10,7 @@ import {
     isValidPostEndpoint,
 } from '@canton-network/core-ledger-client'
 import { providerErrors, rpcErrors } from '@canton-network/core-rpc-errors'
+import { decodePreparedTransaction } from '@canton-network/core-tx-visualizer'
 import {
     assertIsConnected,
     type AuthContext,
@@ -74,21 +75,49 @@ export const dappController = ({
 }: DappControllerOptions) => {
     const logger = _logger.child({ component: 'dapp-controller' })
 
+    function assertDecodes(decode: () => unknown, description: string): void {
+        try {
+            decode()
+        } catch (error) {
+            throw rpcErrors.invalidParams({
+                message: `Message does not decode as ${description}`,
+                data: {
+                    cause:
+                        error instanceof Error ? error.message : String(error),
+                },
+            })
+        }
+    }
+
     function validateSignMessageParams(params: SignMessageParams | undefined) {
         const message = params?.message
         const messageType = params?.messageType
         if (!message) throw new Error('Message is required')
-        if (messageType !== undefined) {
-            throw rpcErrors.invalidParams(
-                `Unsupported messageType: ${messageType}`
-            )
+
+        switch (messageType) {
+            case undefined:
+                if (Array.isArray(message)) {
+                    throw rpcErrors.invalidParams(
+                        'A message without a messageType must be a single string'
+                    )
+                }
+                return message
+            case 'canton-prepared-transaction':
+                if (Array.isArray(message)) {
+                    throw rpcErrors.invalidParams(
+                        'canton-prepared-transaction expects a single prepared transaction'
+                    )
+                }
+                assertDecodes(
+                    () => decodePreparedTransaction(message),
+                    'a prepared transaction'
+                )
+                return message
+            default:
+                throw rpcErrors.invalidParams(
+                    `Unsupported messageType: ${messageType}`
+                )
         }
-        if (Array.isArray(message)) {
-            throw rpcErrors.invalidParams(
-                'A message without a messageType must be a single string'
-            )
-        }
-        return message
     }
 
     function assertActAsPartiesBelongToUser(
@@ -533,6 +562,7 @@ export const dappController = ({
                 partyId: wallet.partyId,
                 publicKey: wallet.publicKey,
                 message,
+                ...(params.messageType && { messageType: params.messageType }),
                 origin: origin || null,
                 createdAt: new Date(),
             })

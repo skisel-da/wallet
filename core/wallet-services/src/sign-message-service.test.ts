@@ -16,6 +16,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { Notifier } from './notification/index.ts'
 import { SignMessageService } from './sign-message-service.ts'
+import type { HASHING_SCHEME_VERSION } from './types.ts'
 
 const authContext: AuthContext = {
     userId: 'user-1',
@@ -52,6 +53,16 @@ const pendingMessage: MessageRaw = {
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
 }
 
+const preparedTransaction =
+    'CsoHCgMyLjESATAamwcKATDCPpQHCpEHCgMyLjESQjAwMTY4Nzc3ODEwNzU3MmJlZWVjYzQzODk3MmQxODQ4M2VhZDI1MGQxZDUwYmI2MzU3ZjdmYjhmNjdkY2U3ZDYzNRoNc3BsaWNlLXdhbGxldCKCAQpAZWI2ZTAxZWZhY2MzMzk3ZTIzYzZiZThiOWJlN2RiNGJmMzc2NzIyMTE5NzRkNjllMjRiNDg5ODBlMmY5OGI3ZRIhU3BsaWNlLldhbGxldC5UcmFuc2ZlclByZWFwcHJvdmFsGhtUcmFuc2ZlclByZWFwcHJvdmFsUHJvcG9zYWwqtQNysgMKggEKQGViNmUwMWVmYWNjMzM5N2UyM2M2YmU4YjliZTdkYjRiZjM3NjcyMjExOTc0ZDY5ZTI0YjQ4OTgwZTJmOThiN2USIVNwbGljZS5XYWxsZXQuVHJhbnNmZXJQcmVhcHByb3ZhbBobVHJhbnNmZXJQcmVhcHByb3ZhbFByb3Bvc2FsElcKCHJlY2VpdmVyEks6SWJvYjo6MTIyMDViZTNiOWQxNzc1NzNmZmZiNjhlYjI0NTk4NmY4OGI5ZGY1OGQ0NGNlNTc1ODE5MDc4OTcwNTgwZDg3ZDFkYzAScgoIcHJvdmlkZXISZjpkYXBwX3VzZXJfbG9jYWxuZXQtbG9jYWxwYXJ0eS0xOjoxMjIwM2E1MmZlNWFmM2I4N2UwNjk2MTgyYWM2NjhhNmNiMzE1ZGFiNGJkYzMwZGE5ZTViNmRkYTllYjcyODc4NDIxNhJeCgtleHBlY3RlZERzbxJPUk0KSzpJRFNPOjoxMjIwYmJkMDAwYjY5ODc1NzNiOGMwOWY0NDRlNGRmNTUwOWFmODk5N2I4MzkxMDlkN2UyYzIxMmQ1NDdmMGFmMDk1MDJJYm9iOjoxMjIwNWJlM2I5ZDE3NzU3M2ZmZmI2OGViMjQ1OTg2Zjg4YjlkZjU4ZDQ0Y2U1NzU4MTkwNzg5NzA1ODBkODdkMWRjMDpkYXBwX3VzZXJfbG9jYWxuZXQtbG9jYWxwYXJ0eS0xOjoxMjIwM2E1MmZlNWFmM2I4N2UwNjk2MTgyYWM2NjhhNmNiMzE1ZGFiNGJkYzMwZGE5ZTViNmRkYTllYjcyODc4NDIxNjpJYm9iOjoxMjIwNWJlM2I5ZDE3NzU3M2ZmZmI2OGViMjQ1OTg2Zjg4YjlkZjU4ZDQ0Y2U1NzU4MTkwNzg5NzA1ODBkODdkMWRjMCIiEiDBzeNcgqLvsssBxhNx7wP9pK71TsAprgz+a8jag/Lb3RL3ARJxCklib2I6OjEyMjA1YmUzYjlkMTc3NTczZmZmYjY4ZWIyNDU5ODZmODhiOWRmNThkNDRjZTU3NTgxOTA3ODk3MDU4MGQ4N2QxZGMwEiQ5NzU4ZTQ2ZS05ZmJlLTRmOTQtOTczZC04NWQ5ZTBmMTMyNzUaU2dsb2JhbC1kb21haW46OjEyMjBiYmQwMDBiNjk4NzU3M2I4YzA5ZjQ0NGU0ZGY1NTA5YWY4OTk3YjgzOTEwOWQ3ZTJjMjEyZDU0N2YwYWYwOTUwKiQ5NGJkYmFmNS0wYjJjLTQwYmMtOTZjZC1jM2M5YTlkODQ3ZDIw+eaGkdz0jwM='
+const preparedTransactionHash = 'f97Cv1BO7QS7jmSY03p56JGsPf60Vx/ABXmRub7iiQI='
+const pendingPreparedTransaction: MessageRaw = {
+    ...pendingMessage,
+    id: 'msg-prepared',
+    message: preparedTransaction,
+    messageType: 'canton-prepared-transaction',
+}
+
 const awaitingMessage: MessageRaw = {
     ...pendingMessage,
     status: 'awaiting-signature',
@@ -67,11 +78,13 @@ const pendingTokenMessage: MessageRaw = {
 
 function createDriver(options: {
     signMessage?: ReturnType<typeof vi.fn>
+    signTransaction?: ReturnType<typeof vi.fn>
     getTransaction?: ReturnType<typeof vi.fn>
 }): SigningDriverInterface & { controller: ReturnType<typeof vi.fn> } {
     return {
         controller: vi.fn().mockReturnValue({
             signMessage: options.signMessage ?? vi.fn(),
+            signTransaction: options.signTransaction ?? vi.fn(),
             getTransaction: options.getTransaction ?? vi.fn(),
         }),
     } as unknown as SigningDriverInterface & {
@@ -540,6 +553,186 @@ describe('SignMessageService', () => {
                     code: errorCodes.rpc.invalidInput,
                     message: failureReason,
                 },
+            })
+        })
+
+        describe('with a messageType', () => {
+            function createService(
+                message: MessageRaw,
+                signTransaction: ReturnType<typeof vi.fn>,
+                signMessage = vi.fn(),
+                hashingSchemeVersion?: HASHING_SCHEME_VERSION
+            ) {
+                const store = createStore(message)
+                const service = new SignMessageService(
+                    store,
+                    {
+                        [SigningProvider.WALLET_KERNEL]: createDriver({
+                            signMessage,
+                            signTransaction,
+                        }),
+                    },
+                    notifier,
+                    hashingSchemeVersion
+                )
+                return { store, service }
+            }
+
+            it('signs the hash of a prepared transaction without submitting it', async () => {
+                const signMessage = vi.fn()
+                const signTransaction = vi.fn().mockResolvedValue({
+                    txId: 'local-1',
+                    status: 'signed',
+                    signature: 'prepared-signature',
+                })
+                const { store, service } = createService(
+                    pendingPreparedTransaction,
+                    signTransaction,
+                    signMessage
+                )
+
+                const result = await service.sign(
+                    authContext,
+                    'msg-prepared',
+                    'regular'
+                )
+
+                expect(signTransaction).toHaveBeenCalledExactlyOnceWith({
+                    tx: preparedTransaction,
+                    txHash: preparedTransactionHash,
+                    keyIdentifier: { publicKey: wallet.publicKey },
+                    internalTxId: 'msg-prepared',
+                })
+                expect(signMessage).not.toHaveBeenCalled()
+                expect(result).toEqual({
+                    status: 'signed',
+                    signature: 'prepared-signature',
+                    publicKey: wallet.publicKey,
+                    externalTxId: 'local-1',
+                })
+                expect(store.setMessageRawStatus).toHaveBeenCalledWith(
+                    'msg-prepared',
+                    'signed',
+                    {
+                        signedAt: expect.any(Date),
+                        signature: 'prepared-signature',
+                        externalTxId: 'local-1',
+                    }
+                )
+                expect(emit).toHaveBeenCalledExactlyOnceWith(
+                    'messageSignature',
+                    {
+                        status: 'signed',
+                        messageId: 'msg-prepared',
+                        signature: 'prepared-signature',
+                    }
+                )
+            })
+
+            it('hashes a prepared transaction with the configured hashing scheme', async () => {
+                const signTransaction = vi.fn().mockResolvedValue({
+                    txId: 'local-1',
+                    status: 'signed',
+                    signature: 'prepared-signature',
+                })
+                const { service } = createService(
+                    pendingPreparedTransaction,
+                    signTransaction,
+                    vi.fn(),
+                    'HASHING_SCHEME_VERSION_V3'
+                )
+
+                await service.sign(authContext, 'msg-prepared', 'regular')
+
+                expect(signTransaction).toHaveBeenCalledOnce()
+                expect(signTransaction.mock.calls[0][0].txHash).not.toBe(
+                    preparedTransactionHash
+                )
+            })
+
+            it('lets a provider that cannot sign text sign a typed message', async () => {
+                const signTransaction = vi.fn().mockResolvedValue({
+                    txId: 'fireblocks-1',
+                    status: 'pending',
+                })
+                const store = createStore(pendingPreparedTransaction, [
+                    {
+                        ...wallet,
+                        signingProviderId: SigningProvider.FIREBLOCKS,
+                    },
+                ])
+                const service = new SignMessageService(
+                    store,
+                    {
+                        [SigningProvider.FIREBLOCKS]: createDriver({
+                            signTransaction,
+                        }),
+                    },
+                    notifier
+                )
+
+                const result = await service.sign(
+                    authContext,
+                    'msg-prepared',
+                    'regular'
+                )
+
+                expect(result).toEqual({
+                    publicKey: wallet.publicKey,
+                    status: 'awaiting-signature',
+                    externalTxId: 'fireblocks-1',
+                })
+                expect(store.setMessageRawStatus).toHaveBeenCalledWith(
+                    'msg-prepared',
+                    'awaiting-signature',
+                    { externalTxId: 'fireblocks-1' }
+                )
+            })
+
+            it('fails the message without calling the driver when it cannot be hashed', async () => {
+                const signTransaction = vi.fn()
+                const { store, service } = createService(
+                    { ...pendingPreparedTransaction, message: 'bm90IGEgdHg=' },
+                    signTransaction
+                )
+
+                await expect(
+                    service.sign(authContext, 'msg-prepared', 'regular')
+                ).rejects.toThrow()
+
+                expect(signTransaction).not.toHaveBeenCalled()
+                expect(store.setMessageRawStatus).toHaveBeenCalledWith(
+                    'msg-prepared',
+                    'failed',
+                    { failureReason: expect.any(String) }
+                )
+                expect(emit).toHaveBeenCalledExactlyOnceWith(
+                    'messageSignature',
+                    {
+                        status: 'failed',
+                        messageId: 'msg-prepared',
+                        error: {
+                            code: errorCodes.rpc.invalidParams,
+                            message: expect.any(String),
+                        },
+                    }
+                )
+            })
+
+            it('returns the message type with the message details', async () => {
+                const service = new SignMessageService(
+                    createStore(pendingPreparedTransaction),
+                    {},
+                    notifier
+                )
+
+                const { message } = await service.getMessage(
+                    'msg-prepared',
+                    'regular'
+                )
+
+                expect(message.message).toBe(preparedTransaction)
+                expect(message.messageType).toBe('canton-prepared-transaction')
             })
         })
 

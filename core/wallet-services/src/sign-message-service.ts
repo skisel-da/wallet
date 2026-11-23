@@ -7,6 +7,7 @@ import {
     SIGN_MESSAGE_CAPABLE_SIGNING_PROVIDERS,
     SigningProvider,
 } from '@canton-network/core-signing-lib'
+import { hashPreparedTransaction } from '@canton-network/core-tx-visualizer'
 import type { AuthContext } from '@canton-network/core-wallet-auth'
 import type { MessageSignatureEvent } from '@canton-network/core-wallet-dapp-rpc-client'
 import type {
@@ -23,13 +24,14 @@ import type {
 } from '@canton-network/core-wallet-user-rpc-client'
 
 import type { Notifier } from './notification/index.ts'
-import type { SigningDrivers } from './types.ts'
+import type { HASHING_SCHEME_VERSION, SigningDrivers } from './types.ts'
 
 export class SignMessageService {
     constructor(
         private store: Store,
         private signingDrivers: SigningDrivers = {},
-        private notifier: Notifier
+        private notifier: Notifier,
+        private hashingSchemeVersion: HASHING_SCHEME_VERSION = 'HASHING_SCHEME_VERSION_V2'
     ) {}
 
     private async requireMessage(
@@ -60,6 +62,7 @@ export class SignMessageService {
             publicKey: message.publicKey,
             createdAt: message.createdAt.toISOString(),
             message: message.message,
+            ...(message.messageType && { messageType: message.messageType }),
             ...(message.origin !== null && { origin: message.origin }),
             ...(message.signedAt && {
                 signedAt: message.signedAt.toISOString(),
@@ -184,6 +187,7 @@ export class SignMessageService {
             )
         }
         if (
+            !pending.messageType &&
             !SIGN_MESSAGE_CAPABLE_SIGNING_PROVIDERS.includes(
                 wallet.signingProviderId as SigningProvider
             )
@@ -205,11 +209,28 @@ export class SignMessageService {
             )
         }
 
-        const result = await driver.signMessage({
-            message: pending.message,
-            keyIdentifier: { publicKey: wallet.publicKey },
-            internalTxId: pending.id,
-        })
+        let result
+        if (pending.messageType) {
+            const txHash = await this.hashTypedMessage(pending).catch(
+                (error: unknown) =>
+                    emitFailedAndPersist(
+                        errorCodes.rpc.invalidParams,
+                        error instanceof Error ? error.message : String(error)
+                    )
+            )
+            result = await driver.signTransaction({
+                tx: pending.message,
+                txHash,
+                keyIdentifier: { publicKey: wallet.publicKey },
+                internalTxId: pending.id,
+            })
+        } else {
+            result = await driver.signMessage({
+                message: pending.message,
+                keyIdentifier: { publicKey: wallet.publicKey },
+                internalTxId: pending.id,
+            })
+        }
 
         if (isRpcError(result)) {
             return await emitFailedAndPersist(
@@ -287,6 +308,19 @@ export class SignMessageService {
             errorCodes.rpc.internal,
             `Signing provider returned status: ${result.status} without a txId`
         )
+    }
+
+    private async hashTypedMessage(pending: MessageRaw): Promise<string> {
+        switch (pending.messageType) {
+            case 'canton-prepared-transaction':
+                return hashPreparedTransaction(pending.message, 'base64', {
+                    hashingScheme: this.hashingSchemeVersion,
+                })
+            default:
+                throw new Error(
+                    `Unsupported message type: ${pending.messageType}`
+                )
+        }
     }
 
     public async refreshMessage(

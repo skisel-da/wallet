@@ -145,6 +145,10 @@ export interface ListTransactionsOptions {
 
 export type MessageRawKind = 'regular' | 'self-issued-token'
 
+export type MessageType =
+    | 'canton-prepared-transaction'
+    | 'canton-topology-transactions'
+
 export interface MessageRaw {
     id: string
     kind: MessageRawKind
@@ -153,6 +157,7 @@ export interface MessageRaw {
     partyId: PartyId
     publicKey: string
     message: string
+    messageType?: MessageType
     origin: string | null
     createdAt: Date
     signedAt?: Date

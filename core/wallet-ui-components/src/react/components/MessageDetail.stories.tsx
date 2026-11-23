@@ -1,6 +1,7 @@
 // Copyright (c) 2025-2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+import type { ParsedTransactionInfo } from '@canton-network/core-tx-visualizer'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import {
     findByShadowRole,
@@ -13,6 +14,15 @@ import { expect, fn } from 'storybook/test'
 import { MessageDetail } from './MessageDetail.tsx'
 
 const message = 'Sign in to Example dApp\nNonce: 12345'
+
+const parsed: ParsedTransactionInfo = {
+    isCreate: false,
+    isExercise: true,
+    choiceId: 'TransferPreapproval_Send',
+    templateId: 'pkg:Module:Entity',
+    signatories: ['alice::1220aa', 'bob::1220bb'],
+    jsonString: '{"a":1}',
+}
 
 const meta = {
     title: 'MessageDetail',
@@ -228,5 +238,46 @@ export const Disabled: Story = {
         })
         await expect(approve).toBeDisabled()
         await expect(reject).toBeDisabled()
+    },
+}
+
+export const PreparedTransaction: Story = {
+    args: {
+        messageType: 'canton-prepared-transaction',
+        parsed,
+    },
+    play: async ({ args, canvasElement, userEvent }) => {
+        await expect(
+            await findByShadowText(canvasElement, (content) =>
+                content.includes('You sign as an owner')
+            )
+        ).toBeInTheDocument()
+        for (const text of [
+            'TransferPreapproval_Send',
+            'alice::1220aa',
+            'bob::1220bb',
+            'pkg:Module:Entity',
+            'Transaction JSON Object',
+        ]) {
+            await expect(
+                await findByShadowText(canvasElement, text)
+            ).toBeInTheDocument()
+        }
+        await expect(
+            await findByShadowText(
+                canvasElement,
+                (_, el) => el?.tagName === 'PRE' && el.textContent === '{"a":1}'
+            )
+        ).toBeInTheDocument()
+        await expect(
+            queryByShadowText(canvasElement, 'Message')
+        ).not.toBeInTheDocument()
+
+        await userEvent.click(
+            await findByShadowRole(canvasElement, 'button', {
+                name: 'Approve',
+            })
+        )
+        await expect(args.onMessageApprove).toHaveBeenCalledOnce()
     },
 }
